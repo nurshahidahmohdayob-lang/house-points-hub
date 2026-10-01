@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>House Points Hub</title>
-  <meta name="description" content="Classroom house points, rewards and activities for Year 1–11." />
+  <title>Class Points Hub</title>
+  <meta name="description" content="Classroom points for individuals and groups, rewards and activities for Year 1–11." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
@@ -12,9 +12,9 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><span class="logo">🏆</span><span>House Points Hub</span></div>
+    <div class="brand"><span class="logo">🏆</span><span>Class Points Hub</span></div>
     <nav class="tabs" id="tabs">
-      <button data-tab="board" class="active">🏰 Houses</button>
+      <button data-tab="board" class="active">🏆 Leaderboard</button>
       <button data-tab="students">⭐ Award</button>
       <button data-tab="activities">🎲 Activities</button>
       <button data-tab="rewards">🎁 Rewards</button>
@@ -28,18 +28,28 @@
     <!-- HOUSES LEADERBOARD -->
     <section class="view active" id="view-board">
       <div class="section-head">
-        <h1>House Leaderboard</h1>
-        <p class="muted">Every point a student earns goes to their house. Tap a house to give a whole-house bonus.</p>
+        <h1>Leaderboard</h1>
+        <p class="muted">Every student earns their own points. Groups add up their members' points.</p>
       </div>
-      <div class="houses" id="houseBoard"></div>
+      <div class="filters">
+        <select id="bYear"></select>
+        <select id="bClass"></select>
+      </div>
+      <div class="podium" id="podium"></div>
       <div class="grid2">
         <div class="card">
-          <h2>🌟 Top Stars</h2>
+          <h2>🌟 Student Ranking</h2>
           <ol class="toplist" id="topStudents"></ol>
         </div>
-        <div class="card">
-          <h2>🕒 Latest Points</h2>
-          <ul class="feed" id="recentFeed"></ul>
+        <div>
+          <div class="card">
+            <h2>👥 Groups <span class="muted small">— tap a group to give a group bonus</span></h2>
+            <div class="groups" id="groupBoard"></div>
+          </div>
+          <div class="card">
+            <h2>🕒 Latest Points</h2>
+            <ul class="feed" id="recentFeed"></ul>
+          </div>
         </div>
       </div>
     </section>
@@ -54,7 +64,7 @@
         <input type="search" id="search" placeholder="🔍 Search name…" />
         <select id="fYear"></select>
         <select id="fClass"></select>
-        <select id="fHouse"></select>
+        <select id="fGroup"></select>
         <button class="btn ghost" id="selectAll">Select all shown</button>
         <button class="btn ghost" id="clearSel">Clear</button>
       </div>
@@ -78,7 +88,7 @@
       </div>
       <div class="activity-picker" id="activityPicker">
         <button class="act-tile" data-act="picker"><span>🎯</span><b>Random Picker</b><small>Who's answering next?</small></button>
-        <button class="act-tile" data-act="quiz"><span>⚔️</span><b>House Quiz Battle</b><small>Houses compete for points</small></button>
+        <button class="act-tile" data-act="quiz"><span>⚔️</span><b>Group Quiz Battle</b><small>Groups compete for points</small></button>
         <button class="act-tile" data-act="timer"><span>⏱️</span><b>Countdown Timer</b><small>Big on-screen timer</small></button>
         <button class="act-tile" data-act="teams"><span>👥</span><b>Team Maker</b><small>Random groups</small></button>
         <button class="act-tile" data-act="wheel"><span>🎡</span><b>Mystery Reward Wheel</b><small>Spin for a surprise</small></button>
@@ -90,7 +100,7 @@
     <section class="view" id="view-rewards">
       <div class="section-head">
         <h1>Rewards Shop</h1>
-        <p class="muted">Students spend their own points on rewards. House totals are never reduced by spending.</p>
+        <p class="muted">Students spend their own points on rewards. Spending never lowers their ranking or group score.</p>
       </div>
       <div class="redeem card">
         <label>Student <select id="redeemStudent"></select></label>
@@ -122,21 +132,22 @@
 
     <!-- SETTINGS -->
     <section class="view" id="view-settings">
-      <div class="section-head"><h1>Setup</h1><p class="muted">Houses, students and reasons. Data is saved in this browser.</p></div>
+      <div class="section-head"><h1>Setup</h1><p class="muted">Groups, students and reasons. Data is saved in this browser.</p></div>
       <div class="grid2">
         <div class="card">
-          <h2>🏰 Houses</h2>
-          <div id="houseEditor"></div>
-          <button class="btn ghost" id="addHouse">+ Add house</button>
+          <h2>👥 Groups</h2>
+          <p class="muted small">Name your groups (tables, teams, project groups). Assign students in the list below, or use 🎲 Activities → Team Maker → "Save as class groups".</p>
+          <div id="groupEditor"></div>
+          <button class="btn ghost" id="addGroup">+ Add group</button>
         </div>
         <div class="card">
           <h2>👩‍🎓 Add students</h2>
-          <p class="muted small">Paste one name per line. They'll go into the year, class and house you choose (pick "Auto-balance" to share them out evenly).</p>
+          <p class="muted small">Paste one name per line. They'll go into the year, class and group you choose (group is optional).</p>
           <textarea id="bulkNames" rows="7" placeholder="Aisyah Rahman&#10;Daniel Lim&#10;Priya Kumar"></textarea>
           <div class="inline-form">
             <select id="bulkYear"></select>
             <input id="bulkClass" placeholder="Class (e.g. 4 Bestari)" />
-            <select id="bulkHouse"></select>
+            <select id="bulkGroup"></select>
             <button class="btn" id="bulkAdd">Add students</button>
           </div>
         </div>
@@ -175,7 +186,8 @@
   <!-- Projector overlay -->
   <div class="projector" id="projector" hidden>
     <button class="close" id="closeProjector" aria-label="Close">✕</button>
-    <h1>🏆 House Points</h1>
+    <h1>🏆 Class Leaderboard</h1>
+    <div class="proj-switch"><button class="btn ghost" data-pmode="students">⭐ Students</button><button class="btn ghost" data-pmode="groups">👥 Groups</button></div>
     <div class="proj-bars" id="projBars"></div>
   </div>
 

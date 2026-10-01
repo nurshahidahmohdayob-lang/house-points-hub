@@ -1,8 +1,8 @@
-/* House Points Hub — all data is stored in this browser (localStorage). */
+/* Class Points Hub — all data is stored in this browser (localStorage). */
 (() => {
   "use strict";
 
-  const KEY = "house-points-hub-v1";
+  const KEY = "class-points-hub-v1";
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const uid = () => Math.random().toString(36).slice(2, 10);
@@ -10,11 +10,11 @@
   const YEARS = Array.from({ length: 11 }, (_, i) => i + 1);
 
   const DEFAULTS = () => ({
-    houses: [
-      { id: "h1", name: "Merah", color: "#e5484d", emoji: "🦁", bonus: 0 },
-      { id: "h2", name: "Biru", color: "#3b82f6", emoji: "🐬", bonus: 0 },
-      { id: "h3", name: "Hijau", color: "#16a34a", emoji: "🐢", bonus: 0 },
-      { id: "h4", name: "Kuning", color: "#f5a524", emoji: "🐝", bonus: 0 },
+    groups: [
+      { id: "g1", name: "Tigers", color: "#f97316", emoji: "🐯", bonus: 0 },
+      { id: "g2", name: "Eagles", color: "#3b82f6", emoji: "🦅", bonus: 0 },
+      { id: "g3", name: "Dolphins", color: "#14b8a6", emoji: "🐬", bonus: 0 },
+      { id: "g4", name: "Pandas", color: "#a855f7", emoji: "🐼", bonus: 0 },
     ],
     students: [],
     behaviours: [
@@ -51,9 +51,9 @@
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { toast("⚠️ Could not save in this browser"); }
   }
 
-  const house = (id) => state.houses.find((h) => h.id === id);
+  const group = (id) => state.groups.find((h) => h.id === id);
   const student = (id) => state.students.find((s) => s.id === id);
-  const houseTotal = (h) => h.bonus + state.students.filter((s) => s.houseId === h.id).reduce((a, s) => a + s.points, 0);
+  const groupTotal = (h) => h.bonus + state.students.filter((s) => s.groupId === h.id).reduce((a, s) => a + s.points, 0);
   const balance = (s) => s.points - s.spent;
   const initials = (n) => n.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   const timeAgo = (ts) => {
@@ -136,16 +136,16 @@
       if (card) { const f = document.createElement("div"); f.className = "float " + (pts > 0 ? "plus" : "minus"); f.textContent = (pts > 0 ? "+" : "") + pts; card.appendChild(f); setTimeout(() => f.remove(), 1000); }
     });
   }
-  function awardHouse(hid, pts, reason) {
-    const h = house(hid); if (!h || !pts) return;
+  function awardGroup(hid, pts, reason) {
+    const h = group(hid); if (!h || !pts) return;
     h.bonus += pts;
-    state.log.unshift({ id: uid(), ts: Date.now(), type: "house", houseId: hid, pts, reason });
+    state.log.unshift({ id: uid(), ts: Date.now(), type: "group", groupId: hid, pts, reason });
     save();
     beep(pts > 0 ? "up" : "down");
     if (pts > 0) confetti(100, [h.color, "#ffffff", "#ffd54a"]);
     toast(`${pts > 0 ? "+" : ""}${pts} → ${h.emoji} ${h.name}${reason ? " · " + reason : ""}`);
     render();
-    const el = $(`.house[data-id="${hid}"]`); if (el) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
+    const el = $(`.group[data-id="${hid}"]`); if (el) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
   }
   function redeem(sid, rid) {
     const s = student(sid), r = state.rewards.find((x) => x.id === rid);
@@ -161,7 +161,7 @@
     const e = state.log[0];
     if (!e) return toast("Nothing to undo");
     if (e.type === "student") e.studentIds.forEach((id) => { const s = student(id); if (s) s.points -= e.pts; });
-    else if (e.type === "house") { const h = house(e.houseId); if (h) h.bonus -= e.pts; }
+    else if (e.type === "group") { const h = group(e.groupId); if (h) h.bonus -= e.pts; }
     else if (e.type === "redeem") { const s = student(e.studentIds[0]); if (s) s.spent += e.pts; }
     state.log.shift(); save(); render(); toast("↩️ Undone");
   }
@@ -172,38 +172,58 @@
     if (!$("#projector").hidden) renderProjector();
   }
 
-  function sortedHouses() {
-    return state.houses.map((h) => ({ h, t: houseTotal(h) })).sort((a, b) => b.t - a.t);
+  function sortedGroups() {
+    return state.groups.map((h) => ({ h, t: groupTotal(h) })).sort((a, b) => b.t - a.t);
+  }
+
+  function boardStudents() {
+    const y = $("#bYear").value, c = $("#bClass").value;
+    return state.students.filter((s) => (!y || String(s.year) === y) && (!c || s.cls === c)).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
   }
 
   function renderBoard() {
-    const list = sortedHouses();
+    fillSelect($("#bYear"), [["", "All years"], ...YEARS.map((y) => [y, "Year " + y])]);
+    fillSelect($("#bClass"), [["", "All classes"], ...classes().map((c) => [c, c])]);
+    const ranked = boardStudents();
+
+    // Podium: 2nd, 1st, 3rd
+    const top3 = ranked.slice(0, 3);
+    const order = [1, 0, 2].filter((i) => top3[i]);
+    $("#podium").innerHTML = top3.length ? order.map((i) => {
+      const s = top3[i], g = group(s.groupId);
+      return `<div class="pod p${i + 1}">
+        <div class="avatar" style="background:${esc(g?.color || "#6b4dff")}">${esc(initials(s.name))}</div>
+        <div class="pod-name">${esc(s.name)}</div>
+        <div class="pod-pts">${s.points} pts</div>
+        <div class="pod-step">${["🥇", "🥈", "🥉"][i]}</div>
+      </div>`;
+    }).join("") : `<div class="empty">No students yet — add them in ⚙️ Setup or load the demo class.</div>`;
+
+    $("#topStudents").innerHTML = ranked.length ? ranked.map((s) => {
+      const g = group(s.groupId);
+      return `<li><span class="dot" style="background:${esc(g?.color || "#ccc")}"></span>${esc(s.name)} <span class="muted small">Y${s.year}${g ? " · " + esc(g.emoji + " " + g.name) : ""}</span><span class="pts">${s.points}</span></li>`;
+    }).join("") : `<div class="empty">Nobody here yet.</div>`;
+
+    const list = sortedGroups();
     const max = Math.max(1, ...list.map((x) => x.t));
     const medals = ["🥇", "🥈", "🥉"];
-    $("#houseBoard").innerHTML = list.map(({ h, t }, i) => {
-      const n = state.students.filter((s) => s.houseId === h.id).length;
-      return `<button class="house" data-id="${h.id}" style="--hc:${esc(h.color)}">
+    $("#groupBoard").innerHTML = list.map(({ h, t }, i) => {
+      const n = state.students.filter((s) => s.groupId === h.id).length;
+      return `<button class="group" data-id="${h.id}" style="--hc:${esc(h.color)}">
         <span class="rank">${t > 0 ? medals[i] || "" : ""}</span>
-        <div class="hemoji">${esc(h.emoji)}</div>
-        <div class="hname">${esc(h.name)}</div>
+        <div class="hname">${esc(h.emoji)} ${esc(h.name)}</div>
         <div class="hpts">${t}</div>
-        <div class="hmeta">${n} student${n === 1 ? "" : "s"} · bonus ${h.bonus}</div>
+        <div class="hmeta">${n} member${n === 1 ? "" : "s"}${h.bonus ? " · bonus " + h.bonus : ""}</div>
         <div class="bar"><i style="width:${Math.max(0, (t / max) * 100)}%"></i></div>
       </button>`;
-    }).join("") || `<div class="empty">Add houses in Setup.</div>`;
-    $$("#houseBoard .house").forEach((el) => el.onclick = () => houseBonusDialog(el.dataset.id));
-
-    const top = [...state.students].sort((a, b) => b.points - a.points).slice(0, 8);
-    $("#topStudents").innerHTML = top.length ? top.map((s) => {
-      const h = house(s.houseId);
-      return `<li><span class="dot" style="background:${esc(h?.color || "#999")}"></span>${esc(s.name)} <span class="muted small">Y${s.year}</span><span class="pts">${s.points}</span></li>`;
-    }).join("") : `<div class="empty">No students yet — add them in ⚙️ Setup or load the demo class.</div>`;
+    }).join("") || `<div class="empty">No groups. Create them in ⚙️ Setup or with Team Maker.</div>`;
+    $$("#groupBoard .group").forEach((el) => el.onclick = () => groupBonusDialog(el.dataset.id));
 
     const recent = state.log.slice(0, 15);
     $("#recentFeed").innerHTML = recent.length ? recent.map(feedItem).join("") : `<div class="empty">No points given yet.</div>`;
   }
   function describe(e) {
-    if (e.type === "house") { const h = house(e.houseId); return `${esc(h?.emoji || "")} <b>${esc(h?.name || "House")}</b> (house bonus)`; }
+    if (e.type === "group") { const h = group(e.groupId); return `${esc(h?.emoji || "")} <b>${esc(h?.name || "Group")}</b> (group bonus)`; }
     const names = e.studentIds.map((id) => student(id)?.name || "(removed)");
     return `<b>${esc(names.length > 3 ? names.slice(0, 3).join(", ") + ` +${names.length - 3}` : names.join(", "))}</b>`;
   }
@@ -221,23 +241,23 @@
 
   function filteredStudents() {
     const q = $("#search").value.trim().toLowerCase();
-    const y = $("#fYear").value, c = $("#fClass").value, h = $("#fHouse").value;
+    const y = $("#fYear").value, c = $("#fClass").value, h = $("#fGroup").value;
     return state.students.filter((s) =>
-      (!q || s.name.toLowerCase().includes(q)) && (!y || String(s.year) === y) && (!c || s.cls === c) && (!h || s.houseId === h)
+      (!q || s.name.toLowerCase().includes(q)) && (!y || String(s.year) === y) && (!c || s.cls === c) && (!h || s.groupId === h)
     ).sort((a, b) => a.name.localeCompare(b.name));
   }
 
   function renderStudents() {
     fillSelect($("#fYear"), [["", "All years"], ...YEARS.map((y) => [y, "Year " + y])]);
     fillSelect($("#fClass"), [["", "All classes"], ...classes().map((c) => [c, c])]);
-    fillSelect($("#fHouse"), [["", "All houses"], ...state.houses.map((h) => [h.id, `${h.emoji} ${h.name}`])]);
+    fillSelect($("#fGroup"), [["", "All groups"], ...state.groups.map((h) => [h.id, `${h.emoji} ${h.name}`])]);
     const list = filteredStudents();
     $("#studentGrid").innerHTML = list.length ? list.map((s) => {
-      const h = house(s.houseId);
+      const h = group(s.groupId);
       return `<div class="stu ${selected.has(s.id) ? "sel" : ""}" data-id="${s.id}" role="button" tabindex="0">
         <div class="avatar" style="background:${esc(h?.color || "#888")}">${esc(initials(s.name))}</div>
         <div class="nm">${esc(s.name)}</div>
-        <div class="sub">${esc(h ? h.emoji + " " + h.name : "No house")} · Y${s.year}${s.cls ? " · " + esc(s.cls) : ""}</div>
+        <div class="sub">${esc(h ? h.emoji + " " + h.name : "No group")} · Y${s.year}${s.cls ? " · " + esc(s.cls) : ""}</div>
         <div class="sp">${s.points}</div>
       </div>`;
     }).join("") : `<div class="empty" style="grid-column:1/-1">No students match. Add students in ⚙️ Setup.</div>`;
@@ -285,36 +305,35 @@
   }
 
   function renderSettings() {
-    $("#houseEditor").innerHTML = state.houses.map((h) => `<div class="house-row" data-id="${h.id}">
+    $("#groupEditor").innerHTML = state.groups.map((h) => `<div class="group-row" data-id="${h.id}">
       <input class="emoji-in" value="${esc(h.emoji)}" data-f="emoji" maxlength="4" />
       <input type="text" value="${esc(h.name)}" data-f="name" />
       <input type="color" value="${esc(h.color)}" data-f="color" />
-      <button class="icon-btn" data-delhouse title="Delete house">🗑️</button></div>`).join("");
-    $$("#houseEditor .house-row").forEach((row) => {
-      const h = house(row.dataset.id);
+      <button class="icon-btn" data-delgroup title="Delete group">🗑️</button></div>`).join("");
+    $$("#groupEditor .group-row").forEach((row) => {
+      const h = group(row.dataset.id);
       $$("[data-f]", row).forEach((inp) => inp.onchange = () => { h[inp.dataset.f] = inp.value || h[inp.dataset.f]; save(); render(); });
-      $("[data-delhouse]", row).onclick = () => {
-        if (state.houses.length <= 1) return toast("You need at least one house");
-        confirmBox(`Delete ${h.name}? Its students will move to another house.`, () => {
-          state.houses = state.houses.filter((x) => x.id !== h.id);
-          state.students.forEach((s) => { if (s.houseId === h.id) s.houseId = state.houses[0].id; });
+      $("[data-delgroup]", row).onclick = () => {
+        confirmBox(`Delete ${h.name}? Its students will have no group (their own points stay).`, () => {
+          state.groups = state.groups.filter((x) => x.id !== h.id);
+          state.students.forEach((s) => { if (s.groupId === h.id) s.groupId = ""; });
           save(); render();
         });
       };
     });
 
     fillSelect($("#bulkYear"), YEARS.map((y) => [y, "Year " + y]));
-    fillSelect($("#bulkHouse"), [["auto", "⚖️ Auto-balance houses"], ...state.houses.map((h) => [h.id, `${h.emoji} ${h.name}`])]);
+    fillSelect($("#bulkGroup"), [["", "No group"], ["auto", "⚖️ Share across groups"], ...state.groups.map((h) => [h.id, `${h.emoji} ${h.name}`])]);
 
     $("#studentCount").textContent = `(${state.students.length})`;
-    const houseOpts = (sel) => state.houses.map((h) => `<option value="${h.id}" ${h.id === sel ? "selected" : ""}>${esc(h.emoji + " " + h.name)}</option>`).join("");
+    const groupOpts = (sel) => `<option value="">— none —</option>` + state.groups.map((h) => `<option value="${h.id}" ${h.id === sel ? "selected" : ""}>${esc(h.emoji + " " + h.name)}</option>`).join("");
     const yearOpts = (sel) => YEARS.map((y) => `<option ${y === sel ? "selected" : ""}>${y}</option>`).join("");
-    $("#studentTable").innerHTML = state.students.length ? `<tr><th>Name</th><th>Year</th><th>Class</th><th>House</th><th>Points</th><th>Spent</th><th></th></tr>` +
+    $("#studentTable").innerHTML = state.students.length ? `<tr><th>Name</th><th>Year</th><th>Class</th><th>Group</th><th>Points</th><th>Spent</th><th></th></tr>` +
       [...state.students].sort((a, b) => a.year - b.year || a.name.localeCompare(b.name)).map((s) => `<tr data-id="${s.id}">
         <td><input data-f="name" value="${esc(s.name)}" /></td>
         <td><select data-f="year">${yearOpts(s.year)}</select></td>
         <td><input data-f="cls" value="${esc(s.cls)}" /></td>
-        <td><select data-f="houseId">${houseOpts(s.houseId)}</select></td>
+        <td><select data-f="groupId">${groupOpts(s.groupId)}</select></td>
         <td>${s.points}</td><td>${s.spent}</td>
         <td><button class="icon-btn" data-delstu title="Remove">🗑️</button></td></tr>`).join("")
       : `<tr><td class="empty">No students yet.</td></tr>`;
@@ -325,34 +344,38 @@
         if (inp.dataset.f === "name" && !v) return;
         s[inp.dataset.f] = v; save(); render();
       });
-      $("[data-delstu]", row).onclick = () => confirmBox(`Remove ${s.name}? Their points leave their house too.`, () => {
+      $("[data-delstu]", row).onclick = () => confirmBox(`Remove ${s.name}? Their points leave their group too.`, () => {
         state.students = state.students.filter((x) => x.id !== s.id); selected.delete(s.id); save(); render();
       });
     });
 
-    $("#behaviourEditor").innerHTML = state.behaviours.map((b) => `<div class="house-row"><span>${esc(b.emoji)}</span><span style="flex:1">${esc(b.label)}</span><b class="${b.pts > 0 ? "plus" : "minus"}">${b.pts > 0 ? "+" : ""}${b.pts}</b><button class="icon-btn" data-delbeh="${b.id}">🗑️</button></div>`).join("");
+    $("#behaviourEditor").innerHTML = state.behaviours.map((b) => `<div class="group-row"><span>${esc(b.emoji)}</span><span style="flex:1">${esc(b.label)}</span><b class="${b.pts > 0 ? "plus" : "minus"}">${b.pts > 0 ? "+" : ""}${b.pts}</b><button class="icon-btn" data-delbeh="${b.id}">🗑️</button></div>`).join("");
     $$("[data-delbeh]").forEach((b) => b.onclick = () => { state.behaviours = state.behaviours.filter((x) => x.id !== b.dataset.delbeh); save(); render(); });
     $("#soundToggle").checked = state.sound;
   }
 
-  function houseBonusDialog(hid) {
-    const h = house(hid);
-    modal(`<h2>${esc(h.emoji)} ${esc(h.name)} — house bonus</h2>
-      <p class="muted">Give or take points from the whole house (e.g. for winning a game or a tidy line).</p>
+  function groupBonusDialog(hid) {
+    const h = group(hid);
+    modal(`<h2>${esc(h.emoji)} ${esc(h.name)} — group bonus</h2>
+      <p class="muted">Give or take points from the whole group (e.g. for winning a game or a tidy line).</p>
       <input id="hbReason" placeholder="Reason (optional)" style="width:100%" />
       <div class="opts" style="justify-content:center">${[1, 3, 5, 10, -1, -5].map((p) => `<button class="btn ${p < 0 ? "danger" : ""}" data-p="${p}">${p > 0 ? "+" : ""}${p}</button>`).join("")}</div>
       <div class="opts"><button class="btn ghost" data-close>Close</button></div>`, (d) => {
-      $$("[data-p]", d).forEach((b) => b.onclick = () => { awardHouse(hid, Number(b.dataset.p), $("#hbReason", d).value.trim()); d.close(); });
+      $$("[data-p]", d).forEach((b) => b.onclick = () => { awardGroup(hid, Number(b.dataset.p), $("#hbReason", d).value.trim()); d.close(); });
       $("[data-close]", d).onclick = () => d.close();
     });
   }
 
   /* ---------- Projector ---------- */
+  let projMode = "students";
   function renderProjector() {
-    const list = state.houses.map((h) => ({ h, t: houseTotal(h) }));
+    $$("[data-pmode]").forEach((b) => b.classList.toggle("on", b.dataset.pmode === projMode));
+    let list;
+    if (projMode === "groups") list = state.groups.map((g) => ({ color: g.color, label: `${g.emoji} ${g.name}`, t: groupTotal(g) }));
+    else list = boardStudents().slice(0, 10).map((s) => ({ color: group(s.groupId)?.color || "#8b7bff", label: s.name, t: s.points }));
     const max = Math.max(1, ...list.map((x) => x.t));
-    $("#projBars").innerHTML = list.map(({ h, t }) => `<div class="pbar" style="--hc:${esc(h.color)}">
-      <div class="pv">${t}</div><div class="col" style="height:${Math.max(2, (t / max) * 70)}%"></div><div class="pn">${esc(h.emoji)} ${esc(h.name)}</div></div>`).join("");
+    $("#projBars").innerHTML = list.length ? list.map((x) => `<div class="pbar" style="--hc:${esc(x.color)}">
+      <div class="pv">${x.t}</div><div class="col" style="height:${Math.max(2, (x.t / max) * 70)}%"></div><div class="pn">${esc(x.label)}</div></div>`).join("") : `<div class="empty" style="color:#fff">Nothing to show yet.</div>`;
   }
 
   /* ---------- Activities ---------- */
@@ -368,12 +391,12 @@
     return `<div class="opts">
       <select data-pool-year><option value="">All years</option>${YEARS.map((y) => `<option value="${y}">Year ${y}</option>`).join("")}</select>
       <select data-pool-class><option value="">All classes</option>${classes().map((c) => `<option>${esc(c)}</option>`).join("")}</select>
-      <select data-pool-house><option value="">All houses</option>${state.houses.map((h) => `<option value="${h.id}">${esc(h.emoji + " " + h.name)}</option>`).join("")}</select>
+      <select data-pool-group><option value="">All groups</option>${state.groups.map((h) => `<option value="${h.id}">${esc(h.emoji + " " + h.name)}</option>`).join("")}</select>
     </div>`;
   }
   function pool(st) {
-    const y = $("[data-pool-year]", st).value, c = $("[data-pool-class]", st).value, h = $("[data-pool-house]", st).value;
-    return state.students.filter((s) => (!y || String(s.year) === y) && (!c || s.cls === c) && (!h || s.houseId === h));
+    const y = $("[data-pool-year]", st).value, c = $("[data-pool-class]", st).value, h = $("[data-pool-group]", st).value;
+    return state.students.filter((s) => (!y || String(s.year) === y) && (!c || s.cls === c) && (!h || s.groupId === h));
   }
 
   function actPicker(st) {
@@ -397,7 +420,7 @@
         if (++n < steps) timer = setTimeout(spin, 40 + n * n * 0.6);
         else {
           current = s; picked.add(s.id);
-          nameEl.classList.add("win"); const h = house(s.houseId);
+          nameEl.classList.add("win"); const h = group(s.groupId);
           $("[data-sub]", st).textContent = `${h ? h.emoji + " " + h.name : ""} · Year ${s.year}${s.cls ? " · " + s.cls : ""}`;
           $("[data-after]", st).hidden = false; beep("win"); confetti(60, h ? [h.color, "#fff"] : undefined);
         }
@@ -408,15 +431,15 @@
   }
 
   function actQuiz(st) {
-    const scores = Object.fromEntries(state.houses.map((h) => [h.id, 0]));
-    st.innerHTML = `<div class="stage-center"><h2>⚔️ House Quiz Battle</h2>
-      <p class="muted">Type a question to show it big (optional). Tap +1 / +3 when a house gets it right. At the end, add the round scores to the real house totals.</p>
+    const scores = Object.fromEntries(state.groups.map((h) => [h.id, 0]));
+    st.innerHTML = `<div class="stage-center"><h2>⚔️ Group Quiz Battle</h2>
+      <p class="muted">Type a question to show it big (optional). Tap +1 / +3 when a group gets it right. At the end, add the round scores to the real group totals.</p>
       <input data-q placeholder="Type the question here and press Enter…" style="width:100%;max-width:640px" />
       <div class="quiz-q" data-qshow></div>
-      <div class="quiz-houses" data-qh></div>
-      <div class="opts" style="margin-top:16px"><button class="btn ghost" data-reset>Reset round</button><button class="btn big" data-bank>🏦 Add round scores to houses</button></div></div>`;
+      <div class="quiz-groups" data-qh></div>
+      <div class="opts" style="margin-top:16px"><button class="btn ghost" data-reset>Reset round</button><button class="btn big" data-bank>🏦 Add round scores to groups</button></div></div>`;
     const draw = () => {
-      $("[data-qh]", st).innerHTML = state.houses.map((h) => `<div class="qh" style="--hc:${esc(h.color)}"><div>${esc(h.emoji)} <b>${esc(h.name)}</b></div><div class="s">${scores[h.id]}</div>
+      $("[data-qh]", st).innerHTML = state.groups.map((h) => `<div class="qh" style="--hc:${esc(h.color)}"><div>${esc(h.emoji)} <b>${esc(h.name)}</b></div><div class="s">${scores[h.id]}</div>
         <button data-h="${h.id}" data-d="1">+1</button><button data-h="${h.id}" data-d="3">+3</button><button data-h="${h.id}" data-d="-1">−1</button></div>`).join("");
       $$("[data-h]", st).forEach((b) => b.onclick = () => { scores[b.dataset.h] += Number(b.dataset.d); beep(Number(b.dataset.d) > 0 ? "up" : "down"); draw(); });
     };
@@ -426,8 +449,8 @@
     $("[data-bank]", st).onclick = () => {
       const any = Object.values(scores).some((v) => v);
       if (!any) return toast("No round scores yet");
-      Object.entries(scores).forEach(([hid, v]) => { if (v) awardHouse(hid, v, "⚔️ Quiz battle"); scores[hid] = 0; });
-      confetti(200); draw(); toast("Scores added to house totals! 🏆");
+      Object.entries(scores).forEach(([hid, v]) => { if (v) awardGroup(hid, v, "⚔️ Quiz battle"); scores[hid] = 0; });
+      confetti(200); draw(); toast("Scores added to group totals! 🏆");
     };
   }
 
@@ -463,18 +486,32 @@
   function actTeams(st) {
     st.innerHTML = `<div class="stage-center"><h2>👥 Team Maker</h2>${poolControls()}
       <div class="opts"><label>Number of teams <input type="number" min="2" value="4" data-n style="width:80px" /></label>
-      <label class="check" style="margin:0"><input type="checkbox" data-mix checked /> Mix houses</label>
-      <button class="btn big" data-make>🔀 Make teams</button></div><div class="teams-out" data-out></div></div>`;
+      <label class="check" style="margin:0"><input type="checkbox" data-mix checked /> Spread current groups</label>
+      <button class="btn big" data-make>🔀 Make teams</button></div><div class="teams-out" data-out></div>
+      <div class="opts" data-saveopts hidden style="margin-top:14px"><button class="btn" data-save>💾 Save as class groups</button><span class="muted small" style="align-self:center">Replaces the current groups for these students</span></div></div>`;
+    let lastTeams = [];
     const colors = ["#6b4dff", "#ff6fb5", "#19b36b", "#ffb020", "#3b82f6", "#e5484d", "#14b8a6", "#a855f7"];
     $("[data-make]", st).onclick = () => {
       let p = pool(st); const n = Math.max(2, Number($("[data-n]", st).value) || 2);
       if (p.length < n) return toast("Not enough students for that many teams");
       p = p.sort(() => Math.random() - .5);
-      if ($("[data-mix]", st).checked) p.sort((a, b) => a.houseId.localeCompare(b.houseId));
+      if ($("[data-mix]", st).checked) p.sort((a, b) => (a.groupId || "").localeCompare(b.groupId || ""));
       const teams = Array.from({ length: n }, () => []);
       p.forEach((s, i) => teams[i % n].push(s));
-      $("[data-out]", st).innerHTML = teams.map((t, i) => `<div class="team" style="border-color:${colors[i % colors.length]}"><h3 style="color:${colors[i % colors.length]}">Team ${i + 1}</h3><ul>${t.map((s) => `<li>${esc(s.name)} <span class="dot" style="background:${esc(house(s.houseId)?.color)}"></span></li>`).join("")}</ul></div>`).join("");
+      lastTeams = teams; $("[data-saveopts]", st).hidden = false;
+      $("[data-out]", st).innerHTML = teams.map((t, i) => `<div class="team" style="border-color:${colors[i % colors.length]}"><h3 style="color:${colors[i % colors.length]}">Team ${i + 1}</h3><ul>${t.map((s) => `<li>${esc(s.name)} <span class="dot" style="background:${esc(group(s.groupId)?.color)}"></span></li>`).join("")}</ul></div>`).join("");
       beep("win");
+    };
+    $("[data-save]", st).onclick = () => {
+      if (!lastTeams.length) return;
+      const presets = [["🐯", "Tigers", "#f97316"], ["🦅", "Eagles", "#3b82f6"], ["🐬", "Dolphins", "#14b8a6"], ["🐼", "Pandas", "#a855f7"], ["🦊", "Foxes", "#e5484d"], ["🐢", "Turtles", "#16a34a"], ["🦉", "Owls", "#64748b"], ["🐝", "Bees", "#f5a524"]];
+      lastTeams.forEach((t, i) => {
+        let g = state.groups[i];
+        if (!g) { const [emoji, name, color] = presets[i % presets.length]; g = { id: uid(), name: state.groups.some((x) => x.name === name) ? `Team ${i + 1}` : name, color, emoji, bonus: 0 }; state.groups.push(g); }
+        t.forEach((s) => { const real = student(s.id); if (real) real.groupId = g.id; });
+      });
+      save(); render(); confetti(); toast(`💾 Saved ${lastTeams.length} groups`);
+      $("[data-out]", st).innerHTML = lastTeams.map((t, i) => { const g = state.groups[i]; return `<div class="team" style="border-color:${esc(g.color)}"><h3 style="color:${esc(g.color)}">${esc(g.emoji + " " + g.name)}</h3><ul>${t.map((s) => `<li>${esc(s.name)}</li>`).join("")}</ul></div>`; }).join("");
     };
   }
 
@@ -519,7 +556,7 @@
   function loadDemo() {
     const names = ["Aisyah", "Daniel", "Priya", "Hakim", "Mei Ling", "Arjun", "Sofia", "Irfan", "Chloe", "Zara", "Ethan", "Nurul", "Ravi", "Hana", "Jun Hao", "Siti", "Lucas", "Aina", "Kavin", "Emma", "Amir", "Wei Jie", "Laila", "Ryan"];
     const cls = ["Bestari", "Cemerlang", "Dinamik"];
-    names.forEach((n, i) => state.students.push({ id: uid(), name: n, year: (i % 11) + 1, cls: `${(i % 11) + 1} ${cls[i % 3]}`, houseId: state.houses[i % state.houses.length].id, points: Math.floor(Math.random() * 25), spent: 0 }));
+    names.forEach((n, i) => state.students.push({ id: uid(), name: n, year: (i % 11) + 1, cls: `${(i % 11) + 1} ${cls[i % 3]}`, groupId: state.groups[i % state.groups.length].id, points: Math.floor(Math.random() * 25), spent: 0 }));
     save(); render(); toast("✨ Demo class loaded"); confetti();
   }
 
@@ -531,7 +568,7 @@
     try { localStorage.setItem(KEY + "-tab", b.dataset.tab); } catch (e) {}
     updateAwardBar(); window.scrollTo({ top: 0 });
   };
-  ["#search", "#fYear", "#fClass", "#fHouse"].forEach((s) => $(s).addEventListener("input", renderStudents));
+  ["#search", "#fYear", "#fClass", "#fGroup"].forEach((s) => $(s).addEventListener("input", renderStudents));
   $("#selectAll").onclick = () => { filteredStudents().forEach((s) => selected.add(s.id)); renderStudents(); };
   $("#clearSel").onclick = () => { selected.clear(); renderStudents(); };
   $("#customGive").onclick = () => {
@@ -550,52 +587,55 @@
     state.behaviours.push({ id: uid(), emoji: f.get("emoji") || "⭐", label: f.get("label").trim(), pts });
     e.target.reset(); save(); render();
   };
-  $("#addHouse").onclick = () => {
+  $("#addGroup").onclick = () => {
     const palette = ["#a855f7", "#14b8a6", "#ff6fb5", "#64748b"];
-    state.houses.push({ id: uid(), name: "New House", color: palette[state.houses.length % palette.length], emoji: "🏰", bonus: 0 });
+    state.groups.push({ id: uid(), name: "New Group", color: palette[state.groups.length % palette.length], emoji: "🏰", bonus: 0 });
     save(); render();
   };
   $("#bulkAdd").onclick = () => {
     const names = $("#bulkNames").value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
     if (!names.length) return toast("Paste some names first");
-    const year = Number($("#bulkYear").value), cls = $("#bulkClass").value.trim(), hsel = $("#bulkHouse").value;
+    const year = Number($("#bulkYear").value), cls = $("#bulkClass").value.trim(), hsel = $("#bulkGroup").value;
     names.forEach((name) => {
       let hid = hsel;
       if (hsel === "auto") {
-        const counts = state.houses.map((h) => [h.id, state.students.filter((s) => s.houseId === h.id).length]).sort((a, b) => a[1] - b[1]);
-        hid = counts[0][0];
+        if (!state.groups.length) { hid = ""; } else {
+        const counts = state.groups.map((h) => [h.id, state.students.filter((s) => s.groupId === h.id).length]).sort((a, b) => a[1] - b[1]);
+        hid = counts[0][0]; }
       }
-      state.students.push({ id: uid(), name, year, cls, houseId: hid, points: 0, spent: 0 });
+      state.students.push({ id: uid(), name, year, cls, groupId: hid, points: 0, spent: 0 });
     });
     $("#bulkNames").value = ""; save(); render(); toast(`👩‍🎓 Added ${names.length} student${names.length > 1 ? "s" : ""}`);
   };
   $("#undoBtn").onclick = undo;
   $("#csvBtn").onclick = () => {
     const rows = [["Date", "Type", "Who", "Points", "Reason"], ...state.log.map((e) => [new Date(e.ts).toISOString(), e.type,
-      e.type === "house" ? house(e.houseId)?.name : e.studentIds.map((id) => student(id)?.name).join("; "), e.pts, e.reason || ""])];
-    download("house-points-history.csv", rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n"), "text/csv");
+      e.type === "group" ? group(e.groupId)?.name : e.studentIds.map((id) => student(id)?.name).join("; "), e.pts, e.reason || ""])];
+    download("group-points-history.csv", rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n"), "text/csv");
   };
   function download(name, text, type) {
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
-  $("#exportJson").onclick = () => download(`house-points-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 2), "application/json");
+  $("#exportJson").onclick = () => download(`group-points-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 2), "application/json");
   $("#importJson").onchange = async (e) => {
     const file = e.target.files[0]; if (!file) return;
     try {
       const data = JSON.parse(await file.text());
-      if (!Array.isArray(data.houses) || !Array.isArray(data.students)) throw new Error();
+      if (!Array.isArray(data.groups) || !Array.isArray(data.students)) throw new Error();
       state = { ...DEFAULTS(), ...data }; selected.clear(); save(); render(); toast("✅ Backup loaded");
     } catch { toast("⚠️ That file isn't a valid backup"); }
     e.target.value = "";
   };
   $("#loadDemo").onclick = loadDemo;
-  $("#resetPoints").onclick = () => confirmBox("Set every student's points and house bonuses back to 0? (Students stay.)", () => {
-    state.students.forEach((s) => { s.points = 0; s.spent = 0; }); state.houses.forEach((h) => h.bonus = 0); state.log = []; save(); render(); toast("Points reset");
+  $("#resetPoints").onclick = () => confirmBox("Set every student's points and group bonuses back to 0? (Students stay.)", () => {
+    state.students.forEach((s) => { s.points = 0; s.spent = 0; }); state.groups.forEach((h) => h.bonus = 0); state.log = []; save(); render(); toast("Points reset");
   });
-  $("#resetAll").onclick = () => confirmBox("Delete ALL houses, students, rewards and history?", () => { state = DEFAULTS(); selected.clear(); save(); render(); toast("Everything cleared"); });
+  $("#resetAll").onclick = () => confirmBox("Delete ALL groups, students, rewards and history?", () => { state = DEFAULTS(); selected.clear(); save(); render(); toast("Everything cleared"); });
   $("#soundToggle").onchange = (e) => { state.sound = e.target.checked; save(); };
   $("#activityPicker").onclick = (e) => { const t = e.target.closest(".act-tile"); if (t) openActivity(t.dataset.act); };
   $("#projectorBtn").onclick = () => { $("#projector").hidden = false; renderProjector(); document.documentElement.requestFullscreen?.().catch(() => {}); };
+  $$("[data-pmode]").forEach((b) => b.onclick = () => { projMode = b.dataset.pmode; renderProjector(); });
+  ["#bYear", "#bClass"].forEach((sel) => $(sel).addEventListener("input", () => { renderBoard(); if (!$("#projector").hidden) renderProjector(); }));
   $("#closeProjector").onclick = () => { $("#projector").hidden = true; if (document.fullscreenElement) document.exitFullscreen(); };
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#projector").hidden) $("#closeProjector").click(); });
   setInterval(() => { if ($("#view-board").classList.contains("active")) renderBoard(); }, 60000);
