@@ -85,6 +85,184 @@
     } catch (e) { /* audio not available */ }
   }
 
+  function clink(n = 0) {
+    if (!state.sound) return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const t = actx.currentTime;
+      [1, 2.76].forEach((m, k) => {
+        const o = actx.createOscillator(), g = actx.createGain();
+        o.type = "sine"; o.frequency.value = (1320 + (n % 8) * 90) * m;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(k ? 0.03 : 0.09, t + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+        o.connect(g).connect(actx.destination); o.start(t); o.stop(t + 0.4);
+      });
+    } catch (e) { /* audio not available */ }
+  }
+
+  /* ---------- Star jars ---------- */
+  const JAR = { cols: 6, rows: 9, s: 22, w: 134, h: 160, rowH: 17 };
+  const JAR_CAP = 50; // stars that fill one jar
+  const rnd = (n) => { const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+  function starPos(i) {
+    const r = Math.floor(i / JAR.cols), k = i % JAR.cols;
+    // fill each row in a shuffled order so the pile looks natural
+    const order = [...Array(JAR.cols).keys()].sort((a, b) => rnd(r * 31 + a) - rnd(r * 31 + b));
+    const c = order[k];
+    const m = r === 0 ? 13 : r === 1 ? 6 : 0; // jar bottom is rounded
+    const span = JAR.w - JAR.s - 2 * m;
+    const x = Math.min(JAR.w - JAR.s, Math.max(0, m + (c / (JAR.cols - 1)) * span + (rnd(i * 3 + 1) - 0.5) * 6 + (r % 2 ? 3 : -3)));
+    return { x, y: r * JAR.rowH + rnd(i * 7 + 2) * 3, rot: (rnd(i * 5 + 3) - 0.5) * 70 };
+  }
+  function makeStar(i) {
+    const p = starPos(i), el = document.createElement("div");
+    el.className = "jstar";
+    el.style.left = p.x + "px"; el.style.bottom = p.y + "px";
+    el.style.setProperty("--r", p.rot + "deg");
+    el.innerHTML = `<svg viewBox="0 0 24 24"><use href="#star"/></svg>`;
+    el._pos = p;
+    return el;
+  }
+  function createJar(g) {
+    const w = document.createElement("div");
+    w.className = "jar-wrap"; w.dataset.id = g.id;
+    w.innerHTML = `<div class="jar-rank"></div>
+      <div class="jar" role="button" tabindex="0">
+        <div class="jar-glass"></div><div class="jar-stars"></div><div class="jar-front"></div>
+        <div class="jar-shine"></div><div class="jar-neck"></div><div class="jar-lid"></div>
+        <div class="jar-over" hidden></div>
+      </div>
+      <div class="jar-name"></div>
+      <div class="jar-count"><b>0</b> ⭐</div>
+      <div class="jar-btns">
+        <button data-add="1">⭐ +1</button><button data-add="3">+3</button><button data-add="5">+5</button>
+        <button data-add="-1" class="neg">−1</button><button data-more title="Add with a reason">✏️</button>
+      </div>`;
+    const jar = $(".jar", w);
+    jar.onclick = () => awardGroup(g.id, 1, "⭐ Star jar");
+    jar.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jar.click(); } };
+    $$("[data-add]", w).forEach((b) => b.onclick = () => awardGroup(g.id, Number(b.dataset.add), "⭐ Star jar"));
+    $("[data-more]", w).onclick = () => groupBonusDialog(g.id);
+    return w;
+  }
+  function openLid(jar, ms) {
+    jar.classList.add("open");
+    clearTimeout(jar._lidT);
+    jar._lidT = setTimeout(() => jar.classList.remove("open"), ms);
+  }
+  // Adds/removes stars until the jar holds `target`. Returns ms until the last star lands.
+  function dropTo(w, target, animate) {
+    const jar = $(".jar", w), layer = $(".jar-stars", w);
+    const live = [...layer.children].filter((el) => !el._leaving);
+    const add = target - live.length;
+    if (add > 0) {
+      const animated = animate ? Math.min(add, 20) : 0;
+      const gap = Math.max(70, 170 - animated * 8);
+      for (let k = 0; k < add; k++) {
+        const el = makeStar(live.length + k);
+        layer.appendChild(el);
+        const idx = k - (add - animated); // only the last `animated` stars fall in
+        if (idx < 0) continue;
+        const p = el._pos, delay = idx * gap, drop = JAR.h - p.y + 70;
+        el.animate([
+          { transform: `translateY(${-drop}px) rotate(${p.rot - 320}deg) scale(1.5)`, opacity: 0, easing: "cubic-bezier(.5,0,.9,.5)" },
+          { opacity: 1, offset: 0.15 },
+          { transform: `translateY(0) rotate(${p.rot}deg) scale(1)`, offset: 0.72, easing: "ease-out" },
+          { transform: `translateY(-9px) rotate(${p.rot}deg) scale(1.05)`, offset: 0.86, easing: "ease-in" },
+          { transform: `translateY(0) rotate(${p.rot}deg) scale(1)` },
+        ], { duration: 820, delay, fill: "backwards" });
+        setTimeout(() => {
+          clink(live.length + k);
+          jar.animate([{ rotate: "0deg" }, { rotate: "-3deg" }, { rotate: "2deg" }, { rotate: "0deg" }], { duration: 380 });
+        }, delay + 590);
+      }
+      if (!animated) return 0;
+      const ms = (animated - 1) * gap + 750;
+      openLid(jar, ms);
+      return ms;
+    }
+    if (add < 0) {
+      live.slice(add).forEach((el, k) => {
+        if (!animate) return el.remove();
+        el._leaving = true;
+        const p = el._pos;
+        el.animate([
+          { transform: `rotate(${p.rot}deg)`, opacity: 1 },
+          { transform: `translateY(${-(JAR.h - p.y + 60)}px) rotate(${p.rot + 240}deg) scale(.5)`, opacity: 0 },
+        ], { duration: 650, delay: k * 90, easing: "ease-in", fill: "forwards" }).onfinish = () => el.remove();
+      });
+      if (animate) openLid($(".jar", w), 650 + -add * 90);
+    }
+    return 0;
+  }
+  function emptyJar(w) {
+    [...$(".jar-stars", w).children].forEach((el) => {
+      el._leaving = true;
+      const p = el._pos, dx = (p.x - JAR.w / 2) * 1.6;
+      el.animate([
+        { transform: `rotate(${p.rot}deg)`, opacity: 1 },
+        { transform: `translate(${dx}px, ${-(JAR.h - p.y + 90 + rnd(p.x) * 60)}px) rotate(${p.rot + 300}deg) scale(1.3)`, opacity: 0 },
+      ], { duration: 700, delay: rnd(p.y + p.x) * 250, easing: "cubic-bezier(.2,.7,.4,1)", fill: "forwards" }).onfinish = () => el.remove();
+    });
+    openLid($(".jar", w), 1100);
+  }
+  function setFullBadge(w, fulls, pop) {
+    const over = $(".jar-over", w);
+    over.hidden = fulls < 1;
+    over.textContent = `🫙 ×${fulls}`;
+    over.title = `${fulls} full jar${fulls === 1 ? "" : "s"} (${JAR_CAP} stars each)`;
+    if (pop) over.animate([{ transform: "scale(2) rotate(-15deg)" }, { transform: "scale(1)" }], { duration: 600, easing: "cubic-bezier(.2,.9,.3,1.5)" });
+  }
+  function syncStars(w, total, animate) {
+    const t = Math.max(0, total), fulls = Math.floor(t / JAR_CAP), inJar = t - fulls * JAR_CAP;
+    const prev = w._fulls ?? fulls;
+    w._fulls = fulls;
+    clearTimeout(w._fillT); clearTimeout(w._fillT2);
+    if (animate && fulls > prev) {
+      // fill to the top, celebrate, tip the stars out, then drop in the remainder
+      const wait = dropTo(w, JAR_CAP, true);
+      w._fillT = setTimeout(() => {
+        const g = group(w.dataset.id), jar = $(".jar", w);
+        jar.animate([{ scale: "1" }, { scale: "1.15" }, { scale: ".95" }, { scale: "1" }], { duration: 600, easing: "ease-out" });
+        confetti(160, [g?.color || "#6b4dff", "#ffd23f", "#ffffff"]);
+        beep("win");
+        toast(`🎉 ${g ? g.emoji + " " + g.name : "A group"} filled a star jar!`);
+        setFullBadge(w, fulls, true);
+        emptyJar(w);
+        w._fillT2 = setTimeout(() => dropTo(w, inJar, true), 900);
+      }, wait + 150);
+    } else {
+      setFullBadge(w, fulls, false);
+      dropTo(w, inJar, animate);
+    }
+  }
+  function renderJars(container, animate) {
+    const existing = new Map($$(".jar-wrap", container).map((w) => [w.dataset.id, w]));
+    if (!state.groups.length) { container.innerHTML = `<div class="empty">No groups yet. Create them in ⚙️ Setup or with Team Maker.</div>`; return; }
+    $(".empty", container)?.remove();
+    const ranked = sortedGroups();
+    const medals = ["🥇", "🥈", "🥉"];
+    state.groups.forEach((g, idx) => {
+      let w = existing.get(g.id); const isNew = !w;
+      if (isNew) w = createJar(g);
+      if (container.children[idx] !== w) container.insertBefore(w, container.children[idx] || null);
+      existing.delete(g.id);
+      const total = groupTotal(g), rank = ranked.findIndex((x) => x.h.id === g.id);
+      w.style.setProperty("--hc", g.color);
+      $(".jar-name", w).textContent = `${g.emoji} ${g.name}`;
+      $(".jar-rank", w).textContent = total > 0 ? medals[rank] || "" : "";
+      $(".jar", w).setAttribute("aria-label", `${g.name}: ${total} stars. Add a star`);
+      const cnt = $(".jar-count b", w);
+      if (cnt.textContent !== String(total)) {
+        cnt.textContent = total;
+        if (!isNew && animate) cnt.animate([{ transform: "scale(1.5)" }, { transform: "scale(1)" }], { duration: 400, easing: "cubic-bezier(.2,.9,.3,1.4)" });
+      }
+      syncStars(w, total, animate && !isNew);
+    });
+    existing.forEach((w) => w.remove());
+  }
+
   /* ---------- Confetti ---------- */
   const cv = $("#confetti"), cx = cv.getContext("2d");
   let parts = [], raf;
@@ -141,11 +319,9 @@
     h.bonus += pts;
     state.log.unshift({ id: uid(), ts: Date.now(), type: "group", groupId: hid, pts, reason });
     save();
-    beep(pts > 0 ? "up" : "down");
-    if (pts > 0) confetti(100, [h.color, "#ffffff", "#ffd54a"]);
-    toast(`${pts > 0 ? "+" : ""}${pts} → ${h.emoji} ${h.name}${reason ? " · " + reason : ""}`);
+    if (pts < 0) beep("down");
+    toast(`${pts > 0 ? "+" + pts + " ⭐" : pts} → ${h.emoji} ${h.name}${reason ? " · " + reason : ""}`);
     render();
-    const el = $(`.group[data-id="${hid}"]`); if (el) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
   }
   function redeem(sid, rid) {
     const s = student(sid), r = state.rewards.find((x) => x.id === rid);
@@ -181,6 +357,7 @@
     return state.students.filter((s) => (!y || String(s.year) === y) && (!c || s.cls === c)).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
   }
 
+  let jarsReady = false;
   function renderBoard() {
     fillSelect($("#bYear"), [["", "All years"], ...YEARS.map((y) => [y, "Year " + y])]);
     fillSelect($("#bClass"), [["", "All classes"], ...classes().map((c) => [c, c])]);
@@ -204,20 +381,8 @@
       return `<li><span class="dot" style="background:${esc(g?.color || "#ccc")}"></span>${esc(s.name)} <span class="muted small">Y${s.year}${g ? " · " + esc(g.emoji + " " + g.name) : ""}</span><span class="pts">${s.points}</span></li>`;
     }).join("") : `<div class="empty">Nobody here yet.</div>`;
 
-    const list = sortedGroups();
-    const max = Math.max(1, ...list.map((x) => x.t));
-    const medals = ["🥇", "🥈", "🥉"];
-    $("#groupBoard").innerHTML = list.map(({ h, t }, i) => {
-      const n = state.students.filter((s) => s.groupId === h.id).length;
-      return `<button class="group" data-id="${h.id}" style="--hc:${esc(h.color)}">
-        <span class="rank">${t > 0 ? medals[i] || "" : ""}</span>
-        <div class="hname">${esc(h.emoji)} ${esc(h.name)}</div>
-        <div class="hpts">${t}</div>
-        <div class="hmeta">${n} member${n === 1 ? "" : "s"}${h.bonus ? " · bonus " + h.bonus : ""}</div>
-        <div class="bar"><i style="width:${Math.max(0, (t / max) * 100)}%"></i></div>
-      </button>`;
-    }).join("") || `<div class="empty">No groups. Create them in ⚙️ Setup or with Team Maker.</div>`;
-    $$("#groupBoard .group").forEach((el) => el.onclick = () => groupBonusDialog(el.dataset.id));
+    const boardOn = $("#view-board").classList.contains("active");
+    if (boardOn || !jarsReady) { renderJars($("#jarBoard"), boardOn && jarsReady); jarsReady = true; }
 
     const recent = state.log.slice(0, 15);
     $("#recentFeed").innerHTML = recent.length ? recent.map(feedItem).join("") : `<div class="empty">No points given yet.</div>`;
@@ -371,8 +536,10 @@
   function renderProjector() {
     $$("[data-pmode]").forEach((b) => b.classList.toggle("on", b.dataset.pmode === projMode));
     let list;
-    if (projMode === "groups") list = state.groups.map((g) => ({ color: g.color, label: `${g.emoji} ${g.name}`, t: groupTotal(g) }));
-    else list = boardStudents().slice(0, 10).map((s) => ({ color: group(s.groupId)?.color || "#8b7bff", label: s.name, t: s.points }));
+    $("#projBars").hidden = projMode === "groups";
+    $("#projJars").hidden = projMode !== "groups";
+    if (projMode === "groups") return renderJars($("#projJars"), true);
+    list = boardStudents().slice(0, 10).map((s) => ({ color: group(s.groupId)?.color || "#8b7bff", label: s.name, t: s.points }));
     const max = Math.max(1, ...list.map((x) => x.t));
     $("#projBars").innerHTML = list.length ? list.map((x) => `<div class="pbar" style="--hc:${esc(x.color)}">
       <div class="pv">${x.t}</div><div class="col" style="height:${Math.max(2, (x.t / max) * 70)}%"></div><div class="pn">${esc(x.label)}</div></div>`).join("") : `<div class="empty" style="color:#fff">Nothing to show yet.</div>`;
@@ -567,6 +734,7 @@
     $$(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + b.dataset.tab));
     try { localStorage.setItem(KEY + "-tab", b.dataset.tab); } catch (e) {}
     updateAwardBar(); window.scrollTo({ top: 0 });
+    if (b.dataset.tab === "board") renderBoard(); // drop in stars earned while away
   };
   ["#search", "#fYear", "#fClass", "#fGroup"].forEach((s) => $(s).addEventListener("input", renderStudents));
   $("#selectAll").onclick = () => { filteredStudents().forEach((s) => selected.add(s.id)); renderStudents(); };

@@ -7,6 +7,7 @@ A classroom app for teachers (Year 1–11) to run individual and group points, r
 - **Activities** – Random Picker, Group Quiz Battle, Countdown Timer, Team Maker, Mystery Reward Wheel
 - **Rewards** – students spend their own points on rewards (rankings stay the same)
 - **History** – full log, undo, CSV export
+- **Star jars** – each group is a 3D jar; points drop in as animated stars, 50 stars fill a jar (🫙 badge)
 - **Groups** – optional; create them in Setup or save random teams from Team Maker. Group score = members' points + group bonus
 - **Setup** – groups, bulk-add students, reasons, backup/restore
 
