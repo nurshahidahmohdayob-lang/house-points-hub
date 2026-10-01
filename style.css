@@ -279,19 +279,18 @@ html, body { overflow-x: hidden; }
 .jar-glass, .jar-front, .jar-tint, .jar-lid, .jar-lid img, .lid-tint { position: absolute; inset: 0; width: 150px; height: 212px; pointer-events: none; user-select: none; }
 .jar-glass { z-index: 1; }
 .jar-tint { z-index: 1; background: var(--hc); opacity: .14; mix-blend-mode: multiply;
-  -webkit-mask: url(assets/jar.png) center / 100% 100%; mask: url(assets/jar.png) center / 100% 100%; }
-.jar-stars { position: absolute; left: 12px; bottom: 14px; width: 126px; height: 115px; z-index: 2; }
+  -webkit-mask: var(--jar-mask) center / 100% 100%; mask: var(--jar-mask) center / 100% 100%; }
+.jar-stars { position: absolute; z-index: 2; } /* box set per shape from assets/jars/shapes.js */
 .jstar { position: absolute; width: 26px; height: 26px; transform: rotate(var(--r)); filter: drop-shadow(0 2px 1px rgba(40,20,80,.25)); }
 .jstar img { width: 100%; height: 100%; display: block; }
 .jar-front { z-index: 3; } /* face + shine stripes in front of the stars */
 .jar-lid {
   z-index: 6; isolation: isolate;
-  transform-origin: 17px 70px; /* left edge of the lid in the render */
   transition: transform .35s cubic-bezier(.2,.9,.3,1.3);
   filter: drop-shadow(0 3px 4px rgba(0,0,0,.15));
 }
 .lid-tint { background: var(--hc); mix-blend-mode: multiply;
-  -webkit-mask: url(assets/lid.png) center / 100% 100%; mask: url(assets/lid.png) center / 100% 100%; }
+  -webkit-mask: var(--lid-mask) center / 100% 100%; mask: var(--lid-mask) center / 100% 100%; }
 .jar-eyes, .jar-eyes img { position: absolute; inset: 0; width: 150px; height: 212px; pointer-events: none; user-select: none; }
 .jar-eyes { z-index: 4; }
 .jar-eyes .ec, .jar-eyes .eh { opacity: 0; }
@@ -328,3 +327,33 @@ html, body { overflow-x: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .jar, .jar-lid { transition: none; }
 }
+
+/* Jar editor */
+dialog.wide { width: min(640px, calc(100% - 24px)); }
+.edit-jar { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+.edit-preview { display: flex; flex-direction: column; align-items: center; flex: 0 0 160px; margin: 0 auto; }
+.edit-preview .jar { cursor: default; }
+.edit-form { flex: 1 1 280px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.edit-label { font-weight: 800; font-size: .9rem; display: flex; flex-direction: column; gap: 4px; }
+.edit-label input:not(.emoji-in) { width: 100%; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.sw { width: 32px; height: 32px; border-radius: 50%; border: 3px solid var(--surface); background: var(--sw); cursor: pointer;
+  box-shadow: 0 0 0 2px var(--line); padding: 0; position: relative; overflow: hidden; }
+.sw.on { box-shadow: 0 0 0 3px var(--ink); transform: scale(1.1); }
+.sw.custom { background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
+.sw.custom input { opacity: 0; position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+.shape-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.shape-tile { border: 2px solid var(--line); background: var(--surface); border-radius: 14px; padding: 6px 4px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--ink); }
+.shape-tile.on { border-color: var(--hc); background: color-mix(in srgb, var(--hc) 12%, var(--surface)); }
+.shape-tile small { font-weight: 700; font-size: .72rem; white-space: nowrap; }
+.mini.jar { zoom: .42; transform: none !important; pointer-events: none; }
+.mini.jar::after { display: none; }
+@media (max-width: 520px) { .shape-tiles { grid-template-columns: repeat(2, 1fr); } }
+.jar-tools button { white-space: nowrap; }
+.jar-edit {
+  position: absolute; top: -2px; left: 4px; z-index: 10; width: 32px; height: 32px; border-radius: 50%; border: 0; cursor: pointer;
+  background: var(--surface); box-shadow: 0 2px 8px rgba(40,20,80,.18); font-size: .95rem; opacity: .85; transition: transform .12s, opacity .12s;
+}
+.jar-edit:hover { opacity: 1; transform: scale(1.1) rotate(-8deg); }
+.proj-jars .jar-edit { display: none; }

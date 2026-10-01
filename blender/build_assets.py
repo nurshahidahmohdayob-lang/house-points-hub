@@ -2,14 +2,15 @@
 #
 #   blender -b --python blender/build_assets.py
 #
-# Style: kawaii clip-top jar - toon shading (flat colour bands + cartoon highlight) with thick
-# Freestyle outlines, rendered in EEVEE. Renders (transparent PNG, 2x):
-#   assets/jar.png        cream glass jar body + glass lip (behind the stars), 300x424 = the 150x212 CSS .jar box
-#   assets/jar-front.png  brows, mouth, cheeks + shine stripes in front of the stars, same framing
-#   assets/eyes-open|closed|happy.png  eye states the app swaps between to blink / smile
-#   assets/lid.png        white chunky lid, same framing (tinted per group in CSS)
-#   assets/lid-clasp.png  metal clip wire, same framing (not tinted, moves with the lid)
-#   assets/star-0..5.png  puffy candy stars in 6 colours, 96x96
+# Style: kawaii jars - toon shading (flat colour bands + cartoon highlight) with thick Freestyle
+# outlines, rendered in EEVEE. For every shape in SHAPES it renders (transparent PNG, 2x, 300x424 =
+# the 150x212 CSS .jar box) into assets/jars/<shape>/:
+#   jar.png        cream glass body + glass lip (behind the stars)
+#   front.png      brows, mouth, cheeks + shine stripes (in front of the stars)
+#   eyes-open|closed|happy.png  eye states the app swaps between to blink / smile
+#   lid.png        white lid (tinted per group in CSS)       extra.png  untinted lid hardware (clip wire)
+# plus assets/jars/shapes.js - the measured star area + lid hinge for each shape, used by app.js,
+# and assets/star-0..5.png - puffy candy stars in 6 colours, 96x96.
 # Also saves blender/assets.blend for hand tweaking.
 # The photoreal look lives in build_assets_realistic.py.
 import bpy, bmesh, math, os
@@ -33,10 +34,27 @@ STAR_COLORS = [(1.0, 0.80, 0.05), (1.0, 0.35, 0.65), (0.25, 0.70, 1.0),
                (0.45, 0.88, 0.20), (1.0, 0.52, 0.10), (0.68, 0.40, 1.0)]
 BOX_W, BOX_H, SCALE = 150, 212, 2
 
-# Jar silhouette (radius, height) from bottom centre up to the lip: wide bottom, rounded shoulder
-PROFILE = [(0.0, 0.0), (0.95, 0.0), (1.12, 0.06), (1.19, 0.28), (1.16, 0.95), (1.09, 1.55),
-           (0.99, 1.90), (0.87, 2.08), (0.82, 2.16), (0.82, 2.34), (0.86, 2.38)]
-FACE_Z = 1.15                                     # height of the eyes
+
+# Jar shapes: silhouette = (radius, height) from bottom centre up to the lip -----------
+SHAPES = {
+    "clip": dict(label="Clip jar", icon="🫙",
+                 profile=[(0.0, 0.0), (0.95, 0.0), (1.12, 0.06), (1.19, 0.28), (1.16, 0.95), (1.09, 1.55),
+                          (0.99, 1.90), (0.87, 2.08), (0.82, 2.16), (0.82, 2.34), (0.86, 2.38)],
+                 face_z=1.15, lid=dict(r=1.0, depth=0.42, z=2.58, style="clip")),
+    "round": dict(label="Cookie jar", icon="🍪",
+                  profile=[(0.0, 0.0), (0.72, 0.0), (0.98, 0.08), (1.17, 0.40), (1.22, 0.95), (1.16, 1.50),
+                           (0.98, 1.88), (0.80, 2.06), (0.75, 2.14), (0.75, 2.26), (0.79, 2.30)],
+                  face_z=1.05, lid=dict(r=0.92, depth=0.32, z=2.44, style="knob")),
+    "tall": dict(label="Tall jar", icon="🧪",
+                 profile=[(0.0, 0.0), (0.80, 0.0), (0.93, 0.06), (0.98, 0.25), (0.98, 2.15), (0.90, 2.42),
+                          (0.74, 2.58), (0.71, 2.64), (0.71, 2.74), (0.75, 2.78)],
+                 face_z=1.55, lid=dict(r=0.84, depth=0.36, z=2.95, style="screw")),
+    "mason": dict(label="Mason jar", icon="🥫",
+                  profile=[(0.0, 0.0), (1.02, 0.0), (1.14, 0.08), (1.18, 0.30), (1.18, 1.55), (1.11, 1.86),
+                           (0.96, 2.02), (0.93, 2.08), (0.93, 2.20), (0.97, 2.24)],
+                  face_z=1.0, lid=dict(r=1.03, depth=0.36, z=2.40, style="screw")),
+}
+STAR_PX, ROW_PX, CAP = 26, 13, 50   # must match app.js
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 scene = bpy.context.scene
@@ -126,18 +144,11 @@ def lathe(name, profile, segments=64):
 
 
 
-
-def radius_at(z):
-    for (r0, z0), (r1, z1) in zip(PROFILE, PROFILE[1:]):
+def radius_at(profile, z):
+    for (r0, z0), (r1, z1) in zip(profile, profile[1:]):
         if z0 <= z <= z1 and z1 > z0:
             return r0 + (r1 - r0) * (z - z0) / (z1 - z0)
-    return PROFILE[-1][0]
-
-
-def on_front(x, z, lift=0.02):
-    """Point on the front (-Y) surface of the jar."""
-    r = radius_at(z)
-    return Vector((x, -math.sqrt(max(r * r - x * x, 0.0)) - lift, z))
+    return profile[-1][0]
 
 
 def collect(name, *obs):
@@ -161,87 +172,102 @@ def tube(name, pts, radius, material):
     return ob
 
 
-# Jar body + glass lip ---------------------------------------------------------------
-jar = lathe("Jar", PROFILE)
-sol = jar.modifiers.new("Thickness", "SOLIDIFY"); sol.thickness = 0.07
-smooth(jar); jar.data.materials.append(toon("Glass", GLASS, alpha=GLASS_ALPHA, shine=0.8))
-lip_m = toon("Lip", LIP, shine=0.6)
-bpy.ops.mesh.primitive_torus_add(major_radius=0.86, minor_radius=0.075, location=(0, 0, 2.30), major_segments=64)
-lip = bpy.context.object; lip.name = "Lip"; smooth(lip, 1); lip.data.materials.append(lip_m)
-
-# Shine stripes (front, no outline) ---------------------------------------------------
-SHINE_MAT = flat("Shine", (1, 1, 1), alpha=0.85)
-
-
-def stripe(name, x, z0, z1, width):
-    ob_pts = [on_front(x, z, 0.05) for z in (z0, (z0 + z1) / 2, z1)]
-    ob = tube(name, ob_pts, width, SHINE_MAT)
+def sphere(name, radius, loc, mat, scale=(1, 1, 1), face_out=False, segments=32):
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=loc, segments=segments, ring_count=segments // 2)
+    ob = bpy.context.object; ob.name = name; ob.scale = scale
+    if face_out:
+        ob.rotation_euler = (0, 0, math.atan2(ob.location.x, -ob.location.y))
+    smooth(ob, 0); ob.data.materials.append(mat)
     return ob
 
-shine1 = stripe("ShineL", -0.93, 0.35, 1.45, 0.05)
-shine2 = stripe("ShineR", 0.95, 0.30, 1.30, 0.045)
-shine3 = stripe("ShineDot", 0.92, 1.45, 1.55, 0.045)
 
-# Face (front, outlined) ---------------------------------------------------------------
+# Shared materials ---------------------------------------------------------------------
+glass_m = toon("Glass", GLASS, alpha=GLASS_ALPHA, shine=0.8)
+lip_m = toon("Lip", LIP, shine=0.6)
+SHINE_MAT = flat("Shine", (1, 1, 1), alpha=0.85)
 ink = toon("Ink", INK, shine=0.0)
 white = flat("EyeShine", (1, 1, 1))
 cheek_m = flat("Cheek", CHEEK, alpha=0.55)
-face = []          # brows, cheeks, mouth (static)
-eyes_open, eyes_closed, eyes_happy = [], [], []
-for side in (-1, 1):
-    x = 0.40 * side
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.19, segments=48, ring_count=24, location=on_front(x, FACE_Z, 0.0))
-    eye = bpy.context.object; eye.name = f"Eye{side}"; eye.scale = (1, 0.45, 1.08)
-    eye.rotation_euler = (0, 0, math.atan2(eye.location.x, -eye.location.y))
-    smooth(eye, 0); eye.data.materials.append(ink); eyes_open.append(eye)
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.055, location=on_front(x - 0.06, FACE_Z + 0.07, 0.11))
-    hl = bpy.context.object; hl.name = f"EyeShine{side}"; smooth(hl, 0); hl.data.materials.append(white); eyes_open.append(hl)
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.022, location=on_front(x + 0.07, FACE_Z - 0.06, 0.11))
-    hl2 = bpy.context.object; hl2.name = f"EyeDot{side}"; smooth(hl2, 0); hl2.data.materials.append(white); eyes_open.append(hl2)
-    brow = tube(f"Brow{side}", [on_front(x - 0.13, FACE_Z + 0.33), on_front(x, FACE_Z + 0.42), on_front(x + 0.13, FACE_Z + 0.33)], 0.028, ink)
-    face.append(brow)
-    # blink: closed lids sag like a soft "u"; happy: squeezed "^" arcs
-    eyes_closed.append(tube(f"Closed{side}", [on_front(x - 0.16, FACE_Z + 0.02, 0.04), on_front(x, FACE_Z - 0.08, 0.04), on_front(x + 0.16, FACE_Z + 0.02, 0.04)], 0.035, ink))
-    eyes_happy.append(tube(f"Happy{side}", [on_front(x - 0.16, FACE_Z - 0.06, 0.04), on_front(x, FACE_Z + 0.10, 0.04), on_front(x + 0.16, FACE_Z - 0.06, 0.04)], 0.035, ink))
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.12, location=on_front(0.66 * side, FACE_Z - 0.17, 0.0))
-    ch = bpy.context.object; ch.name = f"Cheek{side}"; ch.scale = (1.3, 0.25, 0.75)
-    ch.rotation_euler = (0, 0, math.atan2(ch.location.x, -ch.location.y))
-    smooth(ch, 0); ch.data.materials.append(cheek_m); face.append(ch)
-
-# open smile: half disc + teeth strip
-bm = bmesh.new()
-pts = [bm.verts.new((0.13 * math.cos(a), 0, -0.13 * math.sin(a) * 0.9)) for a in [i * math.pi / 16 for i in range(17)]]
-bm.faces.new(pts)
-me = bpy.data.meshes.new("Mouth"); bm.to_mesh(me); bm.free()
-mouth = bpy.data.objects.new("Mouth", me); scene.collection.objects.link(mouth)
-mouth.location = on_front(0, FACE_Z - 0.12, 0.03)
-sm = mouth.modifiers.new("Depth", "SOLIDIFY"); sm.thickness = 0.03
-mouth.data.materials.append(ink); face.append(mouth)
-bpy.ops.mesh.primitive_cube_add(size=1, location=on_front(0, FACE_Z - 0.135, 0.05))
-teeth = bpy.context.object; teeth.name = "Teeth"; teeth.scale = (0.16, 0.01, 0.035)
-teeth.data.materials.append(white); face.append(teeth)
-face_coll = collect("Face", *face)
-eyes_coll = collect("EyesOpen", *eyes_open)
-collect("EyesClosed", *eyes_closed); collect("EyesHappy", *eyes_happy)
-
-# Lid: chunky rounded cap ------------------------------------------------------------
 lid_mat = toon("Lid", LID, shine=0.5)
-bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=1.0, depth=0.42, location=(0, 0, 2.58))
-lid = bpy.context.object; lid.name = "Lid"
-lb = lid.modifiers.new("Round", "BEVEL"); lb.width = 0.16; lb.segments = 8
-smooth(lid, 1); lid.data.materials.append(lid_mat)
-bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=0.78, depth=0.08, location=(0, 0, 2.80))
-cap = bpy.context.object; cap.name = "LidTop"
-cb = cap.modifiers.new("Round", "BEVEL"); cb.width = 0.035; cb.segments = 4
-smooth(cap, 1); cap.data.materials.append(lid_mat)
-
-# Clip wire: hooks under the glass lip on the front-left and runs up over the lid edge
 metal = toon("Metal", METAL, shine=0.8)
-clasp = tube("Clasp", [(-0.62, -0.62, 2.22), (-0.80, -0.70, 2.45), (-0.70, -0.80, 2.74),
-                       (-0.30, -0.95, 2.82), (0.35, -0.92, 2.80), (0.62, -0.72, 2.72)], 0.045, metal)
-bpy.ops.mesh.primitive_cylinder_add(radius=0.07, depth=0.16, location=(-0.70, -0.79, 2.74))
-knuckle = bpy.context.object; knuckle.name = "ClaspKnuckle"; knuckle.rotation_euler = (0, math.radians(90), math.radians(-30))
-smooth(knuckle, 0); knuckle.data.materials.append(metal)
+
+
+def build_shape(key, spec):
+    """Create every object for one jar shape. Returns dict of render layers."""
+    prof, fz, ld = spec["profile"], spec["face_z"], spec["lid"]
+    top_z = prof[-1][1]
+    rmax = max(r for r, _ in prof)
+
+    def on_front(x, z, lift=0.02):
+        r = radius_at(prof, z)
+        return Vector((x, -math.sqrt(max(r * r - x * x, 0.0)) - lift, z))
+
+    jar = lathe(f"{key}.Jar", prof)
+    jar.modifiers.new("Thickness", "SOLIDIFY").thickness = 0.07
+    smooth(jar); jar.data.materials.append(glass_m)
+    lip_r = prof[-2][0] + 0.04
+    bpy.ops.mesh.primitive_torus_add(major_radius=lip_r, minor_radius=0.075, location=(0, 0, top_z - 0.08), major_segments=64)
+    lip = bpy.context.object; lip.name = f"{key}.Lip"; smooth(lip, 1); lip.data.materials.append(lip_m)
+
+    # shine stripes follow the body, left and right
+    body_z0, body_z1 = 0.32, fz + 0.35
+    sx = rmax * 0.80
+    shines = [tube(f"{key}.ShineL", [on_front(-sx, z, 0.05) for z in (body_z0, (body_z0 + body_z1) / 2, body_z1)], 0.05, SHINE_MAT),
+              tube(f"{key}.ShineR", [on_front(sx, z, 0.05) for z in (body_z0, (body_z0 + body_z1) / 2 - 0.1, body_z1 - 0.2)], 0.045, SHINE_MAT),
+              tube(f"{key}.ShineDot", [on_front(sx, z, 0.05) for z in (body_z1 - 0.05, body_z1, body_z1 + 0.05)], 0.045, SHINE_MAT)]
+
+    face, eo, ec, eh = [], [], [], []
+    for side in (-1, 1):
+        x = 0.40 * side
+        eo.append(sphere(f"{key}.Eye{side}", 0.19, on_front(x, fz, 0.0), ink, (1, 0.45, 1.08), True, 48))
+        eo.append(sphere(f"{key}.EyeShine{side}", 0.055, on_front(x - 0.06, fz + 0.07, 0.11), white))
+        eo.append(sphere(f"{key}.EyeDot{side}", 0.022, on_front(x + 0.07, fz - 0.06, 0.11), white))
+        face.append(tube(f"{key}.Brow{side}", [on_front(x - 0.13, fz + 0.33), on_front(x, fz + 0.42), on_front(x + 0.13, fz + 0.33)], 0.028, ink))
+        ec.append(tube(f"{key}.Closed{side}", [on_front(x - 0.16, fz + 0.02, 0.04), on_front(x, fz - 0.08, 0.04), on_front(x + 0.16, fz + 0.02, 0.04)], 0.035, ink))
+        eh.append(tube(f"{key}.Happy{side}", [on_front(x - 0.16, fz - 0.06, 0.04), on_front(x, fz + 0.10, 0.04), on_front(x + 0.16, fz - 0.06, 0.04)], 0.035, ink))
+        face.append(sphere(f"{key}.Cheek{side}", 0.12, on_front(0.66 * side, fz - 0.17, 0.0), cheek_m, (1.3, 0.25, 0.75), True))
+    bm = bmesh.new()
+    pts = [bm.verts.new((0.13 * math.cos(a), 0, -0.13 * math.sin(a) * 0.9)) for a in [i * math.pi / 16 for i in range(17)]]
+    bm.faces.new(pts)
+    me = bpy.data.meshes.new(f"{key}.Mouth"); bm.to_mesh(me); bm.free()
+    mouth = bpy.data.objects.new(f"{key}.Mouth", me); scene.collection.objects.link(mouth)
+    mouth.location = on_front(0, fz - 0.12, 0.03)
+    mouth.modifiers.new("Depth", "SOLIDIFY").thickness = 0.03
+    mouth.data.materials.append(ink); face.append(mouth)
+    bpy.ops.mesh.primitive_cube_add(size=1, location=on_front(0, fz - 0.135, 0.05))
+    teeth = bpy.context.object; teeth.name = f"{key}.Teeth"; teeth.scale = (0.16, 0.01, 0.035)
+    teeth.data.materials.append(white); face.append(teeth)
+
+    # lid
+    lr, ldep, lz = ld["r"], ld["depth"], ld["z"]
+    bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=lr, depth=ldep, location=(0, 0, lz))
+    lid = bpy.context.object; lid.name = f"{key}.Lid"
+    b = lid.modifiers.new("Round", "BEVEL"); b.width = min(0.16, ldep * 0.38); b.segments = 8
+    smooth(lid, 1); lid.data.materials.append(lid_mat)
+    lid_parts, extra = [lid], []
+    if ld["style"] in ("clip", "knob"):
+        bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=lr * 0.78, depth=0.08, location=(0, 0, lz + ldep / 2))
+        cap = bpy.context.object; cap.name = f"{key}.LidTop"
+        cb = cap.modifiers.new("Round", "BEVEL"); cb.width = 0.035; cb.segments = 4
+        smooth(cap, 1); cap.data.materials.append(lid_mat); lid_parts.append(cap)
+    if ld["style"] == "knob":
+        lid_parts.append(sphere(f"{key}.Knob", 0.24, (0, 0, lz + ldep / 2 + 0.16), lid_mat, (1, 1, 0.8), segments=48))
+    if ld["style"] == "screw":   # ridged band like a screw-top lid
+        for k in range(3):
+            zz = lz - ldep / 2 + ldep * (0.25 + 0.25 * k)
+            bpy.ops.mesh.primitive_torus_add(major_radius=lr + 0.005, minor_radius=0.03, location=(0, 0, zz), major_segments=64)
+            rg = bpy.context.object; rg.name = f"{key}.Ridge{k}"; smooth(rg, 1); rg.data.materials.append(lid_mat)
+            lid_parts.append(rg)
+    if ld["style"] == "clip":
+        lip_z = top_z - 0.16
+        extra.append(tube(f"{key}.Clasp", [(-0.62, -0.62, lip_z), (-0.80, -0.70, lz - 0.13), (-0.70, -0.80, lz + 0.16),
+                                           (-0.30, -0.95, lz + 0.24), (0.35, -0.92, lz + 0.22), (0.62, -0.72, lz + 0.14)], 0.045, metal))
+        bpy.ops.mesh.primitive_cylinder_add(radius=0.07, depth=0.16, location=(-0.70, -0.79, lz + 0.16))
+        kn = bpy.context.object; kn.name = f"{key}.Knuckle"; kn.rotation_euler = (0, math.radians(90), math.radians(-30))
+        smooth(kn, 0); kn.data.materials.append(metal); extra.append(kn)
+
+    return dict(jar=[jar, lip], front=shines + face, face=face, eyes_open=eo, eyes_closed=ec, eyes_happy=eh,
+                lid=lid_parts, extra=extra)
 
 # Puffy star ---------------------------------------------------------------------------
 def star_mesh(r_out=0.5, r_in=0.25, depth=0.24):
@@ -319,21 +345,62 @@ def only(*obs):
             ob.hide_render = ob not in obs
 
 
+from bpy_extras.object_utils import world_to_camera_view
+
+
+def to_css(co):
+    v = world_to_camera_view(scene, cam, Vector(co))
+    return v.x * BOX_W, (1 - v.y) * BOX_H
+
+
+def measure(spec):
+    """Star area (CSS px inside the .jar box) + lid hinge point for one shape."""
+    prof, ld = spec["profile"], spec["lid"]
+    rmax = max(r for r, _ in prof)
+    floor_z = 0.12
+    top_z = max(z for r, z in prof if r >= rmax * 0.86)          # where the shoulder starts
+    zs = [floor_z + (top_z - floor_z) * t / 20 for t in range(21)]
+    rmin = min(radius_at(prof, z) for z in zs[3:])                # narrowest part of the body (ignore the rounded foot)
+    ppu = BOX_W / UNITS_W
+    w = 2 * (rmin - 0.10) * ppu
+    _, y_floor = to_css((0, 0, floor_z)); _, y_top = to_css((0, 0, top_z))
+    h = y_floor - y_top
+    half = w / 2
+    m0 = max(0.0, half - (radius_at(prof, floor_z + 0.05) - 0.12) * ppu)
+    m1 = max(0.0, half - (radius_at(prof, floor_z + 0.05 + ROW_PX / ppu) - 0.10) * ppu)
+    cols = max(5, int((w - STAR_PX) // 14) + 1)
+    rows = max(-(-CAP // cols), int((h - STAR_PX) // ROW_PX) + 1)
+    hx, hy = to_css((-ld["r"], 0, ld["z"] - ld["depth"] / 2))
+    return dict(left=round(BOX_W / 2 - half, 1), bottom=round(BOX_H - y_floor, 1), w=round(w, 1), h=round(h, 1),
+                cols=cols, rows=rows, m0=round(m0, 1), m1=round(m1, 1), lidX=round(hx, 1), lidY=round(hy, 1))
+
+
 W, Hpx = BOX_W * SCALE, BOX_H * SCALE
-only(jar, lip)
-render(os.path.join(ASSETS, "jar.png"), W, Hpx)
-only(shine1, shine2, shine3, *face)
-render(os.path.join(ASSETS, "jar-front.png"), W, Hpx, line_coll=face_coll)
-only(*eyes_open)
-render(os.path.join(ASSETS, "eyes-open.png"), W, Hpx, line_coll=eyes_coll)
-only(*eyes_closed)
-render(os.path.join(ASSETS, "eyes-closed.png"), W, Hpx, outlines=False)
-only(*eyes_happy)
-render(os.path.join(ASSETS, "eyes-happy.png"), W, Hpx, outlines=False)
-only(lid, cap)
-render(os.path.join(ASSETS, "lid.png"), W, Hpx)
-only(clasp, knuckle)
-render(os.path.join(ASSETS, "lid-clasp.png"), W, Hpx)
+manifest = {}
+for key, spec in SHAPES.items():
+    layers = build_shape(key, spec)
+    face_coll = collect(f"{key}.Face", *layers["face"])
+    eyes_coll = collect(f"{key}.EyesOpen", *layers["eyes_open"])
+    out = os.path.join(ASSETS, "jars", key); os.makedirs(out, exist_ok=True)
+    only(*layers["jar"]); render(os.path.join(out, "jar.png"), W, Hpx)
+    only(*layers["front"]); render(os.path.join(out, "front.png"), W, Hpx, line_coll=face_coll)
+    only(*layers["eyes_open"]); render(os.path.join(out, "eyes-open.png"), W, Hpx, line_coll=eyes_coll)
+    only(*layers["eyes_closed"]); render(os.path.join(out, "eyes-closed.png"), W, Hpx, outlines=False)
+    only(*layers["eyes_happy"]); render(os.path.join(out, "eyes-happy.png"), W, Hpx, outlines=False)
+    only(*layers["lid"]); render(os.path.join(out, "lid.png"), W, Hpx)
+    if layers["extra"]:
+        only(*layers["extra"]); render(os.path.join(out, "extra.png"), W, Hpx)
+    manifest[key] = dict(label=spec["label"], icon=spec["icon"], extra=bool(layers["extra"]), stars=measure(spec))
+    # keep only the first shape in the saved .blend; hide the rest away
+    if key != next(iter(SHAPES)):
+        for ob in [o for o in scene.objects if o.name.startswith(key + ".")]:
+            bpy.data.objects.remove(ob, do_unlink=True)
+
+import json
+with open(os.path.join(ASSETS, "jars", "shapes.js"), "w") as f:
+    f.write("// Generated by blender/build_assets.py - star area + lid hinge per jar shape (CSS px in the 150x212 jar box)\n")
+    f.write("window.JAR_SHAPES = " + json.dumps(manifest, indent=2, ensure_ascii=False) + ";\n")
+print("wrote shapes.js", json.dumps(manifest))
 
 # Stars: one colour each, tilted differently
 only(star)
@@ -348,5 +415,5 @@ for i, (rx, ry, rz) in enumerate(tilts):
 
 for ob in scene.objects:
     ob.hide_render = False
-star.location = (0, 0, 0.6)
+star.location = (2.5, 0, 0.6)
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(HERE, "assets.blend"))

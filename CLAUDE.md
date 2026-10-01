@@ -16,10 +16,11 @@ Any 3D look in the app (jars, lids, stars, trophies, new props) is **modelled an
 The live Blender app can also be driven through the MCP-for-Blender add-on (localhost:9876) for interactive design;
 final assets must still come from `build_assets.py` so they can be regenerated.
 
-Current style: **kawaii clip-top jar, 3D cartoon** (EEVEE toon shading + thick Freestyle outlines), based on the user's
-reference picture. Layers in the .jar box: `jar.png` (cream glass + lip, behind stars) → stars (`star-0..5.png`, 6 colours)
-→ `jar-front.png` (brows, mouth, cheeks + shine) → eyes (`eyes-open|closed|happy.png`, swapped by JS to blink / smile) → lid (`lid.png` tinted + `lid-clasp.png` untinted, rotate together).
-When editing static files, bump the `?v=` on style.css/app.js in index.html. The photoreal Cycles version is kept in
-`blender/build_assets_realistic.py`.
+Current style: **kawaii jars, 3D cartoon** (EEVEE toon shading + thick Freestyle outlines). `SHAPES` in build_assets.py
+defines each jar shape (clip, round/cookie, tall, mason); every shape renders to `assets/jars/<shape>/`
+(`jar.png` → stars → `front.png` → `eyes-open|closed|happy.png` → lid `lid.png` tinted + `extra.png` untinted), and
+Blender writes `assets/jars/shapes.js` with each shape's measured star area and lid hinge — app.js reads it, so new
+shapes need no hand-tuned CSS. Teachers pick name / emoji / colour / shape per group in the ✏️ jar editor.
+When editing static files, bump the `?v=` on style.css / app.js / shapes.js in index.html.
 
 Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) and the glass (`.jar-tint`), multiply blend — render lids white.
