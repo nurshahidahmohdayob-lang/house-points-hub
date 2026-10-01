@@ -140,11 +140,11 @@
         </div>
         <div class="card">
           <h2>👩‍🎓 Add students</h2>
-          <p class="muted small">Paste one name per line. They'll go into the year, class and group you choose (group is optional).</p>
+          <p class="muted small">Paste one name per line. They'll go into the year, subject and group you choose (subject and group are optional).</p>
           <textarea id="bulkNames" rows="7" placeholder="Aisyah Rahman&#10;Daniel Lim&#10;Priya Kumar"></textarea>
           <div class="inline-form">
             <select id="bulkYear"></select>
-            <input id="bulkClass" placeholder="Class (e.g. 4 Bestari)" />
+            <select id="bulkClass" aria-label="Subject"></select>
             <select id="bulkGroup"></select>
             <button class="btn" id="bulkAdd">Add students</button>
           </div>
@@ -163,6 +163,15 @@
             <input name="label" placeholder="Reason" required />
             <input name="pts" type="number" placeholder="Pts" value="1" required />
             <button class="btn">Add</button>
+          </form>
+        </div>
+        <div class="card">
+          <h2>📚 Subjects</h2>
+          <p class="muted small">Your own subjects. Give each student a subject in the list above, then filter the leaderboard by subject.</p>
+          <div id="subjectEditor"></div>
+          <form class="inline-form" id="subjectForm">
+            <input id="subjectName" placeholder="e.g. Sejarah, Art, Coding" maxlength="40" required />
+            <button class="btn">+ Add subject</button>
           </form>
         </div>
         <div class="card">

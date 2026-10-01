@@ -35,6 +35,8 @@
     ],
     log: [],
     sound: true,
+    // The subjects a teacher teaches. Their own list: add and remove them in Setup.
+    subjects: ["Mathematics", "Science", "English", "Bahasa Melayu"],
   });
 
   let state = load();
@@ -43,7 +45,16 @@
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) return { ...DEFAULTS(), ...JSON.parse(raw) };
+      if (raw) {
+        const saved = JSON.parse(raw);
+        const st = { ...DEFAULTS(), ...saved };
+        // Older saves had a free-typed "class" per student and no subject list:
+        // keep whatever was typed, as subjects, so nobody's filter goes empty.
+        if (!Array.isArray(saved.subjects)) {
+          st.subjects = [...new Set([...st.subjects, ...st.students.map((s) => s.cls).filter(Boolean)])];
+        }
+        return st;
+      }
     } catch (e) { /* ignore */ }
     return DEFAULTS();
   }
@@ -354,7 +365,7 @@
   let jarsReady = false;
   function renderBoard() {
     fillSelect($("#bYear"), [["", "All years"], ...YEARS.map((y) => [y, "Year " + y])]);
-    fillSelect($("#bClass"), [["", "All classes"], ...classes().map((c) => [c, c])]);
+    fillSelect($("#bClass"), [["", "All subjects"], ...subjects().map((c) => [c, c])]);
     const ranked = boardStudents();
 
     // Podium: 2nd, 1st, 3rd
@@ -396,7 +407,8 @@
     sel.innerHTML = opts.map(([val, label]) => `<option value="${esc(val)}">${esc(label)}</option>`).join("");
     if (keep && opts.some(([val]) => String(val) === v)) sel.value = v;
   }
-  const classes = () => [...new Set(state.students.map((s) => s.cls).filter(Boolean))].sort();
+  // The teacher's own subject list, plus any subject still on a student that was since removed.
+  const subjects = () => [...new Set([...(state.subjects || []), ...state.students.map((s) => s.cls).filter(Boolean)])];
 
   function filteredStudents() {
     const q = $("#search").value.trim().toLowerCase();
@@ -408,7 +420,7 @@
 
   function renderStudents() {
     fillSelect($("#fYear"), [["", "All years"], ...YEARS.map((y) => [y, "Year " + y])]);
-    fillSelect($("#fClass"), [["", "All classes"], ...classes().map((c) => [c, c])]);
+    fillSelect($("#fClass"), [["", "All subjects"], ...subjects().map((c) => [c, c])]);
     fillSelect($("#fGroup"), [["", "All groups"], ...state.groups.map((h) => [h.id, `${h.emoji} ${h.name}`])]);
     const list = filteredStudents();
     $("#studentGrid").innerHTML = list.length ? list.map((s) => {
@@ -486,12 +498,21 @@
 
     $("#studentCount").textContent = `(${state.students.length})`;
     const groupOpts = (sel) => `<option value="">— none —</option>` + state.groups.map((h) => `<option value="${h.id}" ${h.id === sel ? "selected" : ""}>${esc(h.emoji + " " + h.name)}</option>`).join("");
+    const subjectOpts = (sel) => `<option value="">— none —</option>` + subjects().map((c) => `<option ${c === sel ? "selected" : ""}>${esc(c)}</option>`).join("");
+    fillSelect($("#bulkClass"), [["", "No subject"], ...subjects().map((c) => [c, c])]);
+    $("#subjectEditor").innerHTML = (state.subjects || []).map((c, i) => `<div class="group-row"><span>📚</span><span style="flex:1">${esc(c)}</span><span class="muted small">${(n => n + (n === 1 ? " student" : " students"))(state.students.filter((s) => s.cls === c).length)}</span><button class="icon-btn" data-delsubject="${i}" title="Remove subject">🗑️</button></div>`).join("") || `<div class="empty">No subjects yet — add one below.</div>`;
+    $$("[data-delsubject]").forEach((b) => b.onclick = () => {
+      const name = state.subjects[Number(b.dataset.delsubject)];
+      const n = state.students.filter((s) => s.cls === name).length;
+      const remove = () => { state.subjects = state.subjects.filter((x) => x !== name); state.students.forEach((s) => { if (s.cls === name) s.cls = ""; }); save(); render(); };
+      n ? confirmBox(`Remove ${name}? ${n} student${n > 1 ? "s" : ""} will have no subject (their points stay).`, remove) : remove();
+    });
     const yearOpts = (sel) => YEARS.map((y) => `<option ${y === sel ? "selected" : ""}>${y}</option>`).join("");
-    $("#studentTable").innerHTML = state.students.length ? `<tr><th>Name</th><th>Year</th><th>Class</th><th>Group</th><th>Points</th><th>Spent</th><th></th></tr>` +
+    $("#studentTable").innerHTML = state.students.length ? `<tr><th>Name</th><th>Year</th><th>Subject</th><th>Group</th><th>Points</th><th>Spent</th><th></th></tr>` +
       [...state.students].sort((a, b) => a.year - b.year || a.name.localeCompare(b.name)).map((s) => `<tr data-id="${s.id}">
         <td><input data-f="name" value="${esc(s.name)}" /></td>
         <td><select data-f="year">${yearOpts(s.year)}</select></td>
-        <td><input data-f="cls" value="${esc(s.cls)}" /></td>
+        <td><select data-f="cls">${subjectOpts(s.cls)}</select></td>
         <td><select data-f="groupId">${groupOpts(s.groupId)}</select></td>
         <td>${s.points}</td><td>${s.spent}</td>
         <td><button class="icon-btn" data-delstu title="Remove">🗑️</button></td></tr>`).join("")
@@ -551,7 +572,7 @@
   function poolControls() {
     return `<div class="opts">
       <select data-pool-year><option value="">All years</option>${YEARS.map((y) => `<option value="${y}">Year ${y}</option>`).join("")}</select>
-      <select data-pool-class><option value="">All classes</option>${classes().map((c) => `<option>${esc(c)}</option>`).join("")}</select>
+      <select data-pool-class><option value="">All subjects</option>${subjects().map((c) => `<option>${esc(c)}</option>`).join("")}</select>
       <select data-pool-group><option value="">All groups</option>${state.groups.map((h) => `<option value="${h.id}">${esc(h.emoji + " " + h.name)}</option>`).join("")}</select>
     </div>`;
   }
@@ -716,8 +737,8 @@
   /* ---------- Demo data ---------- */
   function loadDemo() {
     const names = ["Aisyah", "Daniel", "Priya", "Hakim", "Mei Ling", "Arjun", "Sofia", "Irfan", "Chloe", "Zara", "Ethan", "Nurul", "Ravi", "Hana", "Jun Hao", "Siti", "Lucas", "Aina", "Kavin", "Emma", "Amir", "Wei Jie", "Laila", "Ryan"];
-    const cls = ["Bestari", "Cemerlang", "Dinamik"];
-    names.forEach((n, i) => state.students.push({ id: uid(), name: n, year: (i % 11) + 1, cls: `${(i % 11) + 1} ${cls[i % 3]}`, groupId: state.groups[i % state.groups.length].id, points: Math.floor(Math.random() * 25), spent: 0 }));
+    const subs = state.subjects && state.subjects.length ? state.subjects : DEFAULTS().subjects;
+    names.forEach((n, i) => state.students.push({ id: uid(), name: n, year: (i % 11) + 1, cls: subs[i % subs.length], groupId: state.groups[i % state.groups.length].id, points: Math.floor(Math.random() * 25), spent: 0 }));
     save(); render(); toast("✨ Demo class loaded"); confetti();
   }
 
@@ -754,6 +775,15 @@
     state.groups.push({ id: uid(), name: "New Group", color: palette[state.groups.length % palette.length], emoji: "🏰", bonus: 0 });
     save(); render();
   };
+  $("#subjectForm").onsubmit = (e) => {
+    e.preventDefault();
+    const inp = $("#subjectName"), name = inp.value.trim().slice(0, 40);
+    if (!name) return;
+    state.subjects = state.subjects || [];
+    if (state.subjects.some((c) => c.toLowerCase() === name.toLowerCase())) { toast("That subject is already there"); return; }
+    state.subjects.push(name); inp.value = ""; save(); render(); toast(`📚 Added ${name}`);
+  };
+
   $("#bulkAdd").onclick = () => {
     const names = $("#bulkNames").value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
     if (!names.length) return toast("Paste some names first");
