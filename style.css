@@ -292,6 +292,20 @@ html, body { overflow-x: hidden; }
 }
 .lid-tint { background: var(--hc); mix-blend-mode: multiply;
   -webkit-mask: url(assets/lid.png) center / 100% 100%; mask: url(assets/lid.png) center / 100% 100%; }
+.jar-eyes, .jar-eyes img { position: absolute; inset: 0; width: 150px; height: 212px; pointer-events: none; user-select: none; }
+.jar-eyes { z-index: 4; }
+.jar-eyes .ec, .jar-eyes .eh { opacity: 0; }
+.jar.blink .eo, .jar.happy .eo { opacity: 0; }
+.jar.blink .ec { opacity: 1; }
+.jar.happy .eh { opacity: 1; }
+.jar-tools { display: flex; gap: 6px; margin-top: 6px; }
+.jar-tools button {
+  border: 0; border-radius: 999px; padding: 4px 10px; font-weight: 800; font-size: .78rem; cursor: pointer;
+  background: color-mix(in srgb, var(--hc) 14%, var(--surface)); color: var(--ink); opacity: .75; transition: opacity .15s, transform .1s;
+}
+.jar-tools button:hover { opacity: 1; background: color-mix(in srgb, var(--hc) 26%, var(--surface)); }
+.jar-tools button:active { transform: scale(.94); }
+.proj-jars .jar-tools { display: none; }
 .jar.open .jar-lid { transform: translate(-6px, -22px) rotate(-24deg); }
 .jar-over {
   position: absolute; z-index: 7; right: -14px; top: 50px; white-space: nowrap; background: var(--accent); color: #3a2500; font-weight: 800;

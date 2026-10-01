@@ -144,16 +144,53 @@
         <img class="jar-glass" src="assets/jar.png" alt="" draggable="false"><div class="jar-tint"></div>
         <div class="jar-stars"></div>
         <img class="jar-front" src="assets/jar-front.png" alt="" draggable="false">
+        <div class="jar-eyes">
+          <img class="eo" src="assets/eyes-open.png" alt="" draggable="false">
+          <img class="ec" src="assets/eyes-closed.png" alt="" draggable="false">
+          <img class="eh" src="assets/eyes-happy.png" alt="" draggable="false">
+        </div>
         <div class="jar-lid"><img src="assets/lid.png" alt="" draggable="false"><div class="lid-tint"></div><img src="assets/lid-clasp.png" alt="" draggable="false"></div>
         <div class="jar-over" hidden></div>
       </div>
       <div class="jar-name"></div>
-      <div class="jar-count"><b>0</b> ⭐</div>`;
+      <div class="jar-count"><b>0</b> ⭐</div>
+      <div class="jar-tools">
+        <button data-minus title="Take one star away">➖ Deduct</button>
+        <button data-empty title="Empty this jar">🫙 Empty</button>
+      </div>`;
     const jar = $(".jar", w);
     jar.onclick = () => awardGroup(g.id, 1, "⭐ Star jar");
     jar.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jar.click(); } };
+    $("[data-minus]", w).onclick = () => {
+      if (groupTotal(group(g.id)) <= 0) return toast("This jar is already empty");
+      awardGroup(g.id, -1, "➖ Star taken away");
+    };
+    $("[data-empty]", w).onclick = () => {
+      const cur = group(g.id), total = groupTotal(cur);
+      if (total <= 0) return toast("This jar is already empty");
+      confirmBox(`Empty ${cur.emoji} ${cur.name}'s jar? All ${total} stars (and full-jar badges) go back to 0. Students keep their own points.`,
+        () => awardGroup(g.id, -total, "🫙 Emptied jar"));
+    };
+    jar._nextBlink = Date.now() + 800 + Math.random() * 3000;
     return w;
   }
+  // Eye moods: "blink" (closed for a moment) or "happy" (^ ^ squeeze)
+  function eyes(jar, mood, ms) {
+    jar.classList.remove("blink", "happy");
+    jar.classList.add(mood);
+    clearTimeout(jar._eyeT);
+    jar._eyeT = setTimeout(() => jar.classList.remove(mood), ms);
+  }
+  setInterval(() => {
+    const now = Date.now();
+    $$(".jar").forEach((jar) => {
+      if (!jar._nextBlink || now < jar._nextBlink || jar.classList.contains("happy")) return;
+      eyes(jar, "blink", 140);
+      if (Math.random() < 0.25) setTimeout(() => eyes(jar, "blink", 120), 260); // sometimes a double blink
+      jar._nextBlink = now + 2200 + Math.random() * 4500;
+    });
+  }, 120);
+
   function openLid(jar, ms) {
     jar.classList.add("open");
     clearTimeout(jar._lidT);
@@ -182,6 +219,7 @@
         ], { duration: 820, delay, fill: "backwards" });
         setTimeout(() => {
           clink(live.length + k);
+          eyes(jar, "happy", 700);
           jar.animate([{ rotate: "0deg" }, { rotate: "-3deg" }, { rotate: "2deg" }, { rotate: "0deg" }], { duration: 380 });
         }, delay + 590);
       }
@@ -242,7 +280,11 @@
       }, wait + 150);
     } else {
       setFullBadge(w, fulls, false);
-      dropTo(w, inJar, animate);
+      const live = [...$(".jar-stars", w).children].filter((el) => !el._leaving).length;
+      if (animate && t === 0 && live > 3) {
+        emptyJar(w);
+        eyes($(".jar", w), "blink", 900);
+      } else dropTo(w, inJar, animate);
     }
   }
   function renderJars(container, animate) {

@@ -5,7 +5,8 @@
 # Style: kawaii clip-top jar - toon shading (flat colour bands + cartoon highlight) with thick
 # Freestyle outlines, rendered in EEVEE. Renders (transparent PNG, 2x):
 #   assets/jar.png        cream glass jar body + glass lip (behind the stars), 300x424 = the 150x212 CSS .jar box
-#   assets/jar-front.png  face + shine stripes that sit in front of the stars, same framing
+#   assets/jar-front.png  brows, mouth, cheeks + shine stripes in front of the stars, same framing
+#   assets/eyes-open|closed|happy.png  eye states the app swaps between to blink / smile
 #   assets/lid.png        white chunky lid, same framing (tinted per group in CSS)
 #   assets/lid-clasp.png  metal clip wire, same framing (not tinted, moves with the lid)
 #   assets/star-0..5.png  puffy candy stars in 6 colours, 96x96
@@ -185,19 +186,23 @@ shine3 = stripe("ShineDot", 0.92, 1.45, 1.55, 0.045)
 ink = toon("Ink", INK, shine=0.0)
 white = flat("EyeShine", (1, 1, 1))
 cheek_m = flat("Cheek", CHEEK, alpha=0.55)
-face = []
+face = []          # brows, cheeks, mouth (static)
+eyes_open, eyes_closed, eyes_happy = [], [], []
 for side in (-1, 1):
     x = 0.40 * side
     bpy.ops.mesh.primitive_uv_sphere_add(radius=0.19, segments=48, ring_count=24, location=on_front(x, FACE_Z, 0.0))
     eye = bpy.context.object; eye.name = f"Eye{side}"; eye.scale = (1, 0.45, 1.08)
     eye.rotation_euler = (0, 0, math.atan2(eye.location.x, -eye.location.y))
-    smooth(eye, 0); eye.data.materials.append(ink); face.append(eye)
+    smooth(eye, 0); eye.data.materials.append(ink); eyes_open.append(eye)
     bpy.ops.mesh.primitive_uv_sphere_add(radius=0.055, location=on_front(x - 0.06, FACE_Z + 0.07, 0.11))
-    hl = bpy.context.object; hl.name = f"EyeShine{side}"; smooth(hl, 0); hl.data.materials.append(white); face.append(hl)
+    hl = bpy.context.object; hl.name = f"EyeShine{side}"; smooth(hl, 0); hl.data.materials.append(white); eyes_open.append(hl)
     bpy.ops.mesh.primitive_uv_sphere_add(radius=0.022, location=on_front(x + 0.07, FACE_Z - 0.06, 0.11))
-    hl2 = bpy.context.object; hl2.name = f"EyeDot{side}"; smooth(hl2, 0); hl2.data.materials.append(white); face.append(hl2)
+    hl2 = bpy.context.object; hl2.name = f"EyeDot{side}"; smooth(hl2, 0); hl2.data.materials.append(white); eyes_open.append(hl2)
     brow = tube(f"Brow{side}", [on_front(x - 0.13, FACE_Z + 0.33), on_front(x, FACE_Z + 0.42), on_front(x + 0.13, FACE_Z + 0.33)], 0.028, ink)
     face.append(brow)
+    # blink: closed lids sag like a soft "u"; happy: squeezed "^" arcs
+    eyes_closed.append(tube(f"Closed{side}", [on_front(x - 0.16, FACE_Z + 0.02, 0.04), on_front(x, FACE_Z - 0.08, 0.04), on_front(x + 0.16, FACE_Z + 0.02, 0.04)], 0.035, ink))
+    eyes_happy.append(tube(f"Happy{side}", [on_front(x - 0.16, FACE_Z - 0.06, 0.04), on_front(x, FACE_Z + 0.10, 0.04), on_front(x + 0.16, FACE_Z - 0.06, 0.04)], 0.035, ink))
     bpy.ops.mesh.primitive_uv_sphere_add(radius=0.12, location=on_front(0.66 * side, FACE_Z - 0.17, 0.0))
     ch = bpy.context.object; ch.name = f"Cheek{side}"; ch.scale = (1.3, 0.25, 0.75)
     ch.rotation_euler = (0, 0, math.atan2(ch.location.x, -ch.location.y))
@@ -216,6 +221,8 @@ bpy.ops.mesh.primitive_cube_add(size=1, location=on_front(0, FACE_Z - 0.135, 0.0
 teeth = bpy.context.object; teeth.name = "Teeth"; teeth.scale = (0.16, 0.01, 0.035)
 teeth.data.materials.append(white); face.append(teeth)
 face_coll = collect("Face", *face)
+eyes_coll = collect("EyesOpen", *eyes_open)
+collect("EyesClosed", *eyes_closed); collect("EyesHappy", *eyes_happy)
 
 # Lid: chunky rounded cap ------------------------------------------------------------
 lid_mat = toon("Lid", LID, shine=0.5)
@@ -317,6 +324,12 @@ only(jar, lip)
 render(os.path.join(ASSETS, "jar.png"), W, Hpx)
 only(shine1, shine2, shine3, *face)
 render(os.path.join(ASSETS, "jar-front.png"), W, Hpx, line_coll=face_coll)
+only(*eyes_open)
+render(os.path.join(ASSETS, "eyes-open.png"), W, Hpx, line_coll=eyes_coll)
+only(*eyes_closed)
+render(os.path.join(ASSETS, "eyes-closed.png"), W, Hpx, outlines=False)
+only(*eyes_happy)
+render(os.path.join(ASSETS, "eyes-happy.png"), W, Hpx, outlines=False)
 only(lid, cap)
 render(os.path.join(ASSETS, "lid.png"), W, Hpx)
 only(clasp, knuckle)

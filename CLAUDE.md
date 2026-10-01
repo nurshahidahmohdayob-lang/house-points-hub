@@ -18,7 +18,7 @@ final assets must still come from `build_assets.py` so they can be regenerated.
 
 Current style: **kawaii clip-top jar, 3D cartoon** (EEVEE toon shading + thick Freestyle outlines), based on the user's
 reference picture. Layers in the .jar box: `jar.png` (cream glass + lip, behind stars) → stars (`star-0..5.png`, 6 colours)
-→ `jar-front.png` (face + shine, in front) → lid (`lid.png` tinted + `lid-clasp.png` untinted, rotate together).
+→ `jar-front.png` (brows, mouth, cheeks + shine) → eyes (`eyes-open|closed|happy.png`, swapped by JS to blink / smile) → lid (`lid.png` tinted + `lid-clasp.png` untinted, rotate together).
 When editing static files, bump the `?v=` on style.css/app.js in index.html. The photoreal Cycles version is kept in
 `blender/build_assets_realistic.py`.
 
