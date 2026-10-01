@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>House Points Hub</title>
+  <meta name="description" content="Classroom house points, rewards and activities for Year 1–11." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">🏆</span><span>House Points Hub</span></div>
+    <nav class="tabs" id="tabs">
+      <button data-tab="board" class="active">🏰 Houses</button>
+      <button data-tab="students">⭐ Award</button>
+      <button data-tab="activities">🎲 Activities</button>
+      <button data-tab="rewards">🎁 Rewards</button>
+      <button data-tab="history">📜 History</button>
+      <button data-tab="settings">⚙️ Setup</button>
+    </nav>
+    <button class="btn ghost" id="projectorBtn" title="Big screen leaderboard">📺 Projector</button>
+  </header>
+
+  <main id="app">
+    <!-- HOUSES LEADERBOARD -->
+    <section class="view active" id="view-board">
+      <div class="section-head">
+        <h1>House Leaderboard</h1>
+        <p class="muted">Every point a student earns goes to their house. Tap a house to give a whole-house bonus.</p>
+      </div>
+      <div class="houses" id="houseBoard"></div>
+      <div class="grid2">
+        <div class="card">
+          <h2>🌟 Top Stars</h2>
+          <ol class="toplist" id="topStudents"></ol>
+        </div>
+        <div class="card">
+          <h2>🕒 Latest Points</h2>
+          <ul class="feed" id="recentFeed"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- STUDENTS / AWARD -->
+    <section class="view" id="view-students">
+      <div class="section-head">
+        <h1>Award Points</h1>
+        <p class="muted">Tap students to select (tap several for a group), then choose a reason below.</p>
+      </div>
+      <div class="filters">
+        <input type="search" id="search" placeholder="🔍 Search name…" />
+        <select id="fYear"></select>
+        <select id="fClass"></select>
+        <select id="fHouse"></select>
+        <button class="btn ghost" id="selectAll">Select all shown</button>
+        <button class="btn ghost" id="clearSel">Clear</button>
+      </div>
+      <div class="students" id="studentGrid"></div>
+      <div class="awardbar" id="awardBar">
+        <div class="awardbar-head"><strong id="selCount">0 selected</strong><span class="muted">Choose a reason:</span></div>
+        <div class="behaviours" id="behaviourBtns"></div>
+        <div class="custom-award">
+          <input type="number" id="customPts" value="1" />
+          <input type="text" id="customReason" placeholder="Custom reason…" />
+          <button class="btn" id="customGive">Give</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTIVITIES -->
+    <section class="view" id="view-activities">
+      <div class="section-head">
+        <h1>Class Activities</h1>
+        <p class="muted">Games to run with the class. Winners can earn points straight away.</p>
+      </div>
+      <div class="activity-picker" id="activityPicker">
+        <button class="act-tile" data-act="picker"><span>🎯</span><b>Random Picker</b><small>Who's answering next?</small></button>
+        <button class="act-tile" data-act="quiz"><span>⚔️</span><b>House Quiz Battle</b><small>Houses compete for points</small></button>
+        <button class="act-tile" data-act="timer"><span>⏱️</span><b>Countdown Timer</b><small>Big on-screen timer</small></button>
+        <button class="act-tile" data-act="teams"><span>👥</span><b>Team Maker</b><small>Random groups</small></button>
+        <button class="act-tile" data-act="wheel"><span>🎡</span><b>Mystery Reward Wheel</b><small>Spin for a surprise</small></button>
+      </div>
+      <div class="activity-stage card" id="activityStage" hidden></div>
+    </section>
+
+    <!-- REWARDS -->
+    <section class="view" id="view-rewards">
+      <div class="section-head">
+        <h1>Rewards Shop</h1>
+        <p class="muted">Students spend their own points on rewards. House totals are never reduced by spending.</p>
+      </div>
+      <div class="redeem card">
+        <label>Student <select id="redeemStudent"></select></label>
+        <div class="balance" id="redeemBalance"></div>
+      </div>
+      <div class="rewards" id="rewardGrid"></div>
+      <div class="card">
+        <h2>➕ Add a reward</h2>
+        <form class="inline-form" id="rewardForm">
+          <input name="emoji" placeholder="🎁" maxlength="4" class="emoji-in" />
+          <input name="name" placeholder="Reward name (e.g. Sit with a friend)" required />
+          <input name="cost" type="number" min="1" placeholder="Cost" required />
+          <button class="btn">Add</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="view" id="view-history">
+      <div class="section-head row">
+        <div><h1>History</h1><p class="muted">Everything that happened, newest first.</p></div>
+        <div class="row-gap">
+          <button class="btn ghost" id="undoBtn">↩️ Undo last</button>
+          <button class="btn ghost" id="csvBtn">⬇️ Export CSV</button>
+        </div>
+      </div>
+      <div class="card"><table class="table" id="historyTable"></table></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <div class="section-head"><h1>Setup</h1><p class="muted">Houses, students and reasons. Data is saved in this browser.</p></div>
+      <div class="grid2">
+        <div class="card">
+          <h2>🏰 Houses</h2>
+          <div id="houseEditor"></div>
+          <button class="btn ghost" id="addHouse">+ Add house</button>
+        </div>
+        <div class="card">
+          <h2>👩‍🎓 Add students</h2>
+          <p class="muted small">Paste one name per line. They'll go into the year, class and house you choose (pick "Auto-balance" to share them out evenly).</p>
+          <textarea id="bulkNames" rows="7" placeholder="Aisyah Rahman&#10;Daniel Lim&#10;Priya Kumar"></textarea>
+          <div class="inline-form">
+            <select id="bulkYear"></select>
+            <input id="bulkClass" placeholder="Class (e.g. 4 Bestari)" />
+            <select id="bulkHouse"></select>
+            <button class="btn" id="bulkAdd">Add students</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>📋 Student list <span class="muted small" id="studentCount"></span></h2>
+        <div class="table-wrap"><table class="table" id="studentTable"></table></div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <h2>💬 Reasons for points</h2>
+          <div id="behaviourEditor"></div>
+          <form class="inline-form" id="behaviourForm">
+            <input name="emoji" placeholder="👍" maxlength="4" class="emoji-in" />
+            <input name="label" placeholder="Reason" required />
+            <input name="pts" type="number" placeholder="Pts" value="1" required />
+            <button class="btn">Add</button>
+          </form>
+        </div>
+        <div class="card">
+          <h2>💾 Backup & reset</h2>
+          <p class="muted small">Data lives in this browser only. Download a backup regularly and load it on another computer.</p>
+          <div class="row-gap wrap">
+            <button class="btn" id="exportJson">⬇️ Download backup</button>
+            <label class="btn ghost">⬆️ Load backup<input type="file" id="importJson" accept="application/json" hidden /></label>
+            <button class="btn ghost" id="loadDemo">✨ Load demo class</button>
+            <button class="btn danger" id="resetPoints">Reset all points</button>
+            <button class="btn danger" id="resetAll">Delete everything</button>
+          </div>
+          <label class="check"><input type="checkbox" id="soundToggle" checked /> Sound effects</label>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Projector overlay -->
+  <div class="projector" id="projector" hidden>
+    <button class="close" id="closeProjector" aria-label="Close">✕</button>
+    <h1>🏆 House Points</h1>
+    <div class="proj-bars" id="projBars"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <canvas id="confetti"></canvas>
+  <dialog id="modal"><div id="modalBody"></div></dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
