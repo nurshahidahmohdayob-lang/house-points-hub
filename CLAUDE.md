@@ -16,4 +16,8 @@ Any 3D look in the app (jars, lids, stars, trophies, new props) is **modelled an
 The live Blender app can also be driven through the MCP-for-Blender add-on (localhost:9876) for interactive design;
 final assets must still come from `build_assets.py` so they can be regenerated.
 
-Group colours are applied in CSS by tinting the white lid render (`.lid-tint`, multiply blend) — render lids white.
+Current style: **3D cartoon** (EEVEE toon shading + Freestyle outlines). Layers in the .jar box: `jar.png` (glass, behind stars) →
+stars (`star-0..5.png`, 6 colours) → `jar-front.png` (shine, in front) → `lid.png`. The photoreal Cycles version is kept in
+`blender/build_assets_realistic.py`.
+
+Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) and the glass (`.jar-tint`), multiply blend — render lids white.

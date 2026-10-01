@@ -272,21 +272,21 @@ html, body { overflow-x: hidden; }
 .jar:hover, .jar:focus-visible { transform: perspective(700px) rotateX(5deg) rotateY(-12deg) translateY(-5px); }
 .jar:active { transform: perspective(700px) rotateX(5deg) scale(.97); }
 .jar::after { /* floor shadow */
-  content: ""; position: absolute; left: 20px; right: 20px; bottom: -4px; height: 16px; border-radius: 50%;
+  content: ""; position: absolute; left: 24px; right: 24px; bottom: 6px; height: 16px; border-radius: 50%;
   background: radial-gradient(closest-side, rgba(30,20,80,.30), transparent); z-index: 0;
 }
 /* Layers rendered in Blender (assets/*.png), all framed to the 150x212 box */
 .jar-glass, .jar-front, .jar-tint, .jar-lid, .jar-lid img, .lid-tint { position: absolute; inset: 0; width: 150px; height: 212px; pointer-events: none; user-select: none; }
 .jar-glass { z-index: 1; }
-.jar-tint { z-index: 1; background: var(--hc); opacity: .16; mix-blend-mode: multiply;
+.jar-tint { z-index: 1; background: var(--hc); opacity: .22; mix-blend-mode: multiply;
   -webkit-mask: url(assets/jar.png) center / 100% 100%; mask: url(assets/jar.png) center / 100% 100%; }
-.jar-stars { position: absolute; left: 22px; bottom: 14px; width: 106px; height: 120px; z-index: 2; }
-.jstar { position: absolute; width: 26px; height: 26px; transform: rotate(var(--r)); filter: drop-shadow(0 2px 1.5px rgba(120,60,0,.35)); }
+.jar-stars { position: absolute; left: 18px; bottom: 18px; width: 114px; height: 120px; z-index: 2; }
+.jstar { position: absolute; width: 26px; height: 26px; transform: rotate(var(--r)); filter: drop-shadow(0 2px 1px rgba(40,20,80,.25)); }
 .jstar img { width: 100%; height: 100%; display: block; }
-.jar-front { z-index: 3; opacity: .22; } /* glass reflections in front of the stars */
+.jar-front { z-index: 3; } /* cartoon shine stripes in front of the stars */
 .jar-lid {
   z-index: 6; isolation: isolate;
-  transform-origin: 13px 70px; /* left edge of the lid in the render */
+  transform-origin: 20px 58px; /* left edge of the lid in the render */
   transition: transform .35s cubic-bezier(.2,.9,.3,1.3);
   filter: drop-shadow(0 3px 4px rgba(0,0,0,.15));
 }
