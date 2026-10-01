@@ -113,7 +113,8 @@
   }
 
   /* ---------- Star jars ---------- */
-  const JAR = { cols: 6, rows: 9, s: 22, w: 134, h: 160, rowH: 17 };
+  // Geometry matches the Blender renders in assets/ (see blender/build_assets.py)
+  const JAR = { cols: 7, rows: 8, s: 26, w: 106, h: 120, rowH: 12.5 };
   const JAR_CAP = 50; // stars that fill one jar
   const rnd = (n) => { const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
   function starPos(i) {
@@ -121,7 +122,7 @@
     // fill each row in a shuffled order so the pile looks natural
     const order = [...Array(JAR.cols).keys()].sort((a, b) => rnd(r * 31 + a) - rnd(r * 31 + b));
     const c = order[k];
-    const m = r === 0 ? 13 : r === 1 ? 6 : 0; // jar bottom is rounded
+    const m = r === 0 ? 10 : r === 1 ? 4 : 0; // jar bottom is rounded
     const span = JAR.w - JAR.s - 2 * m;
     const x = Math.min(JAR.w - JAR.s, Math.max(0, m + (c / (JAR.cols - 1)) * span + (rnd(i * 3 + 1) - 0.5) * 6 + (r % 2 ? 3 : -3)));
     return { x, y: r * JAR.rowH + rnd(i * 7 + 2) * 3, rot: (rnd(i * 5 + 3) - 0.5) * 70 };
@@ -131,7 +132,7 @@
     el.className = "jstar";
     el.style.left = p.x + "px"; el.style.bottom = p.y + "px";
     el.style.setProperty("--r", p.rot + "deg");
-    el.innerHTML = `<svg viewBox="0 0 24 24"><use href="#star"/></svg>`;
+    el.innerHTML = `<img src="assets/star-${i % 4}.png" alt="" draggable="false">`;
     el._pos = p;
     return el;
   }
@@ -140,8 +141,10 @@
     w.className = "jar-wrap"; w.dataset.id = g.id;
     w.innerHTML = `<div class="jar-rank"></div>
       <div class="jar" role="button" tabindex="0">
-        <div class="jar-glass"></div><div class="jar-stars"></div><div class="jar-front"></div>
-        <div class="jar-shine"></div><div class="jar-neck"></div><div class="jar-lid"></div>
+        <img class="jar-glass" src="assets/jar.png" alt="" draggable="false"><div class="jar-tint"></div>
+        <div class="jar-stars"></div>
+        <img class="jar-front" src="assets/jar.png" alt="" draggable="false">
+        <div class="jar-lid"><img src="assets/lid.png" alt="" draggable="false"><div class="lid-tint"></div></div>
         <div class="jar-over" hidden></div>
       </div>
       <div class="jar-name"></div>

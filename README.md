@@ -14,3 +14,12 @@ A classroom app for teachers (Year 1–11) to run individual and group points, r
 Data is stored in the teacher's browser (localStorage). Use **Setup → Download backup** to move it to another computer.
 
 Static site – no build step. Deployed on Vercel.
+
+## 3D assets (Blender)
+The jar, lid and star images are modelled and rendered in Blender:
+
+```
+blender -b --python blender/build_assets.py
+```
+
+This writes transparent PNGs to `assets/` and saves `blender/assets.blend` for hand tweaking.

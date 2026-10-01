@@ -272,68 +272,32 @@ html, body { overflow-x: hidden; }
 .jar:hover, .jar:focus-visible { transform: perspective(700px) rotateX(5deg) rotateY(-12deg) translateY(-5px); }
 .jar:active { transform: perspective(700px) rotateX(5deg) scale(.97); }
 .jar::after { /* floor shadow */
-  content: ""; position: absolute; left: 12px; right: 12px; bottom: -12px; height: 20px; border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(30,20,80,.28), transparent); z-index: 0;
+  content: ""; position: absolute; left: 20px; right: 20px; bottom: -4px; height: 16px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(30,20,80,.30), transparent); z-index: 0;
 }
-.jar-glass, .jar-front {
-  position: absolute; left: 0; top: 36px; width: 150px; height: 176px;
-  border-radius: 36px 36px 46px 46px / 30px 30px 52px 52px;
-}
-.jar-glass {
-  z-index: 1;
-  background:
-    radial-gradient(ellipse 70% 30% at 50% 100%, color-mix(in srgb, var(--hc) 30%, transparent), transparent 70%),
-    linear-gradient(90deg,
-      color-mix(in srgb, var(--hc) 22%, rgba(255,255,255,.55)) 0%,
-      rgba(255,255,255,.22) 22%, rgba(255,255,255,.08) 55%,
-      color-mix(in srgb, var(--hc) 26%, rgba(255,255,255,.45)) 100%);
-  border: 2px solid color-mix(in srgb, var(--hc) 30%, rgba(255,255,255,.9));
-  box-shadow:
-    inset 10px 0 18px rgba(255,255,255,.55),
-    inset -14px 0 22px color-mix(in srgb, var(--hc) 22%, transparent),
-    inset 0 -12px 20px color-mix(in srgb, var(--hc) 25%, transparent),
-    0 16px 30px color-mix(in srgb, var(--hc) 25%, rgba(30,20,80,.12));
-}
-.jar-stars { position: absolute; left: 8px; bottom: 10px; width: 134px; height: 160px; z-index: 2; }
-.jstar { position: absolute; width: 22px; height: 22px; transform: rotate(var(--r)); filter: drop-shadow(0 2px 1.5px rgba(140,70,0,.35)); }
-.jstar svg { width: 100%; height: 100%; display: block; }
-.jar-front { /* glass reflections in front of the stars */
-  z-index: 3; pointer-events: none;
-  background:
-    radial-gradient(ellipse 45% 14% at 50% 94%, rgba(255,255,255,.45), transparent 70%),
-    linear-gradient(90deg, transparent 72%, rgba(255,255,255,.35) 80%, transparent 88%);
-}
-.jar-shine {
-  position: absolute; z-index: 4; left: 17px; top: 58px; width: 13px; height: 118px; border-radius: 10px; pointer-events: none;
-  background: linear-gradient(rgba(255,255,255,.95), rgba(255,255,255,.15));
-  filter: blur(.4px);
-}
-.jar-neck { /* glass rim / opening */
-  position: absolute; z-index: 5; left: 20px; top: 26px; width: 110px; height: 18px; border-radius: 50%;
-  background: radial-gradient(ellipse at 50% 60%, color-mix(in srgb, var(--hc) 30%, rgba(40,30,80,.35)), rgba(255,255,255,.35));
-  border: 2px solid rgba(255,255,255,.95);
-  box-shadow: 0 2px 4px rgba(0,0,0,.12);
-}
+/* Layers rendered in Blender (assets/*.png), all framed to the 150x212 box */
+.jar-glass, .jar-front, .jar-tint, .jar-lid, .jar-lid img, .lid-tint { position: absolute; inset: 0; width: 150px; height: 212px; pointer-events: none; user-select: none; }
+.jar-glass { z-index: 1; }
+.jar-tint { z-index: 1; background: var(--hc); opacity: .16; mix-blend-mode: multiply;
+  -webkit-mask: url(assets/jar.png) center / 100% 100%; mask: url(assets/jar.png) center / 100% 100%; }
+.jar-stars { position: absolute; left: 22px; bottom: 14px; width: 106px; height: 120px; z-index: 2; }
+.jstar { position: absolute; width: 26px; height: 26px; transform: rotate(var(--r)); filter: drop-shadow(0 2px 1.5px rgba(120,60,0,.35)); }
+.jstar img { width: 100%; height: 100%; display: block; }
+.jar-front { z-index: 3; opacity: .22; } /* glass reflections in front of the stars */
 .jar-lid {
-  position: absolute; z-index: 6; left: 14px; top: 8px; width: 122px; height: 26px; border-radius: 8px 8px 10px 10px;
-  background:
-    repeating-linear-gradient(90deg, rgba(0,0,0,.10) 0 2px, transparent 2px 8px),
-    linear-gradient(180deg, color-mix(in srgb, var(--hc) 55%, #fff), var(--hc) 45%, color-mix(in srgb, var(--hc) 65%, #000));
-  box-shadow: inset 0 -5px 0 rgba(0,0,0,.18), 0 4px 8px rgba(0,0,0,.18);
-  transform-origin: 8% 100%;
+  z-index: 6; isolation: isolate;
+  transform-origin: 13px 70px; /* left edge of the lid in the render */
   transition: transform .35s cubic-bezier(.2,.9,.3,1.3);
+  filter: drop-shadow(0 3px 4px rgba(0,0,0,.15));
 }
-.jar-lid::before { /* lid top surface */
-  content: ""; position: absolute; left: 0; right: 0; top: -9px; height: 18px; border-radius: 50%;
-  background: radial-gradient(ellipse at 40% 35%, color-mix(in srgb, var(--hc) 35%, #fff), color-mix(in srgb, var(--hc) 85%, #fff));
-  box-shadow: inset 0 -3px 0 rgba(0,0,0,.12);
-}
-.jar.open .jar-lid { transform: translate(-14px, -30px) rotate(-26deg); }
+.lid-tint { background: var(--hc); mix-blend-mode: multiply;
+  -webkit-mask: url(assets/lid.png) center / 100% 100%; mask: url(assets/lid.png) center / 100% 100%; }
+.jar.open .jar-lid { transform: translate(-6px, -22px) rotate(-24deg); }
 .jar-over {
   position: absolute; z-index: 7; right: -14px; top: 50px; white-space: nowrap; background: var(--accent); color: #3a2500; font-weight: 800;
   border-radius: 999px; padding: 2px 9px; font-size: .85rem; box-shadow: 0 3px 8px rgba(0,0,0,.2);
 }
-.jar-name { margin-top: 18px; font-family: "Baloo 2"; font-weight: 800; font-size: 1.15rem; text-align: center; }
+.jar-name { margin-top: 10px; font-family: "Baloo 2"; font-weight: 800; font-size: 1.15rem; text-align: center; }
 .jar-count { font-family: "Baloo 2"; font-size: 1.1rem; color: var(--muted); }
 .jar-count b { display: inline-block; font-size: 1.9rem; color: var(--hc); line-height: 1; }
 
