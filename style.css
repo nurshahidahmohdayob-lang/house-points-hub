@@ -336,18 +336,10 @@ html, body { overflow-x: hidden; }
 .jar-name { margin-top: 18px; font-family: "Baloo 2"; font-weight: 800; font-size: 1.15rem; text-align: center; }
 .jar-count { font-family: "Baloo 2"; font-size: 1.1rem; color: var(--muted); }
 .jar-count b { display: inline-block; font-size: 1.9rem; color: var(--hc); line-height: 1; }
-.jar-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-top: 6px; }
-.jar-btns button {
-  border: 0; border-radius: 10px; padding: 5px 8px; font-weight: 800; cursor: pointer; font-size: .85rem;
-  background: color-mix(in srgb, var(--hc) 16%, var(--surface)); color: var(--ink);
-}
-.jar-btns button:hover { background: color-mix(in srgb, var(--hc) 30%, var(--surface)); }
-.jar-btns .neg { background: color-mix(in srgb, var(--bad) 14%, var(--surface)); }
 
 /* Projector jars: bigger, no buttons */
 .proj-jars { flex: 1; align-items: center; gap: 4vw; }
 .proj-jars .jar-wrap { zoom: 1.5; }
-.proj-jars .jar-btns { display: none; }
 .proj-jars .jar-name, .proj-jars .jar-count { color: #fff; }
 .proj-jars .jar-count b { color: #fff; }
 

@@ -134,16 +134,10 @@
         <div class="jar-over" hidden></div>
       </div>
       <div class="jar-name"></div>
-      <div class="jar-count"><b>0</b> ⭐</div>
-      <div class="jar-btns">
-        <button data-add="1">⭐ +1</button><button data-add="3">+3</button><button data-add="5">+5</button>
-        <button data-add="-1" class="neg">−1</button><button data-more title="Add with a reason">✏️</button>
-      </div>`;
+      <div class="jar-count"><b>0</b> ⭐</div>`;
     const jar = $(".jar", w);
     jar.onclick = () => awardGroup(g.id, 1, "⭐ Star jar");
     jar.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jar.click(); } };
-    $$("[data-add]", w).forEach((b) => b.onclick = () => awardGroup(g.id, Number(b.dataset.add), "⭐ Star jar"));
-    $("[data-more]", w).onclick = () => groupBonusDialog(g.id);
     return w;
   }
   function openLid(jar, ms) {
