@@ -166,7 +166,7 @@
       <div class="jar-name"></div>
       <div class="jar-count"><b>0</b> ⭐</div>
       <div class="jar-tools">
-        <button data-minus title="Take one star away">➖ Deduct</button>
+        <button data-minus title="Take one star away"><b class="minus-sign">−</b> Deduct</button>
         <button data-empty title="Empty this jar">🫙 Empty</button>
       </div>
       <button class="jar-edit" data-edit title="Change name, colour or shape" aria-label="Edit jar">✏️</button>`;

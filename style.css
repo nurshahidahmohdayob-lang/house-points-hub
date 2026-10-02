@@ -304,7 +304,10 @@ html, body { overflow-x: hidden; }
 }
 .jar-tools button:hover { opacity: 1; background: color-mix(in srgb, var(--hc) 26%, var(--surface)); }
 .jar-tools button:active { transform: scale(.94); }
-.proj-jars .jar-tools { display: none; }
+/* Projector: keep "Deduct" (taking a star away), hide "Empty" so it can't be hit by accident on the big screen */
+.proj-jars .jar-tools [data-empty] { display: none; }
+.proj-jars .jar-tools button { background: rgba(255,255,255,.16); color: #fff; opacity: .9; font-size: .8rem; }
+.proj-jars .jar-tools button:hover { background: rgba(255,255,255,.3); opacity: 1; }
 .jar.open .jar-lid { transform: translate(-6px, -22px) rotate(-24deg); }
 .jar-over {
   position: absolute; z-index: 7; right: -14px; top: 50px; white-space: nowrap; background: var(--accent); color: #3a2500; font-weight: 800;
@@ -357,3 +360,4 @@ dialog.wide { width: min(640px, calc(100% - 24px)); }
 }
 .jar-edit:hover { opacity: 1; transform: scale(1.1) rotate(-8deg); }
 .proj-jars .jar-edit { display: none; }
+.jar-tools .minus-sign { font-size: 1.05em; line-height: 1; }
