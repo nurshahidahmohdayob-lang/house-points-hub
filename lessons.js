@@ -17,17 +17,40 @@
   function loadPick() { try { return { year: 1, term: 1, week: 1, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { return { year: 1, term: 1, week: 1 }; } }
   function savePick() { try { localStorage.setItem(KEY, JSON.stringify(pick)); } catch { /* private mode */ } }
 
+  // Lessons sync from the Life Competencies app: it republishes this file on every deploy, so edits there show up
+  // here straight away. If it can't be reached (or its shape ever changes), fall back to our own bundled copy.
+  const LIVE_DATA = "https://zera-life-competencies.vercel.app/class-points/lc-data.js";
+  const LOCAL_DATA = "assets/lc-data.js?v=550436";
+  const NEEDS = ["LESSON_PLANS", "noteFor", "deepFor", "visualFor", "quizTen", "optionsForItem", "buildLesson", "expandActivity", "gameFor", "buildGameHtml", "runThemeFor", "buildPlatformerHtml", "runLevels"];
+  const usable = (x) => x && NEEDS.every((k) => k in x) && Array.isArray(x.LESSON_PLANS) && x.LESSON_PLANS.length > 0;
+  function loadScript(src, ms) {
+    return new Promise((res, rej) => {
+      delete window.LC;
+      const s = document.createElement("script");
+      const t = setTimeout(() => { s.remove(); rej(new Error("timeout")); }, ms);
+      s.src = src;
+      s.onload = () => { clearTimeout(t); usable(window.LC) ? res(window.LC) : rej(new Error("unexpected lesson data")); };
+      s.onerror = () => { clearTimeout(t); rej(new Error("offline")); };
+      document.head.appendChild(s);
+    });
+  }
+  let source = "";
   function loadData() {
     if (LC) return Promise.resolve(LC);
     if (loading) return loading;
-    loading = new Promise((res, rej) => {
-      const s = document.createElement("script");
-      s.src = "assets/lc-data.js?v=549290";
-      s.onload = () => { LC = window.LC; res(LC); };
-      s.onerror = () => { loading = null; rej(new Error("Could not load the lessons")); };
-      document.head.appendChild(s);
-    });
+    loading = loadScript(`${LIVE_DATA}?t=${Math.floor(Date.now() / 60000)}`, 8000)
+      .then((x) => { source = "live"; return x; })
+      .catch(() => loadScript(LOCAL_DATA, 15000).then((x) => { source = "copy"; return x; }))
+      .then((x) => { LC = x; return x; })
+      .catch(() => { loading = null; throw new Error("Could not load the lessons"); });
     return loading;
+  }
+  function syncNote() {
+    const at = LC?.BUILT?.at ? new Date(LC.BUILT.at) : null;
+    const when = at ? at.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+    return source === "live"
+      ? `<span class="lc-sync ok" title="Loaded from the Life Competencies app">🔄 Synced with Life Competencies${when ? ` · updated ${when}` : ""}</span>`
+      : `<span class="lc-sync" title="The Life Competencies app couldn't be reached, so a saved copy is showing">📦 Using the saved copy of the lessons (Life Competencies app not reachable)</span>`;
   }
 
   const planFor = (year, term) => LC.LESSON_PLANS.find((p) => p.year === year && p.term === term);
@@ -53,6 +76,7 @@
     const w = weekOf(plan, pick.week); pick.week = w.week; savePick();
     const fp = focusParts(w.focus, plan, w.week);
     root.innerHTML = `
+      ${syncNote()}
       <div class="lc-years">${[1, 2, 3, 4, 5, 6].map((y) => `<button class="lc-chip ${y === plan.year ? "on" : ""}" data-year="${y}">Year ${y}</button>`).join("")}</div>
       <div class="lc-terms">${[1, 2, 3].map((t) => { const p = planFor(plan.year, t); return p ? `<button class="lc-term ${t === plan.term ? "on" : ""}" data-term="${t}"><b>Term ${t}</b><span>${esc(p.title)}</span></button>` : ""; }).join("")}</div>
       <div class="lc-weeks">${plan.weeks.map((x) => { const f = focusParts(x.focus, plan, x.week); return `<button class="lc-week ${x.week === w.week ? "on" : ""}" data-week="${x.week}"><span class="e">${f.emoji}</span><small>Week ${x.week}</small><b>${esc(f.text)}</b></button>`; }).join("")}</div>

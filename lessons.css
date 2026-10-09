@@ -235,3 +235,5 @@ body.lc-open { overflow: hidden; }
 .lv-pod.p3 div { height: 80px; background: linear-gradient(#f0a868, #b8642a); }
 .lv-rest { display: inline-block; text-align: left; font-size: 1.15rem; }
 .lv-rest b { margin-left: 10px; }
+.lc-sync { display: inline-block; font-size: .8rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; margin-bottom: 10px; background: var(--line); color: var(--muted); }
+.lc-sync.ok { background: color-mix(in srgb, var(--good) 14%, var(--surface)); color: color-mix(in srgb, var(--good) 70%, var(--ink)); }

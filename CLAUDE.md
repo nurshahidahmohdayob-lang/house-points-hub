@@ -26,9 +26,12 @@ When editing static files, bump the `?v=` on style.css / app.js / shapes.js in i
 Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) and the glass (`.jar-tint`), multiply blend — render lids white.
 
 ## Life Competencies lessons (📚 Lessons tab)
-- Content is NOT hand-written here: `lc/build.mjs` bundles the data modules of the Life Competencies app
-  (`~/Codes/digital-literacy/src/lib`, override with `LC_SRC`) into `assets/lc-data.js` (window.LC, ~1 MB, lazy-loaded).
-  Re-run after the LC lessons change: `cd lc && npm install && node build.mjs`. `lc/` is not deployed (.vercelignore).
+- Content is NOT hand-written here. **Live sync:** the LC app's `prebuild` (scripts/class-points-data.mjs +
+  class-points-entry.ts in digital-literacy) publishes https://zera-life-competencies.vercel.app/class-points/lc-data.js
+  on every LC deploy; `lessons.js` loads that first, so LC lesson edits appear here with no work in this repo.
+  Keep the exported names in class-points-entry.ts stable (lessons.js checks them: `NEEDS`).
+- Fallback copy: `assets/lc-data.js` (used if the LC site is unreachable or its shape changes). Refresh it now and
+  then with `cd lc && npm install && node build.mjs` (reads `~/Codes/digital-literacy/src/lib`, override `LC_SRC`).
 - `lessons.js` / `lessons.css` build the picker (Year → Term → Week), the teaching slides (port of the LC app's
   `buildWeekSlides` order + interactive widgets), mind map, Team Quiz, Puzzle games (buildLesson question kinds),
   and the LC board game / Block Run in an iframe. Stars go to the jars via `window.ClassPoints` (defined in app.js).
