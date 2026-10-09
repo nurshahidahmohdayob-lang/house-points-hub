@@ -17,40 +17,67 @@
   function loadPick() { try { return { year: 1, term: 1, week: 1, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { return { year: 1, term: 1, week: 1 }; } }
   function savePick() { try { localStorage.setItem(KEY, JSON.stringify(pick)); } catch { /* private mode */ } }
 
-  // Lessons sync from the Life Competencies app: it republishes this file on every deploy, so edits there show up
-  // here straight away. If it can't be reached (or its shape ever changes), fall back to our own bundled copy.
-  const LIVE_DATA = "https://zera-life-competencies.vercel.app/class-points/lc-data.js";
-  const LOCAL_DATA = "assets/lc-data.js?v=550436";
+  // Lessons come from the copy built into Class Points. Only the 🔄 Sync button contacts the Life Competencies app:
+  // it downloads the lessons that app publishes on every deploy and keeps them on this device (Cache Storage),
+  // so later visits use the synced lessons without downloading again.
+  const LIVE_DATA = window.LC_SYNC_URL || "https://zera-life-competencies.vercel.app/class-points/lc-data.js";
+  const LOCAL_DATA = "assets/lc-data.js?v=553269";
+  const SYNC_CACHE = "class-points-lessons", SYNC_KEY = "/synced-lc-data.js";
   const NEEDS = ["LESSON_PLANS", "noteFor", "deepFor", "visualFor", "quizTen", "optionsForItem", "buildLesson", "expandActivity", "gameFor", "buildGameHtml", "runThemeFor", "buildPlatformerHtml", "runLevels"];
   const usable = (x) => x && NEEDS.every((k) => k in x) && Array.isArray(x.LESSON_PLANS) && x.LESSON_PLANS.length > 0;
-  function loadScript(src, ms) {
+  function loadScript(src, ms = 15000) {
     return new Promise((res, rej) => {
-      delete window.LC;
+      const before = window.LC;
+      window.LC = undefined; // the bundle declares a global "var LC", which can't be deleted
       const s = document.createElement("script");
-      const t = setTimeout(() => { s.remove(); rej(new Error("timeout")); }, ms);
+      const t = setTimeout(() => { s.remove(); window.LC = before; rej(new Error("timeout")); }, ms);
       s.src = src;
-      s.onload = () => { clearTimeout(t); usable(window.LC) ? res(window.LC) : rej(new Error("unexpected lesson data")); };
-      s.onerror = () => { clearTimeout(t); rej(new Error("offline")); };
+      s.onload = () => { clearTimeout(t); const x = window.LC; if (usable(x)) res(x); else { window.LC = before; rej(new Error("unexpected lesson data")); } };
+      s.onerror = () => { clearTimeout(t); window.LC = before; rej(new Error("offline")); };
       document.head.appendChild(s);
     });
+  }
+  const fromText = (text) => { const url = URL.createObjectURL(new Blob([text], { type: "text/javascript" })); return loadScript(url).finally(() => URL.revokeObjectURL(url)); };
+  async function syncedText() {
+    try { const c = await caches.open(SYNC_CACHE); const r = await c.match(SYNC_KEY); return r ? await r.text() : null; } catch { return null; }
   }
   let source = "";
   function loadData() {
     if (LC) return Promise.resolve(LC);
     if (loading) return loading;
-    loading = loadScript(`${LIVE_DATA}?t=${Math.floor(Date.now() / 60000)}`, 8000)
-      .then((x) => { source = "live"; return x; })
-      .catch(() => loadScript(LOCAL_DATA, 15000).then((x) => { source = "copy"; return x; }))
+    loading = syncedText()
+      .then((t) => (t ? fromText(t).then((x) => { source = "synced"; return x; }) : Promise.reject(new Error("none"))))
+      .catch(() => loadScript(LOCAL_DATA).then((x) => { source = "copy"; return x; }))
       .then((x) => { LC = x; return x; })
       .catch(() => { loading = null; throw new Error("Could not load the lessons"); });
     return loading;
   }
-  function syncNote() {
+  // The 🔄 button: download the latest lessons once, check them, keep them on this device
+  async function syncNow(btn) {
+    btn.disabled = true; btn.textContent = "🔄 Syncing…";
+    try {
+      const r = await fetch(`${LIVE_DATA}?t=${Date.now()}`, { cache: "no-store" });
+      if (!r.ok) throw new Error("offline");
+      const text = await r.text();
+      const before = LC?.BUILT?.commit;
+      const x = await fromText(text);
+      try { const c = await caches.open(SYNC_CACHE); await c.put(SYNC_KEY, new Response(text, { headers: { "Content-Type": "text/javascript" } })); } catch { /* still use it this visit */ }
+      LC = x; source = "synced"; loading = Promise.resolve(x);
+      CP().toast(before && before === x.BUILT?.commit ? "✅ Already up to date with Life Competencies" : "🎉 Lessons synced with Life Competencies");
+      CP().confetti(70);
+      renderLessons();
+    } catch (e) {
+      btn.dataset.why = e?.message || String(e); // kept for troubleshooting
+      CP().toast("⚠️ Couldn't reach the Life Competencies app — check the internet and try again");
+      btn.disabled = false; btn.textContent = "🔄 Sync with Life Competencies";
+    }
+  }
+  function syncBar() {
     const at = LC?.BUILT?.at ? new Date(LC.BUILT.at) : null;
-    const when = at ? at.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
-    return source === "live"
-      ? `<span class="lc-sync ok" title="Loaded from the Life Competencies app">🔄 Synced with Life Competencies${when ? ` · updated ${when}` : ""}</span>`
-      : `<span class="lc-sync" title="The Life Competencies app couldn't be reached, so a saved copy is showing">📦 Using the saved copy of the lessons (Life Competencies app not reachable)</span>`;
+    const when = at ? at.toLocaleString([], { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+    const what = source === "synced" ? `🔄 Synced lessons${when ? ` · from ${when}` : ""}` : `📦 Built-in lessons${when ? ` · from ${when}` : ""}`;
+    return `<div class="lc-syncbar"><span class="lc-sync ${source === "synced" ? "ok" : ""}">${what}</span>
+      <button class="btn ghost lc-syncbtn" data-sync title="Download the latest lessons from your Life Competencies app">🔄 Sync with Life Competencies</button></div>`;
   }
 
   const planFor = (year, term) => LC.LESSON_PLANS.find((p) => p.year === year && p.term === term);
@@ -76,7 +103,7 @@
     const w = weekOf(plan, pick.week); pick.week = w.week; savePick();
     const fp = focusParts(w.focus, plan, w.week);
     root.innerHTML = `
-      ${syncNote()}
+      ${syncBar()}
       <div class="lc-years">${[1, 2, 3, 4, 5, 6].map((y) => `<button class="lc-chip ${y === plan.year ? "on" : ""}" data-year="${y}">Year ${y}</button>`).join("")}</div>
       <div class="lc-terms">${[1, 2, 3].map((t) => { const p = planFor(plan.year, t); return p ? `<button class="lc-term ${t === plan.term ? "on" : ""}" data-term="${t}"><b>Term ${t}</b><span>${esc(p.title)}</span></button>` : ""; }).join("")}</div>
       <div class="lc-weeks">${plan.weeks.map((x) => { const f = focusParts(x.focus, plan, x.week); return `<button class="lc-week ${x.week === w.week ? "on" : ""}" data-week="${x.week}"><span class="e">${f.emoji}</span><small>Week ${x.week}</small><b>${esc(f.text)}</b></button>`; }).join("")}</div>
@@ -100,6 +127,7 @@
           <button class="lc-act" data-go="run"><span>🏃</span><b>${esc(LC.runThemeFor(plan.id, w.week).name)}</b><small>Platform game with question blocks</small></button>
         </div>
       </div>`;
+    $("[data-sync]", root).onclick = (e) => syncNow(e.currentTarget);
     $$("[data-year]", root).forEach((b) => b.onclick = () => { pick = { year: +b.dataset.year, term: 1, week: 1 }; renderLessons(); });
     $$("[data-term]", root).forEach((b) => b.onclick = () => { pick.term = +b.dataset.term; pick.week = 1; renderLessons(); });
     $$("[data-week]", root).forEach((b) => b.onclick = () => { pick.week = +b.dataset.week; renderLessons(); });

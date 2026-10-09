@@ -14,3 +14,4 @@ export { buildLesson, isRight, FACES } from "@lc/lessons";
 export { gameFor, buildGameHtml, GAMES } from "@lc/game";
 export { runThemeFor, buildPlatformerHtml } from "@lc/platformer";
 export { runLevels } from "@lc/runLevels";
+export const BUILT = { at: process.env.LC_BUILT_AT || "", commit: process.env.LC_COMMIT || "" };

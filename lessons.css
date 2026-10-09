@@ -237,3 +237,6 @@ body.lc-open { overflow: hidden; }
 .lv-rest b { margin-left: 10px; }
 .lc-sync { display: inline-block; font-size: .8rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; margin-bottom: 10px; background: var(--line); color: var(--muted); }
 .lc-sync.ok { background: color-mix(in srgb, var(--good) 14%, var(--surface)); color: color-mix(in srgb, var(--good) 70%, var(--ink)); }
+.lc-syncbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.lc-syncbar .lc-sync { margin: 0; }
+.lc-syncbtn { padding: 6px 14px; font-size: .9rem; }
