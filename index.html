@@ -8,13 +8,15 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=901029" />
+  <link rel="stylesheet" href="style.css?v=549290" />
+  <link rel="stylesheet" href="lessons.css?v=549290" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand"><span class="logo">🏆</span><span>Class Points Hub</span></div>
     <nav class="tabs" id="tabs">
       <button data-tab="board" class="active">🏆 Leaderboard</button>
+      <button data-tab="lessons">📚 Lessons</button>
       <button data-tab="students">⭐ Award</button>
       <button data-tab="activities">🎲 Activities</button>
       <button data-tab="rewards">🎁 Rewards</button>
@@ -50,6 +52,15 @@
           <ul class="feed" id="recentFeed"></ul>
         </div>
       </div>
+    </section>
+
+    <!-- LESSONS (Life Competencies) -->
+    <section class="view" id="view-lessons">
+      <div class="section-head">
+        <h1>Life Competencies Lessons</h1>
+        <p class="muted">Year 1–6 · 234 weeks. Teach with interactive slides, quizzes and games — stars go straight into the group jars.</p>
+      </div>
+      <div id="lessonsRoot"></div>
     </section>
 
     <!-- STUDENTS / AWARD -->
@@ -203,7 +214,8 @@
   <canvas id="confetti"></canvas>
   <dialog id="modal"><div id="modalBody"></div></dialog>
 
-  <script src="assets/jars/shapes.js?v=832779"></script>
-  <script src="app.js?v=901029"></script>
+  <script src="assets/jars/shapes.js?v=549290"></script>
+  <script src="app.js?v=549290"></script>
+  <script src="lessons.js?v=549290"></script>
 </body>
 </html>

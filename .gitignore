@@ -1,2 +1,4 @@
 .vercel
 *.blend1
+lc/node_modules/
+_test*

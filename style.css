@@ -361,3 +361,14 @@ dialog.wide { width: min(640px, calc(100% - 24px)); }
 .jar-edit:hover { opacity: 1; transform: scale(1.1) rotate(-8deg); }
 .proj-jars .jar-edit { display: none; }
 .jar-tools .minus-sign { font-size: 1.05em; line-height: 1; }
+
+/* Jar reactions (lessons / games) */
+.jar.r-cheer { animation: jarCheer 1.1s cubic-bezier(.3,1.6,.5,1); }
+.jar.r-dance { animation: jarDance 1.2s ease-in-out; }
+.jar.r-sad { animation: jarSad 1.2s ease-in-out; }
+.jar.r-wow { animation: jarWow 1.1s cubic-bezier(.3,1.4,.5,1); }
+@keyframes jarCheer { 0%,100% { translate: 0 0; scale: 1; } 25% { translate: 0 -26px; scale: 1.05 .95; } 45% { translate: 0 0; scale: 1.08 .9; } 65% { translate: 0 -12px; scale: .98 1.03; } 82% { translate: 0 0; scale: 1.03 .97; } }
+@keyframes jarDance { 0%,100% { rotate: 0deg; } 15% { rotate: -10deg; } 30% { rotate: 9deg; } 45% { rotate: -8deg; } 60% { rotate: 7deg; } 75% { rotate: -4deg; } }
+@keyframes jarSad { 0%,100% { translate: 0 0; scale: 1; } 40%,70% { translate: 0 6px; scale: 1.04 .94; } }
+@keyframes jarWow { 0% { rotate: 0deg; scale: 1; } 50% { rotate: 180deg; scale: 1.15; } 100% { rotate: 360deg; scale: 1; } }
+@media (prefers-reduced-motion: reduce) { .jar.r-cheer, .jar.r-dance, .jar.r-sad, .jar.r-wow { animation: none; } }

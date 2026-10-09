@@ -194,6 +194,32 @@
     clearTimeout(jar._eyeT);
     jar._eyeT = setTimeout(() => jar.classList.remove(mood), ms);
   }
+  // Whole-jar reactions used by lessons, quizzes and games: "cheer" (jump), "dance" (wiggle), "sad" (droop), "wow" (spin)
+  function jarReact(gid, mood = "cheer") {
+    $$(`.jar-wrap[data-id="${gid}"] .jar`).forEach((jar) => {
+      jar.classList.remove("r-cheer", "r-dance", "r-sad", "r-wow"); void jar.offsetWidth;
+      jar.classList.add("r-" + mood);
+      eyes(jar, mood === "sad" ? "blink" : "happy", mood === "sad" ? 900 : 1100);
+      setTimeout(() => jar.classList.remove("r-" + mood), 1300);
+    });
+  }
+  // Small API so lesson/game screens can talk to the jars
+  window.ClassPoints = {
+    groups: () => state.groups.map((g) => ({ id: g.id, name: g.name, emoji: g.emoji, color: g.color, total: groupTotal(g) })),
+    students: () => state.students.map((s) => ({ id: s.id, name: s.name, year: s.year, cls: s.cls, groupId: s.groupId })),
+    addStars: (gid, n, reason) => { awardGroup(gid, n, reason); jarReact(gid, n > 0 ? "cheer" : "sad"); },
+    awardStudents: (ids, n, reason) => award(ids, n, reason),
+    react: jarReact,
+    // Mount a live set of star jars in another screen (lessons, games); kept in sync on every render
+    mountJars: (el) => { extraJars.add(el); renderJars(el, false); },
+    unmountJars: (el) => extraJars.delete(el),
+    confetti: (...a) => confetti(...a),
+    toast: (m) => toast(m),
+    beep: (t) => beep(t),
+    modal: (html, ready) => modal(html, ready),
+    esc,
+  };
+
   setInterval(() => {
     const now = Date.now();
     $$(".jar").forEach((jar) => {
@@ -408,9 +434,11 @@
   }
 
   /* ---------- Rendering ---------- */
+  const extraJars = new Set();
   function render() {
     renderBoard(); renderStudents(); renderRewards(); renderHistory(); renderSettings();
     if (!$("#projector").hidden) renderProjector();
+    extraJars.forEach((el) => (el.isConnected ? renderJars(el, true) : extraJars.delete(el)));
   }
 
   function sortedGroups() {
