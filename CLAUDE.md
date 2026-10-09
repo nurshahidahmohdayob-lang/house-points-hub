@@ -33,3 +33,8 @@ Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) a
   `buildWeekSlides` order + interactive widgets), mind map, Team Quiz, Puzzle games (buildLesson question kinds),
   and the LC board game / Block Run in an iframe. Stars go to the jars via `window.ClassPoints` (defined in app.js).
 - Test harness: `_test.html` + `_test.js` (git-ignored) drive the UI headlessly.
+- 📱 Live play: `live.js` (RPC client + teacher board) and `play.html` (student devices) use the Life Competencies
+  app's Supabase Live Class RPCs (live_open/control/join/submit/state, polled ~0.9s). `live-config.js` holds the
+  public anon URL/key (same as the LC app's browser bundle) — never put a service-role key here. Opening a game
+  needs the school's teacher key (typed by the teacher, kept only in sessionStorage). Right answers give the
+  matching Class Points student +1 (matched by name), so their group jar fills too.

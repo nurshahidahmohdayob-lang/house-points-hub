@@ -69,6 +69,7 @@
         <div class="lc-actions">
           <button class="lc-act" data-go="teach"><span>▶️</span><b>Teach the lesson</b><small>Interactive slides with games, timers & polls</small></button>
           <button class="lc-act" data-go="mind"><span>🧠</span><b>Mind map</b><small>Tap the bubbles to explore</small></button>
+          <button class="lc-act live" data-go="live"><span>📱</span><b>Live play</b><small>Students answer on their own devices</small></button>
           <button class="lc-act" data-go="quiz"><span>⚔️</span><b>Team Quiz</b><small>Groups answer, stars drop in the jars</small></button>
           <button class="lc-act" data-go="games"><span>🧩</span><b>Puzzle games</b><small>Match, order, sort & true/false</small></button>
           <button class="lc-act" data-go="board"><span>🎲</span><b>${esc(LC.gameFor(plan.id, w.week).name)}</b><small>The week's board game</small></button>
@@ -410,6 +411,12 @@
   function open(go, plan, w) {
     if (go === "teach") teach(plan, w);
     else if (go === "mind") mindMap(plan, w);
+    else if (go === "live") {
+      const quiz = LC.quizTen(plan.id, w.week);
+      const questions = quiz.map((it) => ({ q: it.q, options: LC.optionsForItem(plan.id, it, quiz), answer: it.a }));
+      const title = focusParts(w.focus, plan, w.week).text;
+      window.LiveBoard.board(stage(`📱 Live play · ${esc(title)}`), plan, w, title, questions);
+    }
     else if (go === "quiz") teamQuiz(plan, w);
     else if (go === "games") puzzles(plan, w);
     else if (go === "board") { const g = LC.gameFor(plan.id, w.week); frameGame(plan, w, LC.buildGameHtml(g, gameInput(plan, w)), `🎲 ${esc(g.name)}`); }
