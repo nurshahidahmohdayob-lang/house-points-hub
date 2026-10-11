@@ -9,13 +9,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css?v=549536" />
-  <link rel="stylesheet" href="lessons.css?v=553269" />
+  <link rel="stylesheet" href="lessons.css?v=691376" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand"><span class="logo">🏆</span><span>Class Points Hub</span></div>
     <nav class="tabs" id="tabs">
-      <button data-tab="board" class="active">🏆 Leaderboard</button>
+      <button data-tab="home" class="active">🏠 Home</button>
+      <button data-tab="board">🏆 Leaderboard</button>
       <button data-tab="lessons">📚 Lessons</button>
       <button data-tab="students">⭐ Award</button>
       <button data-tab="activities">🎲 Activities</button>
@@ -28,7 +29,15 @@
 
   <main id="app">
     <!-- HOUSES LEADERBOARD -->
-    <section class="view active" id="view-board">
+    <section class="view active" id="view-home">
+      <div class="section-head home-head">
+        <h1>Life Competencies</h1>
+        <p class="muted">Choose a year group to see its lessons, activities and details.</p>
+      </div>
+      <div id="homeRoot"></div>
+    </section>
+
+    <section class="view" id="view-board">
       <div class="section-head">
         <h1>Leaderboard</h1>
         <p class="muted">Every student earns their own points. Groups add up their members' points.</p>
@@ -215,10 +224,10 @@
   <dialog id="modal"><div id="modalBody"></div></dialog>
 
   <script src="assets/jars/shapes.js?v=549536"></script>
-  <script src="app.js?v=549536"></script>
+  <script src="app.js?v=691376"></script>
   <script src="live-config.js?v=549536"></script>
   <script src="live.js?v=549536"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
-  <script src="lessons.js?v=691124"></script>
+  <script src="lessons.js?v=691376"></script>
 </body>
 </html>

@@ -980,5 +980,5 @@
   setInterval(() => { if ($("#view-board").classList.contains("active")) renderBoard(); }, 60000);
 
   render();
-  try { const t = localStorage.getItem(KEY + "-tab"); if (t) $(`#tabs [data-tab="${t}"]`)?.click(); } catch (e) {}
+  // The app always opens on 🏠 Home (the Year 1–6 buttons)
 })();

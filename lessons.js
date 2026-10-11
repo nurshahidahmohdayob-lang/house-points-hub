@@ -91,6 +91,81 @@
     return { emoji, text: focus };
   };
 
+  /* ---------------- Home: one button per year group ---------------- */
+  const YEAR_LOOK = {
+    1: { emoji: "🌱", from: "#22c55e", to: "#14b8a6" }, 2: { emoji: "🌈", from: "#f97316", to: "#ec4899" },
+    3: { emoji: "🚀", from: "#6366f1", to: "#a855f7" }, 4: { emoji: "🌍", from: "#0ea5e9", to: "#22c55e" },
+    5: { emoji: "💡", from: "#eab308", to: "#f97316" }, 6: { emoji: "🎓", from: "#d946ef", to: "#6366f1" },
+  };
+  const theme = (y) => { try { return LC.yearTheme(y) || {}; } catch { return {}; } };
+  async function renderHome() {
+    const root = $("#homeRoot"); if (!root) return;
+    if (!LC) {
+      root.innerHTML = `<div class="home-years">${[1, 2, 3, 4, 5, 6].map((y) => `<button class="home-year" style="--a:${YEAR_LOOK[y].from};--b:${YEAR_LOOK[y].to}" data-y="${y}"><span class="e">${YEAR_LOOK[y].emoji}</span><b>Year ${y}</b></button>`).join("")}</div>`;
+      wireHome(root);
+      try { await loadData(); } catch { return; }
+    }
+    root.innerHTML = `<div class="home-years">${[1, 2, 3, 4, 5, 6].map((y) => {
+      const t = theme(y), L = YEAR_LOOK[y];
+      const topics = [1, 2, 3].map((n) => planFor(y, n)).filter(Boolean);
+      return `<button class="home-year" style="--a:${L.from};--b:${L.to};animation-delay:${(y - 1) * 0.06}s" data-y="${y}">
+        <span class="e">${L.emoji}</span><b>Year ${y}</b>${t.theme ? `<span class="t">${esc(t.theme)}</span>` : ""}
+        <small>${topics.map((p) => esc(p.title)).join(" · ")}</small></button>`;
+    }).join("")}</div>`;
+    wireHome(root);
+  }
+  function wireHome(root) {
+    $$("[data-y]", root).forEach((b) => b.onclick = () => {
+      const y = +b.dataset.y;
+      if (pick.year !== y) pick = { year: y, term: 1, week: 1 };
+      savePick();
+      document.querySelector('[data-tab="lessons"]').click();
+    });
+  }
+  function yearHeader(y) {
+    const t = theme(y), L = YEAR_LOOK[y];
+    return `<div class="year-head" style="--a:${L.from};--b:${L.to}">
+      <button class="btn ghost" data-home>‹ All years</button>
+      <span class="e">${L.emoji}</span><div><h2>Year ${y}</h2>${t.theme ? `<p>${esc(t.theme)}</p>` : ""}</div></div>`;
+  }
+  const list = (arr, cls = "") => (arr && arr.length ? `<ul class="lc-dl ${cls}">${arr.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "");
+  const chips = (arr, icon, cls = "") => (arr && arr.length ? `<div class="lc-badges">${arr.map((x) => `<span class="lc-badge ${cls}">${icon} ${esc(x)}</span>`).join("")}</div>` : "");
+  function termDetails(plan) {
+    const tt = (theme(plan.year).terms || []).find((x) => x.term === plan.term) || {};
+    return `<details class="card lc-details" open>
+      <summary>📋 About Term ${plan.term}: <b>${esc(plan.title)}</b></summary>
+      <div class="lc-details-grid">
+        <div>${tt.focus ? `<p class="lc-s-lead small">${esc(tt.focus)}</p>` : ""}
+          <h4>🧠 Competencies</h4>${chips(plan.competencies, "🧠")}
+          <h4>💎 Values</h4>${chips(plan.values, "💎", "v")}
+          ${tt.cambridgeKeyThemes?.length ? `<h4>🌐 Key themes</h4>${chips(tt.cambridgeKeyThemes, "🌐")}` : ""}
+          ${plan.project || tt.project ? `<h4>🛠️ Project</h4><p>${esc(typeof plan.project === "string" ? plan.project : tt.project || "")}</p>` : ""}
+        </div>
+        <div>${plan.essentialQuestions?.length ? `<h4>❓ Big questions</h4>${list(plan.essentialQuestions)}` : ""}
+          <h4>🎯 Objectives</h4>${list(plan.objectives)}
+          <h4>✅ Success criteria</h4>${list(plan.successCriteria)}
+        </div>
+        <div>${plan.keySkills?.length ? `<h4>🔑 Key skills</h4>${chips(plan.keySkills, "•")}` : ""}
+          ${plan.materials?.length ? `<h4>🧰 Materials</h4>${list(plan.materials)}` : ""}
+          ${plan.assessment ? `<h4>📝 Assessment</h4><p>${esc(plan.assessment)}</p>` : ""}
+          ${plan.duration ? `<p class="muted">⏱️ ${esc(plan.duration)} per lesson</p>` : ""}
+        </div>
+      </div></details>`;
+  }
+  function weekDetails(plan, w) {
+    let acts = []; try { acts = LC.expandActivity(w.activities || "") || []; } catch { /* free text only */ }
+    const doNow = w.doNow || (LC.doNowFor && LC.doNowFor(plan.id, w.week)) || "";
+    return `<div class="lc-weekinfo">
+      <h3>🧑‍🤝‍🧑 This week's activities</h3>
+      ${doNow ? `<p class="lc-donow"><b>⏱️ Do now:</b> ${esc(doNow)}</p>` : ""}
+      <div class="lc-actcards">${acts.length ? acts.map((a) => `<details class="lc-actcard"><summary><b>${esc(a.guide?.title || a.label)}</b>${a.guide?.minutes ? `<span class="muted"> · ${a.guide.minutes} min</span>` : ""}</summary>
+        ${a.guide?.what ? `<p>${esc(a.guide.what)}</p>` : ""}${a.guide?.steps?.length ? `<ol>${a.guide.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>` : ""}
+        ${a.guide?.needs ? `<p class="muted">🧰 ${esc(Array.isArray(a.guide.needs) ? a.guide.needs.join(", ") : a.guide.needs)}</p>` : ""}</details>`).join("") : `<p>${esc(w.activities || "")}</p>`}</div>
+      ${w.assessment ? `<p class="lc-donow"><b>📝 Check for learning:</b> ${esc(w.assessment)}</p>` : ""}
+      ${w.resources ? `<p class="muted">📎 ${esc(w.resources)}</p>` : ""}
+    </div>`;
+  }
+
   /* ---------------- Picker ---------------- */
   async function renderLessons() {
     const root = $("#lessonsRoot");
@@ -103,9 +178,11 @@
     const w = weekOf(plan, pick.week); pick.week = w.week; savePick();
     const fp = focusParts(w.focus, plan, w.week);
     root.innerHTML = `
+      ${yearHeader(plan.year)}
       ${syncBar()}
-      <div class="lc-years">${[1, 2, 3, 4, 5, 6].map((y) => `<button class="lc-chip ${y === plan.year ? "on" : ""}" data-year="${y}">Year ${y}</button>`).join("")}</div>
       <div class="lc-terms">${[1, 2, 3].map((t) => { const p = planFor(plan.year, t); return p ? `<button class="lc-term ${t === plan.term ? "on" : ""}" data-term="${t}"><b>Term ${t}</b><span>${esc(p.title)}</span></button>` : ""; }).join("")}</div>
+      ${termDetails(plan)}
+      <h3 class="lc-sub">🗓️ ${plan.weeks.length} weekly lessons · tap a week</h3>
       <div class="lc-weeks">${plan.weeks.map((x) => { const f = focusParts(x.focus, plan, x.week); return `<button class="lc-week ${x.week === w.week ? "on" : ""}" data-week="${x.week}"><span class="e">${f.emoji}</span><small>Week ${x.week}</small><b>${esc(f.text)}</b></button>`; }).join("")}</div>
       <div class="card lc-home">
         <div class="lc-home-head">
@@ -126,9 +203,10 @@
           <button class="lc-act" data-go="board"><span>🎲</span><b>${esc(LC.gameFor(plan.id, w.week).name)}</b><small>The week's board game</small></button>
           <button class="lc-act" data-go="run"><span>🏃</span><b>${esc(LC.runThemeFor(plan.id, w.week).name)}</b><small>Platform game with question blocks</small></button>
         </div>
+        ${weekDetails(plan, w)}
       </div>`;
     $("[data-sync]", root).onclick = (e) => syncNow(e.currentTarget);
-    $$("[data-year]", root).forEach((b) => b.onclick = () => { pick = { year: +b.dataset.year, term: 1, week: 1 }; renderLessons(); });
+    $("[data-home]", root).onclick = () => document.querySelector('[data-tab="home"]').click();
     $$("[data-term]", root).forEach((b) => b.onclick = () => { pick.term = +b.dataset.term; pick.week = 1; renderLessons(); });
     $$("[data-week]", root).forEach((b) => b.onclick = () => { pick.week = +b.dataset.week; renderLessons(); });
     $$("[data-go]", root).forEach((b) => b.onclick = () => open(b.dataset.go, plan, w));
@@ -475,8 +553,12 @@
     else if (go === "run") { const t = LC.runThemeFor(plan.id, w.week); frameGame(plan, w, LC.buildPlatformerHtml(gameInput(plan, w), t, LC.runLevels(plan.id, w.week, w.focus)), `🏃 ${esc(t.name)}`); }
   }
 
-  // Load + draw when the Lessons tab is opened
-  document.addEventListener("click", (e) => { if (e.target.closest('[data-tab="lessons"]')) renderLessons(); });
+  // Load + draw when the Lessons / Home tabs are opened
+  document.addEventListener("click", (e) => {
+    if (e.target.closest('[data-tab="lessons"]')) renderLessons();
+    if (e.target.closest('[data-tab="home"]')) renderHome();
+  });
+  if ($("#view-home")?.classList.contains("active")) renderHome();
   if ($("#view-lessons")?.classList.contains("active")) renderLessons();
   window.Lessons = { render: renderLessons };
 })();
