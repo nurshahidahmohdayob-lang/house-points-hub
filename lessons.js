@@ -462,7 +462,7 @@
     if (deep.words?.length) S.push({ kicker: "Words we need", tone: "fresh", html: `<h2>📖 Words we need</h2><p class="muted">Tap a card to flip it.</p>
       <div class="lc-flips">${deep.words.map((x) => `<button class="lc-flip"><span class="f">${esc(x.word)}</span><span class="b">${esc(x.meaning)}</span></button>`).join("")}</div>
       ${deep.words.length > 1 ? `<div data-w="match-words"></div>` : ""}`, words: deep.words });
-    (vis.cards || []).forEach((c, i) => S.push({ kicker: `Idea ${i + 1}`, tone: ["warm", "cool", "fresh"][i % 3], html: `<div class="lc-s-center"><div class="lc-s-emoji lc-bounce">${c.emoji}</div><h2>${esc(c.title)}</h2>${c.line ? `<p class="lc-s-lead">${esc(c.line)}</p>` : ""}
+    (vis.cards || []).forEach((c, i) => S.push({ kicker: `Idea ${i + 1}`, tone: ["warm", "cool", "fresh"][i % 3], html: `<div class="lc-s-center"><div class="lc-s-emoji lc-bounce">${c.emoji}</div><h2>${esc(c.title)}</h2>${c.line ? `<p class="lc-s-lead"><span class="lc-ex">💡 Example</span> ${esc(c.line)}</p>` : ""}
       ${(c.pictures || []).length ? `<div class="lc-pics">${c.pictures.map((p) => `<div class="lc-pic"><span>${p.emoji}</span><small>${esc(p.label)}</small></div>`).join("")}</div>` : ""}
       ${c.question ? `<div class="lc-think"><b>💭 ${esc(c.question)}</b><div data-w="timer" data-sec="30" class="mini"></div></div>` : ""}</div>` }));
     const examples = [...(note.examples || [])];
@@ -550,7 +550,7 @@
     B.push({ emoji: vis.emoji || fp.emoji, title: "The big idea", leaves: [{ emoji: "💡", text: vis.definition || note.idea }, ...(deep.why ? [{ kind: "reveal", emoji: "🤔", label: "Why does it matter?", text: deep.why }] : [])], q: null });
     if (deep.words?.length) B.push({ emoji: "📖", title: "Words we need", leaves: deep.words.slice(0, 5).map((x) => ({ kind: "word", word: x.word, text: x.meaning })),
       q: deep.words.length > 1 ? { kind: "puzzle", puzzle: { kind: "match", q: "Match each word to what it means.", pairs: deep.words.map((x) => [x.word, x.meaning]) }, q: "Match the words", label: "Word match" } : null });
-    (vis.cards || []).slice(0, 4).forEach((c) => B.push({ emoji: c.emoji, title: c.title, leaves: [...(c.line ? [{ emoji: "💬", text: c.line }] : []), ...((c.pictures || []).length ? [{ kind: "pics", pics: c.pictures }] : [])],
+    (vis.cards || []).slice(0, 4).forEach((c) => B.push({ emoji: c.emoji, title: c.title, leaves: [...(c.line ? [{ emoji: "💡", text: c.line, tag: "Example" }] : []), ...((c.pictures || []).length ? [{ kind: "pics", pics: c.pictures }] : [])],
       q: c.question ? cardQ(c.question) : null }));
     if (note.examples?.length || note.watchOut) B.push({ emoji: "👀", title: "What it looks like", leaves: [...(note.examples || []).slice(0, 3).map((e) => ({ kind: "reveal", emoji: "💡", label: "Tap to see an example", text: e })), ...(note.watchOut ? [{ emoji: "⚠️", text: `Watch out: ${note.watchOut}` }] : [])], q: null });
     if (deep.steps?.length) B.push({ emoji: "🪜", title: "How to do it", leaves: deep.steps.slice(0, 5).map((s, k) => ({ emoji: `${k + 1}️⃣`, text: s })),
@@ -576,7 +576,7 @@
       if (k === "word") return `<button class="mm-leaf word" ${at}><b>${esc(l.word)}</b><span class="mm-back">${esc(l.text)}</span><small>tap to flip</small></button>`;
       if (k === "reveal") return `<button class="mm-leaf reveal" ${at}><span class="mm-e">${l.emoji}</span><span class="mm-t"><b class="mm-front">${esc(l.label)}</b><span class="mm-back">${esc(l.text)}</span></span></button>`;
       if (k === "pics") return `<div class="mm-leaf pics" ${at}>${l.pics.map((p) => `<span class="mm-pic"><i>${p.emoji}</i><small>${esc(p.label)}</small></span>`).join("")}</div>`;
-      return `<button class="mm-leaf ${k}" ${at}><span class="mm-e">${l.emoji}</span><span class="mm-t">${esc(l.text)}</span>${k === "activity" || k === "talk" || k === "poll" ? `<i class="mm-go">›</i>` : ""}</button>`;
+      return `<button class="mm-leaf ${k}" ${at}><span class="mm-e">${l.emoji}</span><span class="mm-t">${l.tag ? `<small class="mm-tag">${esc(l.tag)}</small>` : ""}${esc(l.text)}</span>${k === "activity" || k === "talk" || k === "poll" ? `<i class="mm-go">›</i>` : ""}</button>`;
     };
     body.innerHTML = `<div class="mm-view"><div class="mm-world"><svg class="mm-lines"></svg>
         <div class="mm-centre"><span class="mm-e">${centre.emoji}</span><b>${esc(centre.text)}</b><small>Year ${plan.year} · ${esc(calOf(plan, w.week).label)}</small></div>
