@@ -467,7 +467,7 @@
       const quiz = LC.quizTen(plan.id, w.week);
       const questions = quiz.map((it) => ({ q: it.q, options: LC.optionsForItem(plan.id, it, quiz), answer: it.a }));
       const title = focusParts(w.focus, plan, w.week).text;
-      window.LiveBoard.board(stage(`📱 Live play · ${esc(title)}`), plan, w, title, questions);
+      window.LiveBoard.board(stage(`📱 Live play · ${esc(title)}`, { jars: false }), plan, w, title, questions); // no jar bar: right answers fill the jars on their own
     }
     else if (go === "quiz") teamQuiz(plan, w);
     else if (go === "games") puzzles(plan, w);
