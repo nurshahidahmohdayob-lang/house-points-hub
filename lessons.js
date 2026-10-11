@@ -144,7 +144,7 @@
   async function renderHome() {
     const root = $("#homeRoot"); if (!root) return;
     if (!LC) {
-      root.innerHTML = `<div class="home-years">${[1, 2, 3, 4, 5, 6].map((y) => `<button class="home-year" style="--a:${YEAR_LOOK[y].from};--b:${YEAR_LOOK[y].to}" data-y="${y}"><span class="e">${YEAR_LOOK[y].emoji}</span><b>Year ${y}</b></button>`).join("")}</div>${studentCard()}`;
+      root.innerHTML = `<div class="home-years">${[1, 2, 3, 4, 5, 6].map((y) => `<button class="home-year" style="--a:${YEAR_LOOK[y].from};--b:${YEAR_LOOK[y].to}" data-y="${y}"><span class="e">${YEAR_LOOK[y].emoji}</span><b>Year ${y}</b></button>`).join("")}</div>`;
       wireHome(root);
       try { await loadData(); } catch { return; }
     }
@@ -154,11 +154,9 @@
       return `<button class="home-year" style="--a:${L.from};--b:${L.to};animation-delay:${(y - 1) * 0.06}s" data-y="${y}">
         <span class="e">${L.emoji}</span><b>Year ${y}</b>${t.theme ? `<span class="t">${esc(t.theme)}</span>` : ""}
         <small>${topics.map((p) => esc(p.title)).join(" · ")}</small></button>`;
-    }).join("")}</div>${studentCard()}`;
+    }).join("")}</div>`;
     wireHome(root);
   }
-  // Students' way in: choose your year group, join the live game (play.html)
-  const studentCard = () => `<a class="home-student" href="play.html" target="_blank" rel="noopener"><span class="e">🎮</span><b>I'm a student</b><small>Choose your year group and play the live game!</small><span class="go">Play ▶</span></a>`;
   function wireHome(root) {
     $$("[data-y]", root).forEach((b) => b.onclick = () => {
       const y = +b.dataset.y;
@@ -249,7 +247,8 @@
         <div class="lc-actions">
           <button class="lc-act" data-go="teach"><span>▶️</span><b>Teach the lesson</b><small>Interactive mind map that grows as you teach, with questions inside</small></button>
           <button class="lc-act" data-go="slides"><span>📑</span><b>Slides</b><small>The classic slide deck with games, timers & polls</small></button>
-          <button class="lc-act live" data-go="live"><span>📱</span><b>Live play</b><small>Students answer on their own devices</small></button>
+          <div class="lc-act student"><a class="lc-student-go" href="play.html" target="_blank" rel="noopener"><span>🎮</span><b>I'm a student</b><small>Choose your year group and play the live game!</small><i class="go">Play ▶</i></a>
+            <button class="lc-teacher-go" data-go="live" title="Opens the game on your board — students then join with Play">🧑‍🏫 Start the live game</button></div>
           <button class="lc-act" data-go="quiz"><span>⚔️</span><b>Team Quiz</b><small>Groups answer, stars drop in the jars</small></button>
           <button class="lc-act" data-go="games"><span>🧩</span><b>Puzzle games</b><small>Match, order, sort & true/false</small></button>
           <button class="lc-act" data-go="board"><span>🎲</span><b>${esc(LC.gameFor(plan.id, w.week).name)}</b><small>The week's board game</small></button>
