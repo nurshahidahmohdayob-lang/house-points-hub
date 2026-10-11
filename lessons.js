@@ -177,7 +177,7 @@
   const list = (arr, cls = "") => (arr && arr.length ? `<ul class="lc-dl ${cls}">${arr.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "");
   const chips = (arr, icon, cls = "") => (arr && arr.length ? `<div class="lc-badges">${arr.map((x) => `<span class="lc-badge ${cls}">${icon} ${esc(x)}</span>`).join("")}</div>` : "");
   // About the term: colourful category buttons; tap one and only its information shows (tap again to hide)
-  let aboutCat = null;
+  let aboutCat = null, weeksOpen = false;
   function termDetails(plan) {
     const tt = (theme(plan.year).terms || []).find((x) => x.term === plan.term) || {}, L = YEAR_LOOK[plan.year] || {};
     const project = typeof plan.project === "string" ? plan.project : tt.project || "";
@@ -242,13 +242,14 @@
       ${syncBar()}
       <div class="lc-terms">${[1, 2, 3].map((t) => { const p = planFor(plan.year, t); return p ? `<button class="lc-term ${t === plan.term ? "on" : ""}" data-term="${t}"><b>Term ${t}</b><span>${esc(p.title)}</span></button>` : ""; }).join("")}</div>
       ${termDetails(plan)}
-      <h3 class="lc-sub">🗓️ ${plan.weeks.length} weekly lessons · tap a week</h3>
+      <div class="lc-weekbox ${weeksOpen ? "open" : ""}">
+      <button class="lc-weektoggle" data-weeks aria-expanded="${weeksOpen}"><span class="e">🗓️</span><span class="t"><b>${plan.weeks.length} weekly lessons</b><small>Now: ${esc(cal.label)} · ${esc(fp.text)}</small></span><i>${weeksOpen ? "Hide ▲" : "Choose a week ▼"}</i></button>
       <div class="lc-weeks">${schedule(plan).map((r) => {
         if (!r.weeks.length) return `<div class="lc-week off"><span class="e">${/break/i.test(r.note) ? "🏖️" : "🚫"}</span><small>${esc(r.cal || "Break")}</small><b>${esc(r.note || "No class")}</b></div>`;
         const parts = r.weeks.map((n) => focusParts(weekOf(plan, n).focus, plan, n));
         const next = nextUp?.planId === plan.id && r.weeks.includes(nextUp.week);
         return `<button class="lc-week ${r.weeks.includes(w.week) ? "on" : ""} ${next ? "next" : ""}" data-week="${r.weeks.includes(w.week) ? w.week : r.weeks[0]}"><span class="e">${parts[0].emoji}</span><small>${esc(r.cal)}${r.date ? ` · ${esc(r.date.replace(/^\w+ /, "").replace(/\.\d{4}$/, ""))}` : ""}</small><b>${parts.map((x) => esc(x.text)).join(" + ")}</b>${next ? `<i class="lc-next">📍 Next lesson</i>` : ""}</button>`;
-      }).join("")}</div>
+      }).join("")}</div></div>
       <div class="card lc-home">
         <div class="lc-home-head">
           <div class="lc-big-emoji">${fp.emoji}</div>
@@ -276,9 +277,10 @@
     $("[data-sync]", root).onclick = (e) => syncNow(e.currentTarget);
     $("[data-home]", root).onclick = () => document.querySelector('[data-tab="home"]').click();
     $$("[data-term]", root).forEach((b) => b.onclick = () => { pick.term = +b.dataset.term; pick.week = 1; renderLessons(); });
-    $$("[data-week]", root).forEach((b) => b.onclick = () => { pick.week = +b.dataset.week; renderLessons(); });
+    $$("[data-week]", root).forEach((b) => b.onclick = () => { pick.week = +b.dataset.week; weeksOpen = false; renderLessons(); });
+    $("[data-weeks]", root).onclick = () => { weeksOpen = !weeksOpen; renderLessons(); }; // the week strip stays hidden until the button is tapped
     $$("[data-go]", root).forEach((b) => b.onclick = () => open(b.dataset.go, plan, w));
-    $(".lc-week.on", root)?.scrollIntoView({ block: "nearest", inline: "center" });
+    if (weeksOpen) { const on = $(".lc-week.on", root), strip = $(".lc-weeks", root); if (on) strip.scrollLeft = on.offsetLeft - strip.offsetLeft - (strip.clientWidth - on.offsetWidth) / 2; }
   }
 
   /* ---------------- Full-screen stage with live jars ---------------- */

@@ -526,3 +526,19 @@ body.on-home main { padding-top: 36px; }
 .ab-text { font-size: 1.15rem; line-height: 1.55; background: var(--surface); border-radius: 14px; padding: 14px 16px; border-left: 6px solid var(--a); box-shadow: var(--shadow); }
 @media (prefers-color-scheme: dark) { .ab-show h4 { color: var(--b); } }
 @media (prefers-reduced-motion: reduce) { .ab-hint, .ab-show, .ab-card, .ab-pill { animation: none; } }
+
+/* ---- Weekly lessons: hidden behind one button ---- */
+.lc-weekbox { margin: 6px 0 14px; }
+.lc-weektoggle { width: 100%; display: flex; align-items: center; gap: 14px; border: 0; cursor: pointer; font: inherit; text-align: left; color: #fff;
+  padding: 14px 20px; border-radius: 20px; background: linear-gradient(120deg, #6b4dff, #ff6fb5 60%, #ffb020);
+  box-shadow: 0 5px 0 #4a2fd6, 0 10px 22px rgba(107, 77, 255, .3); transition: transform .15s, box-shadow .15s; }
+.lc-weektoggle:hover { transform: translateY(-2px); }
+.lc-weektoggle:active, .lc-weekbox.open .lc-weektoggle { transform: translateY(3px); box-shadow: 0 2px 0 #4a2fd6, 0 6px 14px rgba(107, 77, 255, .25); }
+.lc-weektoggle:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.lc-weektoggle .e { font-size: 2.2rem; }
+.lc-weektoggle .t { flex: 1; display: grid; min-width: 0; }
+.lc-weektoggle b { font-size: 1.3rem; text-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.lc-weektoggle small { opacity: .95; font-weight: 700; }
+.lc-weektoggle i { font-style: normal; font-weight: 900; background: rgba(255,255,255,.28); border-radius: 999px; padding: 8px 16px; white-space: nowrap; }
+.lc-weekbox:not(.open) .lc-weeks { display: none; }
+.lc-weekbox.open .lc-weeks { animation: ab-in .3s ease-out; }
