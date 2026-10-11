@@ -450,3 +450,12 @@ body.on-home main { padding-top: 36px; }
 .as-judge { display: flex; gap: 6px; margin-top: 4px; }
 .as-judge .btn { padding: 4px 10px; font-size: .85rem; }
 .am-auto { display: flex; gap: 8px; align-items: center; font-size: .85rem; color: var(--muted); margin-top: 6px; cursor: pointer; }
+/* Week strip follows the Life Competencies term calendar */
+.lc-week { position: relative; }
+.lc-week.off { cursor: default; opacity: .6; border-style: dashed; background: transparent; }
+.lc-week.off:hover { transform: none; }
+.lc-week.next { border-color: #f59e0b; }
+.lc-next { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-style: normal; font-size: .7rem; font-weight: 800; background: #f59e0b; color: #fff; border-radius: 999px; padding: 2px 8px; }
+.lc-weeks { padding-top: 14px; }
+.lc-also { margin: 2px 0 6px; font-weight: 700; font-size: .85rem; color: var(--muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.lc-also .lc-chip { padding: 4px 12px; font-size: .85rem; }

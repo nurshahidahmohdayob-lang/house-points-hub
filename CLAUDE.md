@@ -57,3 +57,6 @@ Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) a
   lesson_submissions_for polled every 2.5s by the board). The activity travels in the link hash
   (`do.html#<token>~<gzip base64url>`, data: images replaced by `{kind:"skip"}` so item indices match the board).
   Live game (live.js) also accepts typed questions (`kind:"type"`, word wall) and unkeyed ones (polls).
+- Weeks follow the LC app's term calendar: `LC.termSchedule(planId)` (class-points-entry.ts / lc/entry.ts, mirrors
+  lessonUnits + fitToTerm in the LC app's page.tsx) gives calendar week → lesson week(s) + class date. A class that
+  falls on a holiday shifts every later lesson (e.g. Year 2 calendar Week 7 = lesson 6). Pick the next lesson on Home.

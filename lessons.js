@@ -22,7 +22,7 @@
   // it downloads the lessons that app publishes on every deploy and keeps them on this device (Cache Storage),
   // so later visits use the synced lessons without downloading again.
   const LIVE_DATA = window.LC_SYNC_URL || "https://zera-life-competencies.vercel.app/class-points/lc-data.js";
-  const LOCAL_DATA = "assets/lc-data.js?v=553269";
+  const LOCAL_DATA = "assets/lc-data.js?v=c6eb58";
   const SYNC_CACHE = "class-points-lessons", SYNC_KEY = "/synced-lc-data.js";
   const NEEDS = ["LESSON_PLANS", "noteFor", "deepFor", "visualFor", "quizTen", "optionsForItem", "buildLesson", "expandActivity", "gameFor", "buildGameHtml", "runThemeFor", "buildPlatformerHtml", "runLevels"];
   const usable = (x) => x && NEEDS.every((k) => k in x) && Array.isArray(x.LESSON_PLANS) && x.LESSON_PLANS.length > 0;
@@ -83,6 +83,37 @@
 
   const planFor = (year, term) => LC.LESSON_PLANS.find((p) => p.year === year && p.term === term);
   const weekOf = (plan, week) => plan.weeks.find((w) => w.week === week) || plan.weeks[0];
+  // The term as the Life Competencies app schedules it: calendar weeks, the class's real date, holidays that
+  // move a lesson to the next time the class meets, and weeks taught together. Older synced data has no
+  // schedule, so it falls back to one lesson per calendar week.
+  const schedules = new Map();
+  function schedule(plan) {
+    const k = plan.id + "@" + (LC.BUILT?.at || "");
+    if (!schedules.has(k)) {
+      let rows = null;
+      try { rows = LC.termSchedule ? LC.termSchedule(plan.id) : null; } catch { rows = null; }
+      if (rows) rows = rows.filter((r) => r.weeks.length || r.note); // undated terms: no empty weeks at the end
+      if (!rows || !rows.some((r) => r.weeks.length)) rows = plan.weeks.map((w) => ({ cal: `Week ${w.week}`, date: "", time: "", note: "", weeks: [w.week] }));
+      schedules.set(k, rows);
+    }
+    return schedules.get(k);
+  }
+  // The calendar week (and date) a lesson week is taught in, e.g. lesson 6 → "Week 7", "Wed 7.10.2026"
+  function calOf(plan, week) {
+    const r = schedule(plan).find((x) => x.weeks.includes(week));
+    return { label: r?.cal || `Week ${week}`, date: r?.date || "", time: r?.time || "", with: (r?.weeks || [week]).filter((n) => n !== week) };
+  }
+  const dayOf = (label) => { const m = /(\d{1,2})\.(\d{1,2})\.(\d{4})/.exec(label || ""); return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null; };
+  // The class's next lesson (today counts), across the year's three terms
+  function nextLesson(year) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    for (const term of [1, 2, 3]) {
+      const plan = planFor(year, term); if (!plan) continue;
+      const r = schedule(plan).find((x) => x.weeks.length && dayOf(x.date) && dayOf(x.date) >= today);
+      if (r) return { term, week: r.weeks[0], planId: plan.id };
+    }
+    return null;
+  }
   // A week's focus may start with its emoji; if not, borrow the emoji from the week's teaching visual
   const focusParts = (focus, plan, week) => {
     const m = String(focus).match(/^(\p{Extended_Pictographic}️?)\s*(.*)$/u);
@@ -118,7 +149,8 @@
   function wireHome(root) {
     $$("[data-y]", root).forEach((b) => b.onclick = () => {
       const y = +b.dataset.y;
-      if (pick.year !== y) pick = { year: y, term: 1, week: 1 };
+      const next = LC ? nextLesson(y) : null;
+      pick = next ? { year: y, term: next.term, week: next.week } : pick.year !== y ? { year: y, term: 1, week: 1 } : pick;
       savePick();
       document.querySelector('[data-tab="lessons"]').click();
     });
@@ -177,19 +209,25 @@
     const plan = planFor(pick.year, pick.term) || LC.LESSON_PLANS[0];
     pick.year = plan.year; pick.term = plan.term;
     const w = weekOf(plan, pick.week); pick.week = w.week; savePick();
-    const fp = focusParts(w.focus, plan, w.week);
+    const fp = focusParts(w.focus, plan, w.week), cal = calOf(plan, w.week), nextUp = nextLesson(plan.year);
     root.innerHTML = `
       ${yearHeader(plan.year)}
       ${syncBar()}
       <div class="lc-terms">${[1, 2, 3].map((t) => { const p = planFor(plan.year, t); return p ? `<button class="lc-term ${t === plan.term ? "on" : ""}" data-term="${t}"><b>Term ${t}</b><span>${esc(p.title)}</span></button>` : ""; }).join("")}</div>
       ${termDetails(plan)}
       <h3 class="lc-sub">🗓️ ${plan.weeks.length} weekly lessons · tap a week</h3>
-      <div class="lc-weeks">${plan.weeks.map((x) => { const f = focusParts(x.focus, plan, x.week); return `<button class="lc-week ${x.week === w.week ? "on" : ""}" data-week="${x.week}"><span class="e">${f.emoji}</span><small>Week ${x.week}</small><b>${esc(f.text)}</b></button>`; }).join("")}</div>
+      <div class="lc-weeks">${schedule(plan).map((r) => {
+        if (!r.weeks.length) return `<div class="lc-week off"><span class="e">${/break/i.test(r.note) ? "🏖️" : "🚫"}</span><small>${esc(r.cal || "Break")}</small><b>${esc(r.note || "No class")}</b></div>`;
+        const parts = r.weeks.map((n) => focusParts(weekOf(plan, n).focus, plan, n));
+        const next = nextUp?.planId === plan.id && r.weeks.includes(nextUp.week);
+        return `<button class="lc-week ${r.weeks.includes(w.week) ? "on" : ""} ${next ? "next" : ""}" data-week="${r.weeks.includes(w.week) ? w.week : r.weeks[0]}"><span class="e">${parts[0].emoji}</span><small>${esc(r.cal)}${r.date ? ` · ${esc(r.date.replace(/^\w+ /, "").replace(/\.\d{4}$/, ""))}` : ""}</small><b>${parts.map((x) => esc(x.text)).join(" + ")}</b>${next ? `<i class="lc-next">📍 Next lesson</i>` : ""}</button>`;
+      }).join("")}</div>
       <div class="card lc-home">
         <div class="lc-home-head">
           <div class="lc-big-emoji">${fp.emoji}</div>
           <div>
-            <div class="muted small">Year ${plan.year} · Term ${plan.term} · Week ${w.week} · ${esc(plan.title)}</div>
+            <div class="muted small">Year ${plan.year} · Term ${plan.term} · ${esc(cal.label)}${cal.date ? ` · 📅 ${esc(cal.date)}${cal.time ? ` ${esc(cal.time)}` : ""}` : ""} · ${esc(plan.title)}</div>
+            ${cal.with.length ? `<div class="lc-also">Taught together with: ${cal.with.map((n) => `<button class="lc-chip" data-week="${n}">${esc(focusParts(weekOf(plan, n).focus, plan, n).text)}</button>`).join(" ")}</div>` : ""}
             <h2 class="lc-title">${esc(fp.text)}</h2>
             <div class="lc-badges">${(plan.competencies || []).map((c) => `<span class="lc-badge">🧠 ${esc(c)}</span>`).join("")}${(plan.values || []).map((v) => `<span class="lc-badge v">💎 ${esc(v)}</span>`).join("")}</div>
           </div>
@@ -496,7 +534,7 @@
       return `<button class="mm-leaf ${k}" ${at}><span class="mm-e">${l.emoji}</span><span class="mm-t">${esc(l.text)}</span>${k === "activity" || k === "talk" || k === "poll" ? `<i class="mm-go">›</i>` : ""}</button>`;
     };
     body.innerHTML = `<div class="mm-view"><div class="mm-world"><svg class="mm-lines"></svg>
-        <div class="mm-centre"><span class="mm-e">${centre.emoji}</span><b>${esc(centre.text)}</b><small>Year ${plan.year} · Week ${w.week}</small></div>
+        <div class="mm-centre"><span class="mm-e">${centre.emoji}</span><b>${esc(centre.text)}</b><small>Year ${plan.year} · ${esc(calOf(plan, w.week).label)}</small></div>
         ${branches.map((b, bi) => `<div class="mm-branch-set" data-set="${bi}" style="--bc:${BRANCH_COLORS[bi % BRANCH_COLORS.length]}">
           <button class="mm-branch" data-branch="${bi}"><span class="mm-e">${b.emoji}</span><b>${esc(b.title)}</b></button>
           ${b.leaves.map((l, li) => leafHtml(l, bi, li)).join("")}
@@ -712,7 +750,7 @@
   /* ---------------- Board game + Block Run (built by the Life Competencies app) ---------------- */
   function gameInput(plan, w) {
     const quiz = LC.quizTen(plan.id, w.week);
-    return { year: plan.year, term: plan.term, week: `Week ${w.week}`, topic: w.focus, subject: LC.LESSON_SUBJECT, objectives: w.objectives,
+    return { year: plan.year, term: plan.term, week: calOf(plan, w.week).label, topic: w.focus, subject: LC.LESSON_SUBJECT, objectives: w.objectives,
       questions: quiz, gameQuestions: quiz, options: quiz.map((it) => LC.optionsForItem(plan.id, it, quiz)) };
   }
   function frameGame(plan, w, html, title) {
@@ -733,7 +771,7 @@
     else if (go === "quiz") teamQuiz(plan, w);
     else if (go === "games") puzzles(plan, w);
     else if (go === "board") { const g = LC.gameFor(plan.id, w.week); frameGame(plan, w, LC.buildGameHtml(g, gameInput(plan, w)), `🎲 ${esc(g.name)}`); }
-    else if (go === "mine") window.ActivityMaker.open({ stage, starPicker, plan, w, where: `Year ${plan.year} · T${plan.term} W${w.week}`, onClose: (f) => stageCleanup.push(f) });
+    else if (go === "mine") window.ActivityMaker.open({ stage, starPicker, plan, w, where: `Year ${plan.year} · T${plan.term} ${calOf(plan, w.week).label}`, onClose: (f) => stageCleanup.push(f) });
     else if (go === "run") { const t = LC.runThemeFor(plan.id, w.week); frameGame(plan, w, LC.buildPlatformerHtml(gameInput(plan, w), t, LC.runLevels(plan.id, w.week, w.focus)), `🏃 ${esc(t.name)}`); }
   }
 
