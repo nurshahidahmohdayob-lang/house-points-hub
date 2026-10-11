@@ -316,6 +316,13 @@
       const qs = A.items.map((it, i) => [it, i]).filter(([it]) => it.type !== "info");
       const done = qs.filter(([it, i]) => (SEND ? st[i].sent : answered(it, st[i]))).length;
       $(".prog i").style.width = (qs.length ? (done / qs.length) * 100 : 0) + "%";
+      if (SEND) {
+        let right = 0, wrong = 0, wait = 0;
+        qs.forEach(([it, i]) => { if (!st[i].sent) return; const g = grade(it, st[i]); if (g.score == null) wait++; else if (g.score) right++; else wrong++; });
+        let bar = $("#tally");
+        if (!bar) { bar = document.createElement("div"); bar.id = "tally"; document.body.appendChild(bar); }
+        bar.innerHTML = `<span>✅ ${right}</span><span>❌ ${wrong}</span>${wait ? `<span>✍️ ${wait}</span>` : ""}<span class="t-done">${done} / ${qs.length} done</span>`;
+      }
     }
 
     function paintMatch(sec, i) {
@@ -423,6 +430,19 @@
       let got = 0, total = 0;
       qs.forEach(([it, i]) => { const g = grade(it, st[i]); if (g.score != null) { total++; got += g.score; } });
       const pct = total ? got / total : 1;
+      const wait = qs.length - total, wrong = total - got;
+      const face = pct === 1 ? "🏆" : pct >= .8 ? "🌟" : pct >= .5 ? "👍" : "💪";
+      const words = !total ? "Your teacher will mark your answers 📺" : pct === 1 ? "Perfect score — amazing work!" : pct >= .8 ? "Brilliant work!" : pct >= .5 ? "Good try — look at the answers you missed." : "Keep going — you'll get there!";
+      const card = document.createElement("div"); card.className = "final";
+      card.innerHTML = `<div class="final-in"><div class="face">${face}</div><p class="final-name">${esc(A.name || "")}, you scored</p>
+        <div class="final-score"><b>${got}</b><span>/ ${total}</span></div>${total ? `<div class="final-pct">${Math.round(pct * 100)}%</div>` : ""}
+        <div class="stars">${total ? "⭐".repeat(Math.max(1, Math.round(pct * 5))) : "⭐⭐⭐"}</div>
+        <div class="final-break"><span>✅ ${got} right</span><span>❌ ${wrong} wrong</span>${wait ? `<span>✍️ ${wait} for your teacher</span>` : ""}</div>
+        <p>${words}</p><p class="when">${esc(A.title)} · ${new Date().toLocaleString()}</p>
+        <button class="big" id="seeAns">👀 See my answers</button></div>`;
+      document.querySelector(".final")?.remove();
+      document.body.appendChild(card);
+      $("#seeAns").onclick = () => { card.remove(); scrollTo({ top: 0, behavior: "smooth" }); };
       $("#result").innerHTML = `<div class="res"><div class="face">${pct === 1 ? "🏆" : pct >= .8 ? "🌟" : pct >= .5 ? "👍" : "💪"}</div><h2>All done, ${esc(A.name || "")}!</h2>
         <h2>${got} / ${total}</h2><div class="stars">${total ? "⭐".repeat(Math.max(1, Math.round(pct * 5))) : "⭐⭐⭐"}</div><p>Your answers are on your teacher's board 📺</p><p class="when">${esc(A.title)} · ${new Date().toLocaleString()}</p></div>`;
       if (pct >= .8) confetti();
@@ -544,6 +564,15 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
 .send:active{transform:translateY(3px);box-shadow:0 2px 0 #5b21b6}.send:disabled{background:#22c55e;box-shadow:none;cursor:default}
 .q.wrong .send:disabled{background:#fb7185}.q.done .send:disabled{background:#a78bfa}
 .who.me{padding:8px 16px}
+#tally{position:fixed;top:8px;right:8px;z-index:40;display:flex;gap:10px;align-items:center;background:#24124d;color:#fff;font-weight:800;border-radius:999px;padding:7px 14px;box-shadow:0 6px 16px rgba(0,0,0,.25);font-size:.95rem}
+#tally b{color:#fde047}#tally .t-done{opacity:.8;font-size:.85rem}
+.final{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:16px;background:rgba(36,18,77,.55);backdrop-filter:blur(4px);animation:rise .3s both}
+.final-in{background:#fff;border-radius:32px;padding:26px 22px;text-align:center;width:min(440px,100%);max-height:100%;overflow:auto;border:5px solid #fde047;box-shadow:0 30px 60px rgba(0,0,0,.3);animation:rise .5s .1s both}
+.final .face{font-size:4.5rem;animation:bob 1.6s ease-in-out infinite}
+.final-name{margin:0;font-weight:800;color:var(--muted)}
+.final-score{font-family:"Baloo 2",sans-serif;line-height:1;color:#7c3aed}.final-score b{font-size:5.5rem}.final-score span{font-size:2.4rem;color:var(--muted)}
+.final-pct{display:inline-block;background:#7c3aed;color:#fff;font-weight:800;border-radius:999px;padding:4px 16px;font-size:1.3rem;margin:4px 0}
+.final-break{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0}.final-break span{background:#f5f0ff;border-radius:999px;padding:5px 12px;font-weight:800}
 .q.right{border-color:#22c55e;background:#f0fdf4}.q.wrong{border-color:#fb7185;background:#fff1f2}.q.done{border-color:#a78bfa}
 .q.locked .opt,.q.locked .mc{cursor:default}
 .opt.good{background:#22c55e;border-color:#22c55e;color:#fff}.opt.bad{background:#ef4444;border-color:#ef4444;color:#fff;opacity:.85}
