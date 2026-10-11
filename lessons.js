@@ -180,15 +180,12 @@
   let aboutCat = null, weeksOpen = false;
   function termDetails(plan) {
     const tt = (theme(plan.year).terms || []).find((x) => x.term === plan.term) || {}, L = YEAR_LOOK[plan.year] || {};
-    const project = typeof plan.project === "string" ? plan.project : tt.project || "";
     const cards = (arr) => `<div class="ab-cards">${arr.map((x, i) => `<div class="ab-card" style="--i:${i}"><span class="n">${i + 1}</span><p>${esc(x)}</p></div>`).join("")}</div>`;
     const pills = (arr, icon) => `<div class="ab-pills">${arr.map((x, i) => `<span class="ab-pill" style="--i:${i}">${icon} ${esc(x)}</span>`).join("")}</div>`;
-    const text = (t) => `<div class="ab-text">${esc(t)}</div>`;
     const cats = [
       ["comp", "🧠", "Competencies", "#7c3aed", "#c084fc", plan.competencies?.length && pills(plan.competencies, "🧠")],
       ["values", "💎", "Values", "#f59e0b", "#fcd34d", plan.values?.length && pills(plan.values, "💎")],
       ["themes", "🌐", "Key themes", "#0ea5e9", "#67e8f9", tt.cambridgeKeyThemes?.length && pills(tt.cambridgeKeyThemes, "🌐")],
-      ["project", "🛠️", "Project", "#ea580c", "#fdba74", project && text(project)],
       ["bigq", "❓", "Big questions", "#e11d48", "#fda4af", plan.essentialQuestions?.length && cards(plan.essentialQuestions)],
       ["obj", "🎯", "Objectives", "#2563eb", "#93c5fd", plan.objectives?.length && cards(plan.objectives)],
       ["success", "✅", "Success criteria", "#16a34a", "#86efac", plan.successCriteria?.length && cards(plan.successCriteria)],
