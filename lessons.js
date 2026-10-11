@@ -93,8 +93,8 @@
 
   /* ---------------- Home: one button per year group ---------------- */
   const YEAR_LOOK = {
-    1: { emoji: "🌱", from: "#22c55e", to: "#14b8a6" }, 2: { emoji: "🌈", from: "#f97316", to: "#ec4899" },
-    3: { emoji: "🚀", from: "#6366f1", to: "#a855f7" }, 4: { emoji: "🌍", from: "#0ea5e9", to: "#22c55e" },
+    1: { emoji: "🌱", from: "#22c55e", to: "#14b8a6" }, 2: { emoji: "🧭", from: "#f97316", to: "#ec4899" },
+    3: { emoji: "🔍", from: "#6366f1", to: "#a855f7" }, 4: { emoji: "🌍", from: "#0ea5e9", to: "#22c55e" },
     5: { emoji: "💡", from: "#eab308", to: "#f97316" }, 6: { emoji: "🎓", from: "#d946ef", to: "#6366f1" },
   };
   const theme = (y) => { try { return LC.yearTheme(y) || {}; } catch { return {}; } };
