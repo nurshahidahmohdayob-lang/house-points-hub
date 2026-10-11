@@ -63,6 +63,7 @@ Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) a
 - About Term panel (`termDetails`): colourful category buttons (Competencies, Values, Key themes, Big questions, Objectives, Success criteria, Key skills); tapping one shows only that category (tap again to hide).
 - Weekly lessons strip is hidden behind one "🗓️ N weekly lessons" button (`weeksOpen`); picking a week closes it again.
 - Lesson action cards (Teach the lesson … My activities) sit behind one "🚀 Teach & play" button (`actsOpen`, toggled without re-render).
+- 🔄 Sync bar is at the bottom of the lesson page behind a teacher password (`SYNC_PASS_SHA` = SHA-256 of it; unlocked per tab in sessionStorage `lc-sync-ok`).
 - Warm-up answers: `assets/warmup-answers.js` (window.WARMUP_ANSWERS, "<plan>-<week>" → example answers, all 234 warm-ups); `warmAnswerHtml` puts a "💡 Show answer" reveal on the mind-map warm-up pop-up, the Do now slide and the lesson page. New LC warm-ups need an entry here.
 - Warm-up pictures: `assets/pictures/<plan>-<week>.svg`, drawn by `assets/pictures/make_pictures.py` (flat SVG); list them in `PICTURES` in lessons.js.
 - Live Class now runs in the Life Competencies app itself: lesson cards "I'm a student" → LC /play, "I'm the teacher" → LC /?go=live (its setup + /live/board). play.html just redirects to LC /play (keeps ?c=code).

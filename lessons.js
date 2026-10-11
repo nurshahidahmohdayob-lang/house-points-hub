@@ -75,12 +75,35 @@
       btn.disabled = false; btn.textContent = "🔄 Sync with Life Competencies";
     }
   }
+  // Sync sits at the bottom of the page, teacher only: unlocked with the teacher password (only its SHA-256 is kept
+  // here) for this browser tab. A simple lock to keep students away, not real security.
+  const SYNC_PASS_SHA = "8b42d912a9d46626e3dc9895a15ce1ff70456abc7167d6498c45921336625816";
+  const syncOpen = () => { try { return sessionStorage.getItem("lc-sync-ok") === "1"; } catch { return false; } };
+  let syncAsk = false;
   function syncBar() {
+    if (!syncOpen()) return `<div class="lc-syncbar lc-synclock">${syncAsk
+      ? `<form class="lc-syncpass" data-syncform><label>🔒 Teacher password <input type="password" inputmode="numeric" autocomplete="off" required data-syncpw></label><button class="btn">Unlock</button><button type="button" class="btn ghost" data-synccancel>Cancel</button><span class="lc-syncerr" hidden>❌ Wrong password</span></form>`
+      : `<button class="btn ghost lc-syncbtn" data-synclock>🔒 Teacher: sync lessons</button>`}</div>`;
     const at = LC?.BUILT?.at ? new Date(LC.BUILT.at) : null;
     const when = at ? at.toLocaleString([], { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
     const what = source === "synced" ? `🔄 Synced lessons${when ? ` · from ${when}` : ""}` : `📦 Built-in lessons${when ? ` · from ${when}` : ""}`;
     return `<div class="lc-syncbar"><span class="lc-sync ${source === "synced" ? "ok" : ""}">${what}</span>
-      <button class="btn ghost lc-syncbtn" data-sync title="Download the latest lessons from your Life Competencies app">🔄 Sync with Life Competencies</button></div>`;
+      <button class="btn ghost lc-syncbtn" data-sync title="Download the latest lessons from your Life Competencies app">🔄 Sync with Life Competencies</button>
+      <button class="btn ghost lc-syncbtn" data-synclockagain title="Lock again">🔒 Lock</button></div>`;
+  }
+  async function sha256(t) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join(""); }
+  function wireSync(root) {
+    const redraw = () => { const bar = $(".lc-syncbar", root); bar.outerHTML = syncBar(); wireSync(root); $("[data-syncpw]", root)?.focus(); };
+    const sync = $("[data-sync]", root); if (sync) sync.onclick = (e) => syncNow(e.currentTarget);
+    const ask = $("[data-synclock]", root); if (ask) ask.onclick = () => { syncAsk = true; redraw(); };
+    const cancel = $("[data-synccancel]", root); if (cancel) cancel.onclick = () => { syncAsk = false; redraw(); };
+    const lock = $("[data-synclockagain]", root); if (lock) lock.onclick = () => { try { sessionStorage.removeItem("lc-sync-ok"); } catch {} syncAsk = false; redraw(); };
+    const form = $("[data-syncform]", root);
+    if (form) form.onsubmit = async (e) => {
+      e.preventDefault();
+      if (await sha256($("[data-syncpw]", form).value.trim()) === SYNC_PASS_SHA) { try { sessionStorage.setItem("lc-sync-ok", "1"); } catch {} syncAsk = false; redraw(); }
+      else { $(".lc-syncerr", form).hidden = false; $("[data-syncpw]", form).value = ""; $("[data-syncpw]", form).focus(); }
+    };
   }
 
   const planFor = (year, term) => LC.LESSON_PLANS.find((p) => p.year === year && p.term === term);
@@ -239,7 +262,6 @@
     const fp = focusParts(w.focus, plan, w.week), cal = calOf(plan, w.week), nextUp = nextLesson(plan.year);
     root.innerHTML = `
       ${yearHeader(plan.year)}
-      ${syncBar()}
       <div class="lc-terms">${[1, 2, 3].map((t) => { const p = planFor(plan.year, t); return p ? `<button class="lc-term ${t === plan.term ? "on" : ""}" data-term="${t}"><b>Term ${t}</b><span>${esc(p.title)}</span></button>` : ""; }).join("")}</div>
       ${termDetails(plan)}
       <div class="lc-weekbox ${weeksOpen ? "open" : ""}">
@@ -274,8 +296,9 @@
           <button class="lc-act mine" data-go="mine"><span>📄</span><b>My activities</b><small>Upload your worksheet — it becomes an interactive activity</small></button>
         </div></div>
         ${weekDetails(plan, w)}
-      </div>`;
-    $("[data-sync]", root).onclick = (e) => syncNow(e.currentTarget);
+      </div>
+      ${syncBar()}`;
+    wireSync(root);
     $("[data-home]", root).onclick = () => document.querySelector('[data-tab="home"]').click();
     $$("[data-term]", root).forEach((b) => b.onclick = () => { pick.term = +b.dataset.term; pick.week = 1; renderLessons(); });
     $$("[data-week]", root).forEach((b) => b.onclick = () => { pick.week = +b.dataset.week; weeksOpen = false; renderLessons(); });
