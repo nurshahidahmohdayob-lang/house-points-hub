@@ -601,3 +601,47 @@ body.on-home main { padding-top: 36px; }
 .lc-teachbtn:active { transform: translateY(3px); box-shadow: 0 2px 0 #4a2fd6; }
 .lc-teachbtn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 @media (max-width: 640px) { .lc-teachbtn { width: 100%; margin-left: 0; } }
+
+/* ---- Warm-up "show the class" material (assets/warmup-show.js) ---- */
+.ws { margin: 14px auto; max-width: 860px; text-align: left; color: var(--ink); }
+.ws-cards { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+.ws-card { flex: 1 1 140px; max-width: 260px; display: grid; justify-items: center; gap: 4px; text-align: center; padding: 14px 12px; border-radius: 18px;
+  background: var(--surface); border: 3px solid color-mix(in srgb, var(--primary) 30%, var(--line)); box-shadow: var(--shadow); }
+.ws-card .ws-e { font-size: 2.6rem; line-height: 1.1; }
+.ws-card b { font-size: 1.1rem; }
+.ws-card small { color: var(--muted); font-weight: 700; line-height: 1.35; }
+.ws-label { text-align: center; font-weight: 900; color: var(--primary); margin: 14px 0 8px; font-size: 1.05rem; }
+.ws-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 16px; align-items: start; }
+.ws-pair .ws-card { max-width: none; }
+.ws-pair .ws-label { margin-top: 0; }
+.ws-center { display: flex; justify-content: center; }
+.ws-phone { background: #e9fbe5; border-radius: 22px; padding: 12px; border: 3px solid #b7e4a8; display: grid; gap: 8px; }
+.ws-chathead { font-weight: 800; color: #2f6b22; font-size: .9rem; }
+.ws-bubble { justify-self: end; max-width: 90%; background: #dcf8c6; color: #1b2a12; padding: 8px 14px; border-radius: 16px 16px 4px 16px; font-size: 1.1rem; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.ws-phone .ws-bubble:only-of-type { justify-self: start; border-radius: 16px 16px 16px 4px; background: #fff; }
+.ws-email { background: #fff; color: #241c3d; border-radius: 16px; border: 3px solid #c7d2fe; overflow: hidden; }
+.ws-email .ws-row { padding: 6px 14px; border-bottom: 1px solid #e5e7eb; font-size: .95rem; }
+.ws-email .ws-body { padding: 12px 14px; font-size: 1.05rem; line-height: 1.5; }
+.ws-news { background: #fffdf5; color: #1a1a1a; border: 3px solid #1a1a1a; border-radius: 6px; padding: 14px 18px; font-family: Georgia, "Times New Roman", serif; box-shadow: 6px 6px 0 rgba(0,0,0,.15); }
+.ws-kicker { display: inline-block; background: #d62828; color: #fff; font: 800 .8rem system-ui, sans-serif; letter-spacing: .1em; padding: 3px 10px; border-radius: 4px; }
+.ws-news h3 { margin: 8px 0; font-size: 1.7rem; line-height: 1.15; }
+.ws-news p { margin: 0; font-size: 1.05rem; }
+.ws-foot { margin-top: 10px; font: 700 .85rem system-ui, sans-serif; color: #8a8a8a; border-top: 1px dashed #bbb; padding-top: 6px; }
+.ws-say { display: flex; gap: 12px; align-items: flex-start; background: var(--surface); border-radius: 18px; padding: 14px; border: 3px solid color-mix(in srgb, var(--accent) 50%, var(--line)); box-shadow: var(--shadow); }
+.ws-say .ws-e { font-size: 2.2rem; }
+.ws-say p { margin: 4px 0 0; font-size: 1.1rem; }
+.ws-problem { background: color-mix(in srgb, #f97316 12%, var(--surface)); border-left: 6px solid #f97316; border-radius: 14px; padding: 14px 16px; font-size: 1.15rem; line-height: 1.5; }
+.ws-ad { max-width: 340px; margin: 0 auto; text-align: center; color: #fff; padding: 18px; border-radius: 22px; background: linear-gradient(150deg, #ff2d78, #7c3aed); box-shadow: 0 10px 26px rgba(124, 58, 237, .35); }
+.ws-ad .ws-adtop { display: inline-block; background: #ffe600; color: #241c3d; font-weight: 900; padding: 2px 12px; border-radius: 999px; }
+.ws-ad .ws-e { font-size: 3.4rem; }
+.ws-ad h3 { margin: 4px 0; font-size: 1.8rem; }
+.ws-ad p { margin: 4px 0; }
+.ws-ad small { opacity: .75; font-size: .7rem; }
+.ws-clock { width: 200px; height: 200px; }
+.ws-fabric { width: min(320px, 100%); height: 190px; border-radius: 16px; border: 4px solid #5b2a0e; box-shadow: var(--shadow);
+  background-color: #7a2e0e;
+  background-image: radial-gradient(circle at 25% 25%, #f4b942 0 9px, transparent 10px), radial-gradient(circle at 75% 75%, #f4b942 0 9px, transparent 10px),
+    radial-gradient(circle at 25% 25%, transparent 0 16px, #1d4e89 17px 20px, transparent 21px), radial-gradient(circle at 75% 75%, transparent 0 16px, #1d4e89 17px 20px, transparent 21px),
+    repeating-linear-gradient(45deg, transparent 0 22px, rgba(244, 185, 66, .35) 22px 25px), repeating-linear-gradient(-45deg, transparent 0 22px, rgba(244, 185, 66, .35) 22px 25px);
+  background-size: 64px 64px, 64px 64px, 64px 64px, 64px 64px, auto, auto; }
+.ws a { color: var(--primary); font-weight: 800; }

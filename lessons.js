@@ -118,6 +118,8 @@
     const close = (ev) => { if (ev.type === "keydown" && ev.key !== "Escape") return; ev.stopImmediatePropagation?.(); v.remove(); document.removeEventListener("keydown", close, true); };
     v.onclick = close; document.addEventListener("keydown", close, true); document.body.appendChild(v);
   });
+  // What the class must see for "Show two versions… / Hold up a clock… / Show an advert…" warm-ups (assets/warmup-show.js)
+  const warmShowHtml = (planId, week) => { const h = (window.WARMUP_SHOW || {})[`${planId}-${week}`]; return h ? `<div class="ws">${h}</div>` : ""; };
   // Model answers for each warm-up (assets/warmup-answers.js), behind a "💡 Show answer" button so the class thinks first
   const warmAnswerHtml = (planId, week) => { const a = (window.WARMUP_ANSWERS || {})[`${planId}-${week}`];
     return a?.length ? `<details class="lc-ans"><summary>💡 Show answer</summary><ul>${a.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></details>` : ""; };
@@ -240,7 +242,7 @@
     const doNow = w.doNow || (LC.doNowFor && LC.doNowFor(plan.id, w.week)) || "";
     return `<div class="lc-weekinfo">
       <h3>🧑‍🤝‍🧑 This week's activities</h3>
-      ${doNow ? `<p class="lc-donow"><b>⏱️ Do now:</b> ${esc(doNow)}</p>${pictureHtml(pictureFor(plan.id, w.week))}${warmAnswerHtml(plan.id, w.week)}` : ""}
+      ${doNow ? `<p class="lc-donow"><b>⏱️ Do now:</b> ${esc(doNow)}</p>${pictureHtml(pictureFor(plan.id, w.week))}${warmShowHtml(plan.id, w.week)}${warmAnswerHtml(plan.id, w.week)}` : ""}
       <div class="lc-actcards">${acts.length ? acts.map((a) => `<details class="lc-actcard"><summary><b>${esc(a.guide?.title || a.label)}</b>${a.guide?.minutes ? `<span class="muted"> · ${a.guide.minutes} min</span>` : ""}</summary>
         ${a.guide?.what ? `<p>${esc(a.guide.what)}</p>` : ""}${a.guide?.steps?.length ? `<ol>${a.guide.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>` : ""}
         ${a.guide?.needs ? `<p class="muted">🧰 ${esc(Array.isArray(a.guide.needs) ? a.guide.needs.join(", ") : a.guide.needs)}</p>` : ""}</details>`).join("") : `<p>${esc(w.activities || "")}</p>`}</div>
@@ -463,7 +465,7 @@
     const S = [];
     S.push({ kicker: `Week ${wk}`, tone: "title", html: `<div class="lc-s-title"><div class="lc-bounce">${fp.emoji}</div><h1>${esc(fp.text)}</h1><p>${esc(plan.title)} · Year ${plan.year} Term ${plan.term}</p>
       <div class="lc-badges center">${(plan.competencies || []).map((c) => `<span class="lc-badge">🧠 ${esc(c)}</span>`).join("")}${(plan.values || []).map((v) => `<span class="lc-badge v">💎 ${esc(v)}</span>`).join("")}</div></div>` });
-    if (doNow) S.push({ kicker: "Do now", tone: "warm", html: `<div class="lc-s-split"><div>${pictureFor(id, wk) ? pictureHtml(pictureFor(id, wk)) : `<div class="lc-s-emoji">⏱️</div>`}<h2>Do now</h2><p class="lc-s-lead">${esc(doNow)}</p>${warmAnswerHtml(id, wk)}</div><div data-w="timer" data-sec="180"></div></div>` });
+    if (doNow) S.push({ kicker: "Do now", tone: "warm", html: `<div class="lc-s-split"><div>${pictureFor(id, wk) ? pictureHtml(pictureFor(id, wk)) : `<div class="lc-s-emoji">⏱️</div>`}<h2>Do now</h2><p class="lc-s-lead">${esc(doNow)}</p>${warmShowHtml(id, wk)}${warmAnswerHtml(id, wk)}</div><div data-w="timer" data-sec="180"></div></div>` });
     if (w.objectives || criteria.length) S.push({ kicker: "Our learning", tone: "cool", html: `<h2>🎯 Our learning today</h2>${w.objectives ? `<p class="lc-s-lead">${esc(w.objectives)}</p>` : ""}
       ${criteria.length ? `<h3>I can…</h3><ul class="lc-s-list">${criteria.map((c) => `<li>✅ ${esc(c)}</li>`).join("")}</ul>` : ""}` });
     S.push({ kicker: "Let's learn", tone: "cool", html: `<div class="lc-s-center"><div class="lc-s-emoji lc-bounce">${vis.emoji || fp.emoji}</div><h2>${esc(vis.definition || note.idea)}</h2>
@@ -555,7 +557,7 @@
     const cardQ = (text) => { const item = quiz.find((x) => norm(x.q) === norm(text) && !used.has(x.q)); return item ? asQuiz(item) : { kind: "think", q: text, sec: 30, label: "Think & share" }; };
     const B = [];
     B.push({ emoji: "🎯", title: "Our learning", leaves: [...(w.objectives ? [{ emoji: "🎯", text: w.objectives }] : []), ...criteria.slice(0, 3).map((c) => ({ emoji: "✅", text: c }))],
-      q: doNow ? { kind: "think", q: doNow, sec: 180, label: "Warm-up", pic: pictureFor(id, wk), ans: warmAnswerHtml(id, wk) } : nextQuiz() });
+      q: doNow ? { kind: "think", q: doNow, sec: 180, label: "Warm-up", pic: pictureFor(id, wk), show: warmShowHtml(id, wk), ans: warmAnswerHtml(id, wk) } : nextQuiz() });
     B.push({ emoji: vis.emoji || fp.emoji, title: "The big idea", leaves: [{ emoji: "💡", text: vis.definition || note.idea }, ...(deep.why ? [{ kind: "reveal", emoji: "🤔", label: "Why does it matter?", text: deep.why }] : [])], q: null });
     if (deep.words?.length) B.push({ emoji: "📖", title: "Words we need", leaves: deep.words.slice(0, 5).map((x) => ({ kind: "word", word: x.word, text: x.meaning })),
       q: deep.words.length > 1 ? { kind: "puzzle", puzzle: { kind: "match", q: "Match each word to what it means.", pairs: deep.words.map((x) => [x.word, x.meaning]) }, q: "Match the words", label: "Word match" } : null });
@@ -693,7 +695,7 @@
     function question(bi) {
       const Q = branches[bi].q;
       const color = BRANCH_COLORS[bi % BRANCH_COLORS.length];
-      if (Q.kind === "think") return openPop(`<div class="mm-kick" style="--bc:${color}">${esc(Q.label)}</div>${Q.pic ? pictureHtml(Q.pic) : `<div class="lc-s-emoji">💭</div>`}<h2>${esc(Q.q)}</h2>${Q.ans || ""}<div class="mm-row"><div data-h="timer"></div><div data-h="pick"></div></div><button class="btn" data-h="ok">✅ We talked about it</button>`, (h, stops) => {
+      if (Q.kind === "think") return openPop(`<div class="mm-kick" style="--bc:${color}">${esc(Q.label)}</div>${Q.pic ? pictureHtml(Q.pic) : Q.show ? "" : `<div class="lc-s-emoji">💭</div>`}<h2>${esc(Q.q)}</h2>${Q.show || ""}${Q.ans || ""}<div class="mm-row"><div data-h="timer"></div><div data-h="pick"></div></div><button class="btn" data-h="ok">✅ We talked about it</button>`, (h, stops) => {
         stops.push(timerWidget($("[data-h=timer]", h), Q.sec || 30)); namePicker($("[data-h=pick]", h), plan.year);
         $("[data-h=ok]", h).onclick = () => { done(bi); CP().beep("win"); closePop(); };
       });
