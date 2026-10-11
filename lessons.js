@@ -261,7 +261,6 @@
     const w = weekOf(plan, pick.week); pick.week = w.week; savePick();
     const fp = focusParts(w.focus, plan, w.week), cal = calOf(plan, w.week), nextUp = nextLesson(plan.year);
     root.innerHTML = `
-      ${yearHeader(plan.year)}
       <div class="lc-terms">${[1, 2, 3].map((t) => { const p = planFor(plan.year, t); return p ? `<button class="lc-term ${t === plan.term ? "on" : ""}" data-term="${t}"><b>Term ${t}</b><span>${esc(p.title)}</span></button>` : ""; }).join("")}</div>
       ${termDetails(plan)}
       <div class="lc-weekbox ${weeksOpen ? "open" : ""}">
@@ -299,7 +298,7 @@
       </div>
       ${syncBar()}`;
     wireSync(root);
-    $("[data-home]", root).onclick = () => document.querySelector('[data-tab="home"]').click();
+    renderYearNav();
     $$("[data-term]", root).forEach((b) => b.onclick = () => { pick.term = +b.dataset.term; pick.week = 1; renderLessons(); });
     $$("[data-week]", root).forEach((b) => b.onclick = () => { pick.week = +b.dataset.week; weeksOpen = false; renderLessons(); });
     $("[data-acts]", root).onclick = () => { actsOpen = !actsOpen; const box = $(".lc-actbox", root); box.classList.toggle("open", actsOpen); const b = $("[data-acts]", root); b.setAttribute("aria-expanded", actsOpen); $("i", b).textContent = actsOpen ? "Hide ▲" : "Open ▼"; };
@@ -830,6 +829,31 @@
     else if (go === "mine") window.ActivityMaker.open({ stage, starPicker, plan, w, where: `Year ${plan.year} · T${plan.term} ${calOf(plan, w.week).label}`, onClose: (f) => stageCleanup.push(f) });
     else if (go === "run") { const t = LC.runThemeFor(plan.id, w.week); frameGame(plan, w, LC.buildPlatformerHtml(gameInput(plan, w), t, LC.runLevels(plan.id, w.week, w.focus)), `🏃 ${esc(t.name)}`); }
   }
+
+  // Each year group has its own menu (Lessons, Leaderboard, Award, Activities, Rewards) under its banner, instead of
+  // those tabs sitting in the top bar. The other pages open filtered to the year (window.currentYear, read by app.js).
+  const YEAR_TABS = [["lessons", "📚", "Lessons"], ["board", "🏆", "Leaderboard"], ["students", "⭐", "Award"], ["activities", "🎲", "Activities"], ["rewards", "🎁", "Rewards"]];
+  function renderYearNav() {
+    let nav = $("#yearNav");
+    if (!nav) { nav = document.createElement("div"); nav.id = "yearNav"; $("#app").prepend(nav); }
+    const active = ($(".view.active")?.id || "").replace("view-", "");
+    const on = !!pick.year && YEAR_TABS.some(([k]) => k === active);
+    window.currentYear = on ? pick.year : null;
+    let head = ""; try { head = yearHeader(pick.year); } catch { head = `<div class="year-head"><button class="btn ghost" data-home>‹ All years</button><h2>Year ${pick.year}</h2></div>`; }
+    nav.innerHTML = on ? `${head}<nav class="year-tabs">${YEAR_TABS.map(([k, e, t]) => `<button data-ytab="${k}" class="${k === active ? "on" : ""}"><span>${e}</span>${t}</button>`).join("")}</nav>` : "";
+    const home = $("[data-home]", nav); if (home) home.onclick = () => document.querySelector('[data-tab="home"]').click();
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-ytab]"); if (!b) return;
+    const k = b.dataset.ytab, y = String(pick.year), set = (sel, v) => { const el = $(sel); if (el) el.value = v; };
+    window.currentYear = pick.year;
+    if (k === "board") { set("#bYear", y); set("#bClass", ""); }
+    if (k === "students") { set("#fYear", y); set("#fClass", ""); set("#fGroup", ""); set("#search", ""); }
+    document.querySelector(`[data-tab="${k}"]`).click();
+    if (k === "board") $("#bYear")?.dispatchEvent(new Event("input"));
+    if (k === "students") $("#fYear")?.dispatchEvent(new Event("input"));
+  });
+  document.addEventListener("click", (e) => { if (e.target.closest("[data-tab], [data-ytab], [data-home], [data-y]")) setTimeout(renderYearNav, 0); });
 
   // Load + draw when the Lessons / Home tabs are opened
   document.addEventListener("click", (e) => {

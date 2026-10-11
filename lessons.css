@@ -571,3 +571,16 @@ body.on-home main { padding-top: 36px; }
 .lc-syncpass input { font: inherit; padding: 8px 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--surface); color: var(--ink); width: 9em; }
 .lc-syncpass input:focus { outline: none; border-color: var(--primary); }
 .lc-syncerr { color: var(--bad); font-weight: 800; }
+
+/* ---- Year group menu (moved from the top bar) ---- */
+#tabs button[hidden] { display: none !important; }
+#yearNav:empty { display: none; }
+#yearNav { margin-bottom: 18px; }
+#yearNav .year-head { margin-bottom: 10px; }
+.year-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(130px, 100%), 1fr)); gap: 10px; }
+.year-tabs button { border: 0; cursor: pointer; font: inherit; font-weight: 800; font-size: 1.02rem; color: var(--ink); display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 10px; border-radius: 16px; background: var(--surface); box-shadow: 0 4px 0 var(--line), var(--shadow); transition: transform .15s; }
+.year-tabs button span { font-size: 1.4rem; }
+.year-tabs button:hover { transform: translateY(-2px); }
+.year-tabs button.on { color: #fff; background: linear-gradient(120deg, var(--primary), #a855f7); box-shadow: 0 4px 0 #4a2fd6, 0 8px 18px rgba(107, 77, 255, .3); }
+.year-tabs button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }

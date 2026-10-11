@@ -542,7 +542,7 @@
 
   function renderRewards() {
     const sel = $("#redeemStudent");
-    fillSelect(sel, [["", "— choose a student —"], ...[...state.students].sort((a, b) => a.name.localeCompare(b.name)).map((s) => [s.id, `${s.name} (Y${s.year})`])]);
+    fillSelect(sel, [["", "— choose a student —"], ...[...state.students].filter((s) => !window.currentYear || s.year === window.currentYear).sort((a, b) => a.name.localeCompare(b.name)).map((s) => [s.id, `${s.name} (Y${s.year})`])]);
     const s = student(sel.value);
     $("#redeemBalance").innerHTML = s ? `💰 ${esc(s.name)} can spend <b>${balance(s)}</b> points <span class="muted small">(earned ${s.points}, spent ${s.spent})</span>` : `<span class="muted">Pick a student to see what they can afford.</span>`;
     $("#rewardGrid").innerHTML = [...state.rewards].sort((a, b) => a.cost - b.cost).map((r) => {
@@ -718,7 +718,7 @@
   }
   function poolControls() {
     return `<div class="opts">
-      <select data-pool-year><option value="">All years</option>${YEARS.map((y) => `<option value="${y}">Year ${y}</option>`).join("")}</select>
+      <select data-pool-year><option value="">All years</option>${YEARS.map((y) => `<option value="${y}" ${y === window.currentYear ? "selected" : ""}>Year ${y}</option>`).join("")}</select>
       <select data-pool-class><option value="">All subjects</option>${subjects().map((c) => `<option>${esc(c)}</option>`).join("")}</select>
       <select data-pool-group><option value="">All groups</option>${state.groups.map((h) => `<option value="${h.id}">${esc(h.emoji + " " + h.name)}</option>`).join("")}</select>
     </div>`;
@@ -897,6 +897,7 @@
     try { localStorage.setItem(KEY + "-tab", b.dataset.tab); } catch (e) {}
     updateAwardBar(); window.scrollTo({ top: 0 });
     if (b.dataset.tab === "board") renderBoard(); // drop in stars earned while away
+    if (b.dataset.tab === "rewards") renderRewards(); // students of the year group that opened it
   };
   ["#search", "#fYear", "#fClass", "#fGroup"].forEach((s) => $(s).addEventListener("input", renderStudents));
   $("#selectAll").onclick = () => { filteredStudents().forEach((s) => selected.add(s.id)); renderStudents(); };
