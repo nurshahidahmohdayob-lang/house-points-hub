@@ -176,28 +176,44 @@
   }
   const list = (arr, cls = "") => (arr && arr.length ? `<ul class="lc-dl ${cls}">${arr.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "");
   const chips = (arr, icon, cls = "") => (arr && arr.length ? `<div class="lc-badges">${arr.map((x) => `<span class="lc-badge ${cls}">${icon} ${esc(x)}</span>`).join("")}</div>` : "");
+  // About the term: colourful category buttons; tap one and only its information shows (tap again to hide)
+  let aboutCat = null;
   function termDetails(plan) {
-    const tt = (theme(plan.year).terms || []).find((x) => x.term === plan.term) || {};
-    return `<details class="card lc-details" open>
-      <summary>📋 About Term ${plan.term}: <b>${esc(plan.title)}</b></summary>
-      <div class="lc-details-grid">
-        <div>${tt.focus ? `<p class="lc-s-lead small">${esc(tt.focus)}</p>` : ""}
-          <h4>🧠 Competencies</h4>${chips(plan.competencies, "🧠")}
-          <h4>💎 Values</h4>${chips(plan.values, "💎", "v")}
-          ${tt.cambridgeKeyThemes?.length ? `<h4>🌐 Key themes</h4>${chips(tt.cambridgeKeyThemes, "🌐")}` : ""}
-          ${plan.project || tt.project ? `<h4>🛠️ Project</h4><p>${esc(typeof plan.project === "string" ? plan.project : tt.project || "")}</p>` : ""}
-        </div>
-        <div>${plan.essentialQuestions?.length ? `<h4>❓ Big questions</h4>${list(plan.essentialQuestions)}` : ""}
-          <h4>🎯 Objectives</h4>${list(plan.objectives)}
-          <h4>✅ Success criteria</h4>${list(plan.successCriteria)}
-        </div>
-        <div>${plan.keySkills?.length ? `<h4>🔑 Key skills</h4>${chips(plan.keySkills, "•")}` : ""}
-          ${plan.materials?.length ? `<h4>🧰 Materials</h4>${list(plan.materials)}` : ""}
-          ${plan.assessment ? `<h4>📝 Assessment</h4><p>${esc(plan.assessment)}</p>` : ""}
-          ${plan.duration ? `<p class="muted">⏱️ ${esc(plan.duration)} per lesson</p>` : ""}
-        </div>
-      </div></details>`;
+    const tt = (theme(plan.year).terms || []).find((x) => x.term === plan.term) || {}, L = YEAR_LOOK[plan.year] || {};
+    const project = typeof plan.project === "string" ? plan.project : tt.project || "";
+    const cards = (arr) => `<div class="ab-cards">${arr.map((x, i) => `<div class="ab-card" style="--i:${i}"><span class="n">${i + 1}</span><p>${esc(x)}</p></div>`).join("")}</div>`;
+    const pills = (arr, icon) => `<div class="ab-pills">${arr.map((x, i) => `<span class="ab-pill" style="--i:${i}">${icon} ${esc(x)}</span>`).join("")}</div>`;
+    const text = (t) => `<div class="ab-text">${esc(t)}</div>`;
+    const cats = [
+      ["comp", "🧠", "Competencies", "#7c3aed", "#c084fc", plan.competencies?.length && pills(plan.competencies, "🧠")],
+      ["values", "💎", "Values", "#f59e0b", "#fcd34d", plan.values?.length && pills(plan.values, "💎")],
+      ["themes", "🌐", "Key themes", "#0ea5e9", "#67e8f9", tt.cambridgeKeyThemes?.length && pills(tt.cambridgeKeyThemes, "🌐")],
+      ["project", "🛠️", "Project", "#ea580c", "#fdba74", project && text(project)],
+      ["bigq", "❓", "Big questions", "#e11d48", "#fda4af", plan.essentialQuestions?.length && cards(plan.essentialQuestions)],
+      ["obj", "🎯", "Objectives", "#2563eb", "#93c5fd", plan.objectives?.length && cards(plan.objectives)],
+      ["success", "✅", "Success criteria", "#16a34a", "#86efac", plan.successCriteria?.length && cards(plan.successCriteria)],
+      ["skills", "🔑", "Key skills", "#db2777", "#f9a8d4", plan.keySkills?.length && pills(plan.keySkills, "⭐")],
+      ["materials", "🧰", "Materials", "#0d9488", "#5eead4", plan.materials?.length && cards(plan.materials)],
+      ["assess", "📝", "Assessment", "#9333ea", "#d8b4fe", plan.assessment && text(plan.assessment)],
+    ].filter((c) => c[5]);
+    const cur = cats.find((c) => c[0] === aboutCat);
+    return `<section class="card ab" data-about>
+      <div class="ab-head" style="--a:${L.from || "#6b4dff"};--b:${L.to || "#ff6fb5"}">
+        <span class="ab-e">${L.emoji || "📋"}</span>
+        <div><small>About Term ${plan.term}</small><h3>${esc(plan.title)}</h3>${tt.focus ? `<p>${esc(tt.focus)}</p>` : ""}</div>
+        ${plan.duration ? `<span class="ab-time">⏱️ ${esc(plan.duration)} per lesson</span>` : ""}
+      </div>
+      <div class="ab-btns">${cats.map(([k, e, t, a, b]) => `<button class="ab-btn ${k === aboutCat ? "on" : ""}" data-cat="${k}" style="--a:${a};--b:${b}" aria-pressed="${k === aboutCat}"><span>${e}</span><b>${t}</b></button>`).join("")}</div>
+      <div class="ab-panel">${cur ? `<div class="ab-show" style="--a:${cur[3]};--b:${cur[4]}"><h4><span>${cur[1]}</span>${cur[2]}</h4>${cur[5]}</div>`
+        : `<p class="ab-hint">👆 Tap a button to see the information</p>`}</div>
+    </section>`;
   }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-about] [data-cat]"); if (!b) return;
+    aboutCat = aboutCat === b.dataset.cat ? null : b.dataset.cat;
+    const box = b.closest("[data-about]"), plan = planFor(pick.year, pick.term);
+    if (plan) box.outerHTML = termDetails(plan);
+  });
   function weekDetails(plan, w) {
     let acts = []; try { acts = LC.expandActivity(w.activities || "") || []; } catch { /* free text only */ }
     const doNow = w.doNow || (LC.doNowFor && LC.doNowFor(plan.id, w.week)) || "";
