@@ -262,10 +262,9 @@
         </div>
         ${w.objectives ? `<p class="lc-obj"><b>🎯 Today:</b> ${esc(w.objectives)}</p>` : ""}
         <div class="lc-actbox ${actsOpen ? "open" : ""}">
-        <button class="lc-weektoggle lc-acttoggle" data-acts aria-expanded="${actsOpen}"><span class="e">🚀</span><span class="t"><b>Teach & play</b><small>Mind map, slides, live game, quiz, puzzles, games & my activities</small></span><i>${actsOpen ? "Hide ▲" : "Open ▼"}</i></button>
+        <button class="lc-weektoggle lc-acttoggle" data-acts aria-expanded="${actsOpen}"><span class="e">🚀</span><span class="t"><b>Teach & play</b><small>Mind map, live game, quiz, puzzles, games & my activities</small></span><i>${actsOpen ? "Hide ▲" : "Open ▼"}</i></button>
         <div class="lc-actions">
           <button class="lc-act" data-go="teach"><span>▶️</span><b>Teach the lesson</b><small>Interactive mind map that grows as you teach, with questions inside</small></button>
-          <button class="lc-act" data-go="slides"><span>📑</span><b>Slides</b><small>The classic slide deck with games, timers & polls</small></button>
           <a class="lc-act student" href="${LC_APP}/play" target="_blank" rel="noopener"><span>🎮</span><b>I'm a student</b><small>Choose your name and play the game!</small><i class="go">Play ▶</i></a>
           <a class="lc-act teacher" href="${LC_APP}/?go=live" target="_blank" rel="noopener"><span>👩‍🏫</span><b>I'm the teacher</b><small>Set up the game and open the board.</small><i class="go">Teacher 🔒</i></a>
           <button class="lc-act" data-go="quiz"><span>⚔️</span><b>Team Quiz</b><small>Groups answer, stars drop in the jars</small></button>
