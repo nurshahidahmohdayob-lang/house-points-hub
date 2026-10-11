@@ -239,19 +239,6 @@
     const box = b.closest("[data-about]"), plan = planFor(pick.year, pick.term);
     if (plan) box.outerHTML = termDetails(plan);
   });
-  function weekDetails(plan, w) {
-    let acts = []; try { acts = LC.expandActivity(w.activities || "") || []; } catch { /* free text only */ }
-    const doNow = w.doNow || (LC.doNowFor && LC.doNowFor(plan.id, w.week)) || "";
-    return `<div class="lc-weekinfo">
-      <h3>🧑‍🤝‍🧑 This week's activities</h3>
-      ${doNow ? `<p class="lc-donow"><b>⏱️ Do now:</b> ${esc(doNow)}</p>${pictureHtml(pictureFor(plan.id, w.week))}${warmShowHtml(plan.id, w.week)}${warmAnswerHtml(plan.id, w.week)}` : ""}
-      <div class="lc-actcards">${acts.length ? acts.map((a) => `<details class="lc-actcard"><summary><b>${esc(a.guide?.title || a.label)}</b>${a.guide?.minutes ? `<span class="muted"> · ${a.guide.minutes} min</span>` : ""}</summary>
-        ${a.guide?.what ? `<p>${esc(a.guide.what)}</p>` : ""}${a.guide?.steps?.length ? `<ol>${a.guide.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>` : ""}
-        ${a.guide?.needs ? `<p class="muted">🧰 ${esc(Array.isArray(a.guide.needs) ? a.guide.needs.join(", ") : a.guide.needs)}</p>` : ""}</details>`).join("") : `<p>${esc(w.activities || "")}</p>`}</div>
-      ${w.assessment ? `<p class="lc-donow"><b>📝 Check for learning:</b> ${esc(w.assessment)}</p>` : ""}
-      ${w.resources ? `<p class="muted">📎 ${esc(w.resources)}</p>` : ""}
-    </div>`;
-  }
 
   /* ---------------- Picker ---------------- */
   async function renderLessons() {
@@ -298,7 +285,6 @@
           <button class="lc-act" data-go="run"><span>🏃</span><b>${esc(LC.runThemeFor(plan.id, w.week).name)}</b><small>Platform game with question blocks</small></button>
           <button class="lc-act mine" data-go="mine"><span>📄</span><b>My activities</b><small>Upload your worksheet — it becomes an interactive activity</small></button>
         </div></div>
-        ${weekDetails(plan, w)}
       </div>
       ${syncBar()}`;
     wireSync(root);
