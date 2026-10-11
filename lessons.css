@@ -540,3 +540,18 @@ body.on-home main { padding-top: 36px; }
 .lc-weektoggle i { font-style: normal; font-weight: 900; background: rgba(255,255,255,.28); border-radius: 999px; padding: 8px 16px; white-space: nowrap; }
 .lc-weekbox:not(.open) .lc-weeks { display: none; }
 .lc-weekbox.open .lc-weeks { animation: ab-in .3s ease-out; }
+
+/* ---- Warm-up model answers (hidden until tapped) ---- */
+.lc-ans { margin: 14px auto; max-width: 760px; text-align: left; }
+.lc-ans > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 900; font-size: 1.1rem;
+  color: #fff; padding: 10px 22px; border-radius: 999px; background: linear-gradient(120deg, #f59e0b, #f97316);
+  box-shadow: 0 4px 0 #c2410c, 0 8px 18px rgba(249, 115, 22, .3); transition: transform .15s; }
+.lc-ans > summary::-webkit-details-marker { display: none; }
+.lc-ans > summary:hover { transform: translateY(-2px); }
+.lc-ans[open] > summary { background: linear-gradient(120deg, #16a34a, #22c55e); box-shadow: 0 4px 0 #15803d, 0 8px 18px rgba(34, 197, 94, .3); }
+.lc-ans[open] > summary::after { content: " — tap to hide"; font-weight: 700; opacity: .9; font-size: .9rem; }
+.lc-ans ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; animation: ab-in .3s ease-out; }
+.lc-ans li { background: color-mix(in srgb, #22c55e 14%, var(--surface)); border-left: 6px solid #22c55e; border-radius: 12px; padding: 10px 14px; font-weight: 700; font-size: 1.05rem; line-height: 1.4; color: var(--ink); }
+.lc-ans li::before { content: "✅ "; }
+.mm-pop .lc-ans, .lc-s-split .lc-ans { text-align: center; }
+.mm-pop .lc-ans ul, .lc-s-split .lc-ans ul { text-align: left; }
