@@ -62,7 +62,7 @@ Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) a
   falls on a holiday shifts every later lesson (e.g. Year 2 calendar Week 7 = lesson 6). Pick the next lesson on Home.
 - About Term panel (`termDetails`): colourful category buttons (Competencies, Values, Key themes, Big questions, Objectives, Success criteria, Key skills); tapping one shows only that category (tap again to hide).
 - Weekly lessons strip is hidden behind one "🗓️ N weekly lessons" button (`weeksOpen`); picking a week closes it again.
-- Lesson action cards (Teach the lesson … My activities) sit behind one "🚀 Teach & play" button (`actsOpen`, toggled without re-render).
+- "▶️ Teach the lesson" is a big button in the lesson header (`.lc-teachbtn`); the other action cards sit behind one "🚀 Teach & play" button (`actsOpen`, toggled without re-render).
 - 🔄 Sync bar is at the bottom of the lesson page behind a teacher password (`SYNC_PASS_SHA` = SHA-256 of it; unlocked per tab in sessionStorage `lc-sync-ok`).
 - Year menu: Lessons, Leaderboard, Award, Activities, Rewards are no longer in the top bar (their #tabs buttons stay, hidden); `renderYearNav` (lessons.js) draws the year banner + those 5 buttons above each of those pages and opens them filtered to the year (`window.currentYear`, read by app.js for rewards + activity pools). Top bar = Home only; History + Setup are in the `#teacherFoot` footer behind the same teacher password as Sync (`renderFoot`).
 - Warm-up answers: `assets/warmup-answers.js` (window.WARMUP_ANSWERS, "<plan>-<week>" → example answers, all 234 warm-ups); `warmAnswerHtml` puts a "💡 Show answer" reveal on the mind-map warm-up pop-up, the Do now slide and the lesson page. New LC warm-ups need an entry here.
