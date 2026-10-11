@@ -22,7 +22,7 @@
   // it downloads the lessons that app publishes on every deploy and keeps them on this device (Cache Storage),
   // so later visits use the synced lessons without downloading again.
   const LIVE_DATA = window.LC_SYNC_URL || "https://zera-life-competencies.vercel.app/class-points/lc-data.js";
-  const LOCAL_DATA = "assets/lc-data.js?v=c6eb58";
+  const LOCAL_DATA = "assets/lc-data.js?v=4a6331";
   const SYNC_CACHE = "class-points-lessons", SYNC_KEY = "/synced-lc-data.js";
   const NEEDS = ["LESSON_PLANS", "noteFor", "deepFor", "visualFor", "quizTen", "optionsForItem", "buildLesson", "expandActivity", "gameFor", "buildGameHtml", "runThemeFor", "buildPlatformerHtml", "runLevels"];
   const usable = (x) => x && NEEDS.every((k) => k in x) && Array.isArray(x.LESSON_PLANS) && x.LESSON_PLANS.length > 0;
@@ -144,7 +144,7 @@
   async function renderHome() {
     const root = $("#homeRoot"); if (!root) return;
     if (!LC) {
-      root.innerHTML = `<div class="home-years">${[1, 2, 3, 4, 5, 6].map((y) => `<button class="home-year" style="--a:${YEAR_LOOK[y].from};--b:${YEAR_LOOK[y].to}" data-y="${y}"><span class="e">${YEAR_LOOK[y].emoji}</span><b>Year ${y}</b></button>`).join("")}</div>`;
+      root.innerHTML = `<div class="home-years">${[1, 2, 3, 4, 5, 6].map((y) => `<button class="home-year" style="--a:${YEAR_LOOK[y].from};--b:${YEAR_LOOK[y].to}" data-y="${y}"><span class="e">${YEAR_LOOK[y].emoji}</span><b>Year ${y}</b></button>`).join("")}</div>${studentCard()}`;
       wireHome(root);
       try { await loadData(); } catch { return; }
     }
@@ -154,9 +154,11 @@
       return `<button class="home-year" style="--a:${L.from};--b:${L.to};animation-delay:${(y - 1) * 0.06}s" data-y="${y}">
         <span class="e">${L.emoji}</span><b>Year ${y}</b>${t.theme ? `<span class="t">${esc(t.theme)}</span>` : ""}
         <small>${topics.map((p) => esc(p.title)).join(" · ")}</small></button>`;
-    }).join("")}</div>`;
+    }).join("")}</div>${studentCard()}`;
     wireHome(root);
   }
+  // Students' way in: choose your year group, join the live game (play.html)
+  const studentCard = () => `<a class="home-student" href="play.html" target="_blank" rel="noopener"><span class="e">🎮</span><b>I'm a student</b><small>Choose your year group and play the live game!</small><span class="go">Play ▶</span></a>`;
   function wireHome(root) {
     $$("[data-y]", root).forEach((b) => b.onclick = () => {
       const y = +b.dataset.y;

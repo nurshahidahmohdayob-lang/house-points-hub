@@ -39,12 +39,32 @@
     .me { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: 10px 16px; font-weight: 800; background: rgba(0,0,0,.18); }
     .bar { height: 10px; width: min(700px, 100%); background: rgba(255,255,255,.2); border-radius: 99px; overflow: hidden; }
     .bar i { display: block; height: 100%; background: #ffd23f; transition: width .9s linear; }
+    .home-card { background: #fff; color: #241c3d; border-radius: 28px; padding: 22px 18px; width: min(560px, 100%); box-shadow: 0 20px 50px rgba(0,0,0,.25); display: flex; flex-direction: column; gap: 14px; align-items: center; }
+    .home-card h1 { color: #2b8a3e; font-size: clamp(1.6rem, 6vw, 2.3rem); }
+    .live-now { width: 100%; border: 0; border-radius: 20px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; text-align: left; color: #fff; font: inherit; cursor: pointer;
+      background: linear-gradient(90deg, #f97316, #f59e0b); box-shadow: 0 0 0 6px #fdf0c8; animation: glow 1.6s ease-in-out infinite; }
+    .live-now b { display: block; font-size: 1.25rem; } .live-now span { opacity: .92; font-weight: 700; }
+    .live-now .dot { font-size: 1.8rem; } .live-now .j { margin-left: auto; background: rgba(255,255,255,.3); border-radius: 999px; padding: 8px 16px; font-weight: 800; }
+    @keyframes glow { 50% { box-shadow: 0 0 0 10px #fdf0c8; } }
+    .years { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; }
+    @media (max-width: 420px) { .years { grid-template-columns: repeat(2, 1fr); } }
+    .yr { border: 0; border-radius: 20px; padding: 22px 6px; font: inherit; font-family: "Baloo 2"; font-weight: 800; font-size: 1.6rem; color: #fff; cursor: pointer; box-shadow: 0 6px 0 rgba(0,0,0,.18); position: relative; }
+    .yr:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,.18); }
+    .yr .badge { position: absolute; top: -8px; right: -6px; background: #ef4444; color: #fff; font-size: .75rem; border-radius: 999px; padding: 2px 8px; font-family: "Nunito"; }
+    .hint { color: #64748b; font-weight: 700; font-size: .9rem; margin: 0; }
+    .linkish { background: none; border: 0; color: #64748b; text-decoration: underline; font: inherit; font-weight: 800; cursor: pointer; }
+    .names { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; width: 100%; max-height: 46vh; overflow-y: auto; padding: 4px; }
+    .nm { border: 3px solid #e2e8f0; background: #f8fafc; border-radius: 16px; padding: 10px 8px; font: inherit; font-weight: 800; color: #241c3d; cursor: pointer; text-transform: uppercase; font-size: .9rem; }
+    .nm.on { border-color: #40c057; background: #ebfbee; }
+    .home-card input { border: 3px solid #e2e8f0; text-transform: uppercase; font-size: 1.2rem; }
+    .back { align-self: flex-start; }
     .wait-dots span { display: inline-block; animation: bob 1.2s infinite; } .wait-dots span:nth-child(2) { animation-delay: .2s; } .wait-dots span:nth-child(3) { animation-delay: .4s; }
   </style>
 </head>
 <body>
   <div class="me" id="me" hidden><span id="meName"></span><span id="meScore"></span></div>
   <main id="app"></main>
+  <script src="assets/class-lists.js"></script>
   <script src="live-config.js"></script>
   <script src="live.js"></script>
   <script>
@@ -60,39 +80,94 @@
     const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } } };
     const buzz = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch { /* no vibration */ } };
 
+    const YEAR_COLORS = ["#40c057", "#3b7dd8", "#f0a030", "#e0507a", "#7b55e8", "#3fa57a"];
+    const LISTS = window.CLASS_LISTS || [];
+    let games = [], homeTimer = null;
+    const stopHome = () => { clearTimeout(homeTimer); homeTimer = null; };
+
+    // Start here: choose your year group; a game the teacher has started shows at the top ("Live now")
+    function home(wantClass) {
+      stopHome();
+      const draw = () => {
+        const live = games.filter((g) => g.phase !== "end");
+        const mine = wantClass ? live.find((g) => g.classId === wantClass) : null;
+        if (mine) { stopHome(); return pickName(mine.code, mine.classId); }
+        if (wantClass) {
+          const label = LISTS.find((c) => c.id === wantClass)?.label || wantClass;
+          app.innerHTML = `<div class="home-card"><button class="linkish back" id="back">‹ Back</button><div class="logo">⏳</div><h1>${esc(label)}</h1>
+            <p class="hint">Waiting for your teacher to start the game<span class="wait-dots"><span>.</span><span>.</span><span>.</span></span></p>
+            <p class="hint">It starts here by itself — keep this page open.</p></div>`;
+          $("#back").onclick = () => home();
+          return;
+        }
+        app.innerHTML = `<div class="home-card">
+          ${live.map((g) => `<button class="live-now" data-g="${esc(g.code)}"><span class="dot">🔴</span><div><b>Live now · ${esc(g.classLabel || "")}</b><span>${esc(g.title || "")}</span></div><span class="j">Join ▶</span></button>`).join("")}
+          <div class="logo">🎮</div><h1>Choose your year group</h1>
+          <div class="years">${[1, 2, 3, 4, 5, 6].map((y, k) => { const on = live.some((g) => g.classId === `year${y}`); return `<button class="yr" data-y="year${y}" style="background:${YEAR_COLORS[k]}">Year ${y}${on ? `<span class="badge">LIVE</span>` : ""}</button>`; }).join("")}</div>
+          <p class="hint">🔴 When your teacher starts a live game, it appears here at the top.</p>
+          <button class="linkish" id="code">I have a code</button></div>`;
+        app.querySelectorAll("[data-g]").forEach((b) => b.onclick = () => { const g = live.find((x) => x.code === b.dataset.g); stopHome(); pickName(g.code, g.classId); });
+        app.querySelectorAll("[data-y]").forEach((b) => b.onclick = () => home(b.dataset.y));
+        $("#code").onclick = () => { stopHome(); askCode(); };
+      };
+      const tick = async () => {
+        try { games = await Live.now(); } catch { /* offline: keep what we had */ }
+        draw();
+        if (!app.querySelector(".names")) homeTimer = setTimeout(tick, 3000);
+      };
+      draw(); tick();
+    }
+
     function askCode(msg) {
       app.innerHTML = `<div class="logo">🎮</div><h1>Join the game</h1><p class="muted">Type the code on the board</p>
         <input class="code" id="code" inputmode="numeric" maxlength="4" autocomplete="off" value="${esc(code)}" placeholder="0000" />
-        ${msg ? `<p class="err">${esc(msg)}</p>` : ""}<button class="go" id="next">Next ›</button>`;
+        ${msg ? `<p class="err">${esc(msg)}</p>` : ""}<button class="go" id="next">Next ›</button><button class="linkish" id="yrs" style="color:#fff">‹ Choose my year group instead</button>`;
       const inp = $("#code"); inp.focus();
+      $("#yrs").onclick = () => home();
       const go = async () => {
         code = inp.value.replace(/\D/g, "").slice(0, 4);
         if (code.length !== 4) return askCode("The code has 4 numbers.");
-        try { const s = await Live.state(code); if (!s) return askCode("No game with that code. Check the board!"); askName(); }
+        try { const s = await Live.state(code); if (!s) return askCode("No game with that code. Check the board!"); pickName(code, s.classId); }
         catch { askCode("Can't reach the game. Check the internet."); }
       };
       $("#next").onclick = go; inp.onkeydown = (e) => { if (e.key === "Enter") go(); };
     }
 
-    function askName(msg) {
-      const saved = store.get("live-name") || "";
-      app.innerHTML = `<div class="logo">🙋</div><h1>What's your name?</h1><p class="muted">Use your real name so your stars go to your jar ⭐</p>
-        <input id="name" maxlength="30" autocomplete="given-name" value="${esc(saved)}" placeholder="Your name" />
-        ${msg ? `<p class="err">${esc(msg)}</p>` : ""}<button class="go" id="join">Join! 🚀</button>`;
-      const inp = $("#name"); inp.focus();
+    // Choose your name from the class list (or type it)
+    function pickName(gameCode, classId, msg) {
+      stopHome(); code = gameCode;
+      const list = LISTS.find((c) => c.id === classId), names = list?.students || [];
+      const saved = store.get("live-name-" + classId) || store.get("live-name") || "";
+      let chosen = names.includes(saved) || !names.length ? saved : "";
+      const norm = (t) => String(t || "").toLowerCase().replace(/\s+/g, " ").trim();
+      app.innerHTML = `<div class="home-card"><button class="linkish back" id="back">‹ Back</button>
+        <p class="hint">${esc(list?.label || "")}</p><h1>Choose your name</h1>
+        <input id="name" maxlength="40" autocomplete="off" placeholder="${names.length ? "🔍 …or type your name" : "Type your name"}" value="${esc(names.length ? "" : chosen)}" />
+        ${names.length ? `<div class="names"></div>` : ""}
+        ${msg ? `<p class="err">${esc(msg)}</p>` : ""}<button class="go" id="join">Join! 🚀</button></div>`;
+      const inp = $("#name"), box = app.querySelector(".names");
+      const drawNames = () => {
+        if (!box) return;
+        const q = norm(inp.value), shown = names.filter((n) => !q || norm(n).includes(q));
+        box.innerHTML = shown.map((n) => `<button class="nm ${n === chosen ? "on" : ""}" data-n="${esc(n)}">${esc(n)}</button>`).join("") || `<p class="hint">Not on the list? Type your full name and tap Join.</p>`;
+        box.querySelectorAll("[data-n]").forEach((b) => b.onclick = () => { chosen = b.dataset.n; drawNames(); });
+      };
+      drawNames();
+      inp.oninput = () => { chosen = names.find((n) => norm(n) === norm(inp.value)) || ""; drawNames(); };
+      $("#back").onclick = () => home();
       const go = async () => {
-        const name = inp.value.trim().replace(/\s+/g, " ");
-        if (name.length < 2) return askName("Type your name first.");
+        const name = (chosen || inp.value).trim().replace(/\s+/g, " ");
+        if (name.length < 2) return pickName(gameCode, classId, names.length ? "Tap your name first." : "Type your name first.");
         $("#join").disabled = true;
-        try { await Live.join(code, name); me = name; store.set("live-name", name); store.set("live-" + code, name); $("#me").hidden = false; $("#meName").textContent = "🙂 " + name; poll(); }
-        catch (e) { askName(e.message || "Couldn't join. Try again."); }
+        try { await Live.join(code, name); me = name; store.set("live-name", name); store.set("live-name-" + classId, name); store.set("live-" + code, name); $("#me").hidden = false; $("#meName").textContent = "🙂 " + name; poll(); }
+        catch (e) { pickName(gameCode, classId, e.message || "Couldn't join. Try again."); }
       };
       $("#join").onclick = go; inp.onkeydown = (e) => { if (e.key === "Enter") go(); };
     }
 
     async function poll() {
       try { st = await Live.state(code); } catch { /* keep the last screen */ }
-      if (!st) { clearTimeout(timer); return askCode("The game has finished. Thanks for playing! 🎉"); }
+      if (!st) { clearTimeout(timer); $("#me").hidden = true; return home(); }
       draw();
       timer = setTimeout(poll, Live.POLL_MS);
     }
@@ -156,8 +231,8 @@
     if (code.length === 4) {
       const again = store.get("live-" + code);
       if (again) { me = again; $("#me").hidden = false; $("#meName").textContent = "🙂 " + me; Live.join(code, me).catch(() => {}).finally(poll); }
-      else askName();
-    } else askCode();
+      else Live.state(code).then((s) => (s ? pickName(code, s.classId) : home())).catch(() => askCode());
+    } else home(new URLSearchParams(location.search).get("class") || undefined);
   })();
   </script>
 </body>

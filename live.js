@@ -25,6 +25,7 @@
   const Live = {
     open: (o) => rpc("live_open", { p_key: o.key, p_academic_year: o.academicYear || "", p_class_id: o.classId, p_class_label: o.classLabel, p_plan_id: o.planId, p_week: o.week, p_title: o.title, p_stops: o.stops, p_seconds: o.seconds }),
     control: (o) => rpc("live_control", { p_key: o.key, p_code: o.code, p_phase: o.phase, p_stop: o.stop, p_question: o.question ?? null, p_answer: o.answer ?? null, p_target: o.target ?? null, p_seconds: o.seconds ?? null }),
+    now: async () => ((await rpc("live_now", {})) || []).map((g) => ({ code: g.code, classId: g.class_id, classLabel: g.class_label, title: g.title, phase: g.phase, players: +g.players })),
     join: (code, student) => rpc("live_join", { p_code: code, p_student: student }),
     submit: (code, student, stop, choice) => rpc("live_submit", { p_code: code, p_student: student, p_stop: stop, p_choice: choice }),
     state: async (code) => {
@@ -62,11 +63,12 @@
 
   function setupDialog(plan, w, title, questions, onReady) {
     let key = ""; try { key = sessionStorage.getItem(KEY_STORE) || ""; } catch { /* private mode */ }
-    const classes = [...new Set(CP().students().filter((s) => s.year === plan.year).map((s) => s.cls).filter(Boolean))];
+    // Same class ids as the Life Competencies app ("year1"…), so the game shows under "Live now" for that year group
+    // on both apps' student pages, and opening a new game ends that class's older one.
+    const lists = (window.LC && window.LC.CLASS_LISTS) || window.CLASS_LISTS || [1, 2, 3, 4, 5, 6].map((y) => ({ id: `year${y}`, label: `Year ${y}`, year: y, students: [] }));
     CP().modal(`<h2>📱 Live play on devices</h2>
       <p class="muted">Students join on tablets or phones and answer together. Right answers earn ⭐ for the student and their group jar.</p>
-      <label class="edit-label">Class <input data-class list="lv-classes" value="${esc(classes[0] || `Year ${plan.year}`)}" /></label>
-      <datalist id="lv-classes">${classes.map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
+      <label class="edit-label">Class <select data-class>${lists.map((c) => `<option value="${esc(c.id)}" ${c.year === plan.year ? "selected" : ""}>${esc(c.label)}</option>`).join("")}</select></label>
       <div class="lv-row"><label class="edit-label">Questions <select data-n>${[...new Set([5, 8, 10, 15, questions.length].filter((n) => n <= questions.length || n === 5))].sort((a, b) => a - b).map((n) => `<option value="${n}" ${n === (questions.length <= 15 ? questions.length : 10) ? "selected" : ""}>${n === questions.length && n > 5 ? `All ${n}` : n}</option>`).join("")}</select></label>
       <label class="edit-label">Seconds each <select data-sec>${[10, 15, 20, 30].map((n) => `<option ${n === 20 ? "selected" : ""}>${n}</option>`).join("")}</select></label></div>
       <label class="edit-label">Teacher key <input data-key type="password" autocomplete="current-password" value="${esc(key)}" placeholder="The school's teacher key (same as the Life Competencies app)" /></label>
@@ -75,12 +77,12 @@
       $("[data-no]", d).onclick = () => d.close();
       $("[data-go]", d).onclick = async () => {
         const btn = $("[data-go]", d), err = $(".lv-err", d);
-        const k = $("[data-key]", d).value.trim(), cls = $("[data-class]", d).value.trim() || `Year ${plan.year}`;
+        const k = $("[data-key]", d).value.trim(), cl = lists.find((c) => c.id === $("[data-class]", d).value) || { id: `year${plan.year}`, label: `Year ${plan.year}` }, cls = cl.label;
         if (!k) { err.hidden = false; err.textContent = "Type the teacher key first."; return; }
         btn.disabled = true; btn.textContent = "Opening…"; err.hidden = true;
         try {
           const n = +$("[data-n]", d).value, sec = +$("[data-sec]", d).value;
-          const code = await Live.open({ key: k, classId: `cp-${cls}`, classLabel: cls, planId: plan.id, week: w.week, title, stops: Math.min(n, questions.length), seconds: sec });
+          const code = await Live.open({ key: k, classId: cl.id, classLabel: cl.label, planId: plan.id, week: w.week, title, stops: Math.min(n, questions.length), seconds: sec });
           try { sessionStorage.setItem(KEY_STORE, k); } catch { /* private mode */ }
           d.close();
           onReady({ key: k, code, stops: Math.min(n, questions.length), seconds: sec, cls });
@@ -113,7 +115,7 @@
 
     const lobby = () => {
       body.innerHTML = `<div class="lv-lobby">
-        <div class="lv-join"><p>Go to</p><b class="lv-url">${esc(joinUrl.replace(/^https?:\/\//, "").replace(/\?c=.*/, ""))}</b><p>and type the code</p><div class="lv-code">${g.code.split("").map((c) => `<span>${c}</span>`).join("")}</div>
+        <div class="lv-join"><p>Go to</p><b class="lv-url">${esc(joinUrl.replace(/^https?:\/\//, "").replace(/\?c=.*/, ""))}</b><p>tap <b>${esc(g.cls)}</b> and join — or type the code</p><div class="lv-code">${g.code.split("").map((c) => `<span>${c}</span>`).join("")}</div>
           <div class="lv-qr" title="Scan to join"></div></div>
         <div class="lv-players"><h2><span data-count>0</span> players</h2><div class="lv-bubbles"></div>
           <button class="btn big" data-start disabled>▶ Start the game</button></div></div>`;

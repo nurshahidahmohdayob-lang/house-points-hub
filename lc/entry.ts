@@ -48,3 +48,4 @@ export function termSchedule(planId: string): ScheduleRow[] {
     weeks: r.item ?? [],
   }));
 }
+export { CLASS_LISTS } from "@lc/students";
