@@ -584,3 +584,7 @@ body.on-home main { padding-top: 36px; }
 .year-tabs button:hover { transform: translateY(-2px); }
 .year-tabs button.on { color: #fff; background: linear-gradient(120deg, var(--primary), #a855f7); box-shadow: 0 4px 0 #4a2fd6, 0 8px 18px rgba(107, 77, 255, .3); }
 .year-tabs button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+/* ---- Teacher settings footer (History + Setup, password) ---- */
+.teacher-foot { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; padding: 18px 16px 28px; margin-top: 10px; border-top: 2px dashed var(--line); }
+.teacher-foot .btn { font-size: .9rem; padding: 6px 14px; }

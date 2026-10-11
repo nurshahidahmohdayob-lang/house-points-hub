@@ -97,11 +97,11 @@
     const sync = $("[data-sync]", root); if (sync) sync.onclick = (e) => syncNow(e.currentTarget);
     const ask = $("[data-synclock]", root); if (ask) ask.onclick = () => { syncAsk = true; redraw(); };
     const cancel = $("[data-synccancel]", root); if (cancel) cancel.onclick = () => { syncAsk = false; redraw(); };
-    const lock = $("[data-synclockagain]", root); if (lock) lock.onclick = () => { try { sessionStorage.removeItem("lc-sync-ok"); } catch {} syncAsk = false; redraw(); };
+    const lock = $("[data-synclockagain]", root); if (lock) lock.onclick = () => { try { sessionStorage.removeItem("lc-sync-ok"); } catch {} syncAsk = false; redraw(); renderFoot(); };
     const form = $("[data-syncform]", root);
     if (form) form.onsubmit = async (e) => {
       e.preventDefault();
-      if (await sha256($("[data-syncpw]", form).value.trim()) === SYNC_PASS_SHA) { try { sessionStorage.setItem("lc-sync-ok", "1"); } catch {} syncAsk = false; redraw(); }
+      if (await sha256($("[data-syncpw]", form).value.trim()) === SYNC_PASS_SHA) { try { sessionStorage.setItem("lc-sync-ok", "1"); } catch {} syncAsk = false; redraw(); renderFoot(); }
       else { $(".lc-syncerr", form).hidden = false; $("[data-syncpw]", form).value = ""; $("[data-syncpw]", form).focus(); }
     };
   }
@@ -829,6 +829,34 @@
     else if (go === "mine") window.ActivityMaker.open({ stage, starPicker, plan, w, where: `Year ${plan.year} · T${plan.term} ${calOf(plan, w.week).label}`, onClose: (f) => stageCleanup.push(f) });
     else if (go === "run") { const t = LC.runThemeFor(plan.id, w.week); frameGame(plan, w, LC.buildPlatformerHtml(gameInput(plan, w), t, LC.runLevels(plan.id, w.week, w.focus)), `🏃 ${esc(t.name)}`); }
   }
+
+  // Teacher settings at the bottom of every page: History and Setup (no longer in the top bar), behind the same
+  // teacher password as Sync (one unlock per browser tab covers both).
+  let footAsk = false;
+  function renderFoot() {
+    const f = $("#teacherFoot"); if (!f) return;
+    f.innerHTML = syncOpen()
+      ? `<button class="btn ghost" data-foot="history">📜 History</button><button class="btn ghost" data-foot="settings">⚙️ Setup</button><button class="btn ghost" data-footlock>🔒 Lock</button>`
+      : footAsk
+        ? `<form class="lc-syncpass" data-footform><label>🔒 Teacher password <input type="password" inputmode="numeric" autocomplete="off" required data-footpw></label><button class="btn">Unlock</button><button type="button" class="btn ghost" data-footcancel>Cancel</button><span class="lc-syncerr" hidden>❌ Wrong password</span></form>`
+        : `<button class="btn ghost" data-footask>🔒 Teacher settings</button>`;
+    $("[data-footpw]", f)?.focus();
+    const bar = $("#lessonsRoot .lc-syncbar"); if (bar && !bar.contains(document.activeElement)) { bar.outerHTML = syncBar(); wireSync($("#lessonsRoot")); } // same lock
+  }
+  document.addEventListener("click", (e) => {
+    const t = e.target;
+    if (t.closest("[data-footask]")) { footAsk = true; renderFoot(); }
+    else if (t.closest("[data-footcancel]")) { footAsk = false; renderFoot(); }
+    else if (t.closest("[data-footlock]")) { try { sessionStorage.removeItem("lc-sync-ok"); } catch {} footAsk = false; renderFoot(); document.querySelector('[data-tab="home"]').click(); }
+    else if (t.closest("[data-foot]")) { document.querySelector(`[data-tab="${t.closest("[data-foot]").dataset.foot}"]`).click(); }
+  });
+  document.addEventListener("submit", async (e) => {
+    const form = e.target.closest("[data-footform]"); if (!form) return;
+    e.preventDefault();
+    if (await sha256($("[data-footpw]", form).value.trim()) === SYNC_PASS_SHA) { try { sessionStorage.setItem("lc-sync-ok", "1"); } catch {} footAsk = false; renderFoot(); }
+    else { $(".lc-syncerr", form).hidden = false; $("[data-footpw]", form).value = ""; $("[data-footpw]", form).focus(); }
+  });
+  renderFoot();
 
   // Each year group has its own menu (Lessons, Leaderboard, Award, Activities, Rewards) under its banner, instead of
   // those tabs sitting in the top bar. The other pages open filtered to the year (window.currentYear, read by app.js).
