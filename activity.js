@@ -11,6 +11,36 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const norm = (s) => String(s ?? "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
   const STORE = "class-points-activities-v1";
+  // Written answers: right when they match the teacher's answer, or contain its key words (any "/" alternative)
+  const NUMS = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split(" ");
+  const same = (a, b) => a === b || NUMS[+a] === b || NUMS[+b] === a;
+  const STOP = new Set("a an the of to in on is are was be it and or for with that this by at as from they their them you your we our".split(" "));
+  function fuzzy(given, want) {
+    const g = norm(given), G = g.split(" ");
+    return String(want || "").split("/").some((w) => {
+      const n = norm(w); if (!n || !g) return false;
+      if (n === g || same(n, g)) return true;
+      const W = n.split(" ").filter((x) => x.length > 2 && !STOP.has(x));
+      if (!W.length) return false;
+      const hit = W.filter((x) => G.some((y) => y === x || (x.length > 4 && y.length > 4 && y.slice(0, 5) === x.slice(0, 5)))).length;
+      return W.length <= 3 ? hit === W.length : hit / W.length >= 0.6;
+    });
+  }
+  // Mark a submitted answer (as text) against the teacher's current answer key: 1 right, 0 wrong, null = can't tell
+  function markText(it, text) {
+    const t = String(text || "");
+    if (it.type === "mcq" || it.type === "tf") return it.answer == null ? null : norm(t) === norm(it.options[it.answer]) ? 1 : 0;
+    if (it.type === "blank") {
+      const gaps = it.segs.filter((x) => typeof x !== "string"), parts = t.split(", ");
+      const keyed = gaps.filter((x) => (it.answers[x.g] || "").trim());
+      if (!keyed.length) return null;
+      return keyed.every((x) => String(it.answers[x.g]).split("/").some((w) => norm(w) && same(norm(w), norm(parts[gaps.indexOf(x)] || "")))) ? 1 : 0;
+    }
+    if (it.type === "open") return it.model && it.mark ? (fuzzy(t, it.model) ? 1 : 0) : null;
+    if (it.type === "match") { const got = Object.fromEntries(t.split("; ").map((p) => p.split(" → "))); return it.pairs.every((p) => norm(got[p[0]]) === norm(p[1])) ? 1 : 0; }
+    return null;
+  }
+  const markable = (it) => it.type === "match" || markText(it, "") !== null;
   const LETTERS = "ABCDEFGH";
 
   /* ================= Reading the document ================= */
@@ -211,7 +241,7 @@
       return { type: "tf", text: text.replace(TF, "").replace(/\s+([.?!])$/, "$1").trim(), options: labels, answer: pickAnswer(ans, labels) };
     }
     if (!text) return null;
-    return { type: "open", text, model: ans || "" };
+    return { type: "open", text, model: ans || "", mark: !!ans && ans.split(/\s+/).length <= 6 };
   }
 
   function parse(source, name = "") {
@@ -344,7 +374,16 @@
         const p = s.pairs || {};
         return { score: it.pairs.every((pair, k) => p[k] === pair[1]) ? 1 : 0, show: it.pairs.map((x) => `${x[0]} → ${x[1]}`).join(" · ") };
       }
-      if (it.type === "open") return { score: null, show: it.model || "" };
+      if (it.type === "open") {
+        if (!(it.model && it.mark)) return { score: null, show: it.model || "" };
+        const STOP = new Set("a an the of to in on is are was be it and or for with that this by at as from they their them you your we our".split(" "));
+        const g = norm(s.text), G = g.split(" ");
+        const right = String(it.model).split("/").some((w) => { const n = norm(w); if (!n || !g) return false; if (n === g || same(n, g)) return true;
+          const W = n.split(" ").filter((x) => x.length > 2 && !STOP.has(x)); if (!W.length) return false;
+          const hit = W.filter((x) => G.some((y) => y === x || (x.length > 4 && y.length > 4 && y.slice(0, 5) === x.slice(0, 5)))).length;
+          return W.length <= 3 ? hit === W.length : hit / W.length >= 0.6; });
+        return { score: right ? 1 : 0, show: it.model.split("/")[0] };
+      }
       return { score: null };
     }
 
@@ -537,7 +576,7 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
   const load = () => { try { return JSON.parse(localStorage.getItem(STORE) || "[]"); } catch { return []; } };
   const save = (list) => { try { localStorage.setItem(STORE, JSON.stringify(list)); return true; } catch { CP().toast("⚠️ Too big to save on this device — try removing big pictures from the document"); return false; } };
   const questions = (a) => a.items.filter((i) => i.type !== "info");
-  const unkeyed = (a) => questions(a).filter((i) => ((i.type === "mcq" || i.type === "tf") && i.answer == null) || (i.type === "blank" && i.answers.every((x) => !x.trim()))).length;
+  const unkeyed = (a) => questions(a).filter((i) => !markable(i)).length;
   const KINDS = { mcq: "🔤 Multiple choice", tf: "✅ True / False", blank: "✏️ Fill in the blank", open: "📝 Write an answer", match: "🔗 Matching" };
   const EMOJIS = ["✏️", "📚", "🧠", "🌟", "🚀", "🌈", "🔍", "🎯", "🧩", "🌍"];
 
@@ -615,11 +654,11 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
     edit(act, true);
   }
 
-  function edit(src, isNew) {
+  function edit(src, isNew, after) {
     const act = JSON.parse(JSON.stringify(src));
     const el = ctx.stage(isNew ? "✨ Check your activity" : "✏️ Edit activity", { jars: false }), body = $(".lc-stage-body", el);
     $(".lc-stage-extra", el).innerHTML = `<button class="btn ghost am-back">‹ My activities</button>`;
-    $(".am-back", el).onclick = library;
+    $(".am-back", el).onclick = () => (after ? after(src) : library());
     const draw = () => {
       const qs = questions(act), counts = {};
       qs.forEach((q) => (counts[q.type] = (counts[q.type] || 0) + 1));
@@ -631,7 +670,7 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
           <input class="am-title" value="${esc(act.title)}" maxlength="80" aria-label="Activity title">
         </div>
         ${qs.length ? `<div class="am-sum"><b>${isNew ? "🎉 I found" : "📋"} ${qs.length} question${qs.length === 1 ? "" : "s"}:</b> ${Object.entries(counts).map(([k, v]) => `<span class="lc-badge">${KINDS[k]} × ${v}</span>`).join(" ")}</div>
-          ${miss ? `<div class="am-note">👆 <b>${miss} question${miss === 1 ? " has" : "s have"} no answer yet.</b> Tap the right option (or type the answer) so the activity can check it. Questions without an answer are still saved, but aren't marked.</div>` : `<div class="am-note ok">✅ Every question has an answer — students will get marked straight away.</div>`}`
+          ${miss ? `<div class="am-note">👆 <b>${miss} question${miss === 1 ? " has" : "s have"} no right answer yet</b> (orange). Tap the right option, or type the right answer, so students see ✅ Correct / ❌ Wrong as soon as they submit. Without one, you mark it yourself on the board.</div>` : `<div class="am-note ok">✅ Every question has an answer — students will get marked straight away.</div>`}`
         : `<div class="am-note">😕 <b>I couldn't find any questions in this document.</b> Number your questions (1. 2. 3.) and put options as a) b) c) — open “How to write questions” on the previous page for help.</div>`}
         <div class="am-items">${act.items.map((it, i) => itemCard(it, i, it.type === "info" ? 0 : ++n)).join("")}</div>
         <div class="am-save"><button class="btn ghost am-back2">Cancel</button><button class="btn am-keep" ${qs.length ? "" : "disabled"}>💾 Save</button><button class="btn am-keep-play" ${qs.length ? "" : "disabled"}>▶ Save &amp; play</button></div>
@@ -647,29 +686,31 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
         <small class="muted">${it.answer == null ? "👆 Tap the right answer" : "Right answer ✓ — tap another to change"}</small>`;
       else if (it.type === "blank") inner = `<p class="am-qt">${it.segs.map((s) => typeof s === "string" ? esc(s) : `<input class="am-gap" data-gap="${i}:${s.g}" value="${esc(it.answers[s.g] || "")}" placeholder="answer" size="${Math.max(7, (it.answers[s.g] || "").length + 1)}">${s.choices ? `<small class="muted"> (${esc(s.choices.join(" / "))})</small>` : ""}`).join("")}</p>
         <small class="muted">Type the answer in each gap. More than one right answer? Use / — like <code>colour/color</code></small>`;
-      else if (it.type === "open") inner = `<p class="am-qt" contenteditable="plaintext-only" data-text="${i}">${esc(it.text)}</p><input class="am-model" data-model="${i}" value="${esc(it.model)}" placeholder="Model answer students see after checking (optional)">`;
+      else if (it.type === "open") inner = `<p class="am-qt" contenteditable="plaintext-only" data-text="${i}">${esc(it.text)}</p><input class="am-model" data-model="${i}" value="${esc(it.model)}" placeholder="✏️ Type the right answer (use / for other right answers, e.g. the creator/the author)">
+        <label class="am-auto"><input type="checkbox" data-mark="${i}" ${it.mark ? "checked" : ""}> ✅ Mark it automatically — students see Correct / Wrong straight away (turn off for opinion questions)</label>`;
       else if (it.type === "match") inner = `<p class="am-qt">${esc(it.text)}</p><div class="am-pairs">${it.pairs.map((p) => `<span>${esc(p[0])}</span><span>→</span><span>${esc(p[1])}</span>`).join("")}</div>`;
       const switchTo = it.type === "open" ? `<button class="am-mini" data-tf="${i}">Make it True/False</button>` : it.type === "tf" ? `<button class="am-mini" data-open="${i}">Make it a written answer</button>` : "";
-      return `<div class="am-card ${(it.type === "mcq" || it.type === "tf") && it.answer == null ? "need" : ""}">${del}<div class="am-kind"><span class="am-n">${n}</span>${KINDS[it.type]}${switchTo}</div>${inner}</div>`;
+      return `<div class="am-card ${markable(it) ? "" : "need"}">${del}<div class="am-kind"><span class="am-n">${n}</span>${KINDS[it.type]}${switchTo}</div>${inner}</div>`;
     };
     const wire = () => {
       $(".am-title", body).oninput = (e) => (act.title = e.target.value);
       $(".am-emo.big", body).onclick = () => { act.emoji = EMOJIS[(EMOJIS.indexOf(act.emoji) + 1) % EMOJIS.length]; $(".am-emo.big", body).textContent = act.emoji; };
       $$("[data-pick]", body).forEach((b) => b.onclick = () => { const [i, k] = b.dataset.pick.split(":").map(Number); act.items[i].answer = k; draw(); });
       $$("[data-gap]", body).forEach((x) => x.oninput = () => { const [i, g] = x.dataset.gap.split(":").map(Number); act.items[i].answers[g] = x.value; });
-      $$("[data-model]", body).forEach((x) => x.oninput = () => (act.items[+x.dataset.model].model = x.value));
+      $$("[data-model]", body).forEach((x) => x.oninput = () => { const it = act.items[+x.dataset.model]; if (!it.model && x.value && !it.markSet) { it.mark = true; const c = $(`[data-mark="${x.dataset.model}"]`, body); if (c) c.checked = true; } it.model = x.value; });
+      $$("[data-mark]", body).forEach((x) => x.onchange = () => (act.items[+x.dataset.mark].mark = x.checked, act.items[+x.dataset.mark].markSet = true));
       $$("[data-text]", body).forEach((x) => x.oninput = () => (act.items[+x.dataset.text].text = x.textContent.trim()));
       $$("[data-del]", body).forEach((b) => b.onclick = () => { act.items.splice(+b.dataset.del, 1); draw(); });
       $$("[data-tf]", body).forEach((b) => b.onclick = () => { const it = act.items[+b.dataset.tf]; act.items[+b.dataset.tf] = { type: "tf", text: it.text, options: ["True", "False"], answer: pickAnswer(it.model, ["True", "False"]) }; draw(); });
       $$("[data-open]", body).forEach((b) => b.onclick = () => { const it = act.items[+b.dataset.open]; act.items[+b.dataset.open] = { type: "open", text: it.text, model: it.answer != null ? it.options[it.answer] : "" }; draw(); });
-      $(".am-back2", body).onclick = library;
+      $(".am-back2", body).onclick = () => (after ? after(src) : library());
       const keep = (thenPlay) => {
         act.title = act.title.trim() || "My activity";
         const list = load().filter((x) => x.id !== act.id);
         list.push(act);
         if (!save(list)) return;
         CP().toast("💾 Saved in My activities"); CP().beep("up");
-        thenPlay ? play(act) : library();
+        after ? after(act) : thenPlay ? play(act) : library();
       };
       $(".am-keep", body).onclick = () => keep(false);
       $(".am-keep-play", body).onclick = () => keep(true);
@@ -755,12 +796,14 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
     const last = act.links ? Object.keys(act.links).pop() : "";
     CP().modal(`<h2>📲 Do it on students' devices</h2>
       <p class="muted">Students open a link (or scan the QR code), type their name and tap <b>Submit</b> on each question. Their names, answers and marks appear on your board straight away, and right answers add ⭐ to their jars.</p>
+      ${unkeyed(act) ? `<div class="am-note">⚠️ <b>${unkeyed(act)} question${unkeyed(act) === 1 ? " has" : "s have"} no right answer</b>, so students won't see Correct / Wrong for ${unkeyed(act) === 1 ? "it" : "them"}. <button class="btn ghost" data-fix>✏️ Set the answers first</button></div>` : ""}
       <label class="edit-label">Class <input data-class list="as-classes" value="${esc(last || classes[0] || (year ? `Year ${year}` : "My class"))}" /></label>
       <datalist id="as-classes">${classes.map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
       <label class="edit-label">Teacher key <input data-key type="password" autocomplete="current-password" value="${esc(key)}" placeholder="The school's teacher key (same as Live play)" /></label>
       <p class="lv-err" hidden></p>
       <div class="opts"><button class="btn ghost" data-no>Cancel</button><button class="btn" data-go>🚀 Open for students</button></div>`, (d) => {
       $("[data-no]", d).onclick = () => d.close();
+      const fix = $("[data-fix]", d); if (fix) fix.onclick = () => { d.close(); edit(act, false, (a) => assign(a)); };
       $("[data-go]", d).onclick = async () => {
         const btn = $("[data-go]", d), err = $(".lv-err", d);
         const k = $("[data-key]", d).value.trim(), cls = $("[data-class]", d).value.trim() || "My class";
@@ -784,72 +827,97 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
     $(".am-back", el).onclick = library;
     const qs = act.items.map((it, i) => ({ it, i })).filter((x) => x.it.type !== "info");
     const link = `${location.origin}${location.pathname.replace(/[^/]*$/, "")}do.html#${g.token}~${await pack(act)}`;
+    const noKey = qs.map((q, k) => (markable(q.it) ? 0 : k + 1)).filter(Boolean);
     body.innerHTML = `<div class="as">
       <div class="as-join card"><h3>📲 Join on your device</h3><div class="as-qr"></div>
         <p class="muted small">Scan the code, or open the link your teacher shares</p>
         <div class="as-btns"><button class="btn" data-copy>📋 Copy link</button><a class="btn ghost" href="${esc(link)}" target="_blank" rel="noopener">🔗 Open</a></div>
         <div class="as-stats"><div><b data-n="in">0</b><small>handed in</small></div><div><b data-n="done">0</b><small>finished</small></div><div><b data-n="avg">–</b><small>class average</small></div></div></div>
       <div class="as-board card"><div class="as-head"><h2>🏆 Live results</h2><span class="as-live">● live</span></div>
+        ${noKey.length ? `<div class="am-note as-warn">⚠️ <b>Question${noKey.length > 1 ? "s" : ""} ${noKey.join(", ")} ${noKey.length > 1 ? "have" : "has"} no right answer</b>, so ${noKey.length > 1 ? "they" : "it"} can't be marked automatically (✍️).
+          <button class="btn" data-fix>✏️ Set the right answers</button><small>Everything already handed in is marked again straight away. Or tap any ✍️ below to mark it yourself.</small></div>` : ""}
         <div class="as-qhead"><span></span><span></span><span>Name</span><span>Marks</span><span class="as-dots">${qs.map((_, k) => `<i>${k + 1}</i>`).join("")}</span></div>
         <div class="as-rows"><p class="muted as-wait">Waiting for the first answers… 👀</p></div>
-        <div class="as-key muted small">✅ right · ❌ wrong · ✍️ written answer · ⬜ not yet — tap a name to see their answers</div></div>
+        <div class="as-key muted small">✅ right · ❌ wrong · ✍️ to mark · ⬜ not answered yet — <b>tap a ✅ ❌ ✍️ to change the mark</b>, tap a name to see their answers</div></div>
     </div>`;
+    const fix = $("[data-fix]", body);
+    if (fix) fix.onclick = () => edit(act, false, (a) => results(a, g));
     const qr = $(".as-qr", body);
     if (link.length < 2900 && window.QRCode) new window.QRCode(qr, { text: link, width: 220, height: 220, correctLevel: window.QRCode.CorrectLevel.L });
     else qr.innerHTML = `<p class="muted">This activity is too long for a QR code — use 📋 Copy link and share it (Google Classroom, WhatsApp…)</p>`;
     $("[data-copy]", body).onclick = async (e) => { try { await navigator.clipboard.writeText(link); e.target.textContent = "✅ Copied!"; } catch { prompt("Copy this link:", link); } setTimeout(() => (e.target.textContent = "📋 Copy link"), 2000); };
 
-    const STARS = "class-points-assign-stars";
-    const starred = new Set((() => { try { return JSON.parse(localStorage.getItem(STARS) || "{}")[g.token] || []; } catch { return []; } })());
-    const keepStars = () => { try { const all = JSON.parse(localStorage.getItem(STARS) || "{}"); all[g.token] = [...starred]; localStorage.setItem(STARS, JSON.stringify(all)); } catch { /* private mode */ } };
+    // Teacher's own marks (tap to change) are kept on this device, per link
+    const local = (name) => ({ get: () => { try { return JSON.parse(localStorage.getItem(name) || "{}")[g.token] || {}; } catch { return {}; } },
+      set: (v) => { try { const all = JSON.parse(localStorage.getItem(name) || "{}"); all[g.token] = v; localStorage.setItem(name, JSON.stringify(all)); } catch { /* private mode */ } } });
+    const MARKS = local("class-points-assign-marks"), STARS = local("class-points-assign-stars");
+    const marks = MARKS.get(), starred = new Set(Object.keys(STARS.get()).length ? STARS.get() : []);
     let rows = [], seen = new Set(), alive = true, timer = null, first = true;
-    const dot = (a) => (!a ? `<i class="n">⬜</i>` : a.ok === 1 ? `<i class="y">✅</i>` : a.ok === 0 ? `<i class="x">❌</i>` : `<i class="w">✍️</i>`);
+    const by = (r) => Object.fromEntries((r.answers || []).map((a) => [a.i, a]));
+    const eff = (r, q, a) => { const k = `${r.student}|${q.i}`; return k in marks ? marks[k] : a ? markText(q.it, a.a) : null; };
+    const tally = (r) => { const a = by(r); let right = 0, judged = 0, todo = 0; qs.forEach((q) => { if (!a[q.i]) return; const m = eff(r, q, a[q.i]); if (m === null) todo++; else { judged++; right += m; } }); return { right, judged, todo, n: Object.keys(a).length }; };
+    const dot = (r, q, a) => { if (!a) return `<i class="n">⬜</i>`; const m = eff(r, q, a), mine = `${r.student}|${q.i}` in marks;
+      return `<button class="as-mark ${m === 1 ? "y" : m === 0 ? "x" : "w"} ${mine ? "mine" : ""}" data-m="${esc(r.student)}|${q.i}" title="${esc(a.a || "")}">${m === 1 ? "✅" : m === 0 ? "❌" : "✍️"}</button>`; };
+    function setMark(student, i, v) {
+      const k = `${student}|${i}`;
+      if (v === undefined) delete marks[k]; else marks[k] = v;
+      MARKS.set(marks); draw(); stars();
+    }
     function draw() {
-      const by = (r) => Object.fromEntries((r.answers || []).map((a) => [a.i, a]));
-      const sorted = [...rows].sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || (b.answers?.length || 0) - (a.answers?.length || 0) || Date.parse(a.submitted_at) - Date.parse(b.submitted_at));
+      const T = new Map(rows.map((r) => [r, tally(r)]));
+      const sorted = [...rows].sort((a, b) => T.get(b).right - T.get(a).right || T.get(b).n - T.get(a).n || Date.parse(a.submitted_at) - Date.parse(b.submitted_at));
       const box = $(".as-rows", body);
       if (!sorted.length) return;
-      box.innerHTML = sorted.map((r, k) => { const a = by(r), n = (r.answers || []).length, fin = n >= qs.length;
-        return `<button class="as-row ${fin ? "fin" : ""} ${seen.has(r.student + n) ? "" : "fresh"}" data-s="${esc(r.student)}">
-          <span class="as-rank">${k < 3 && (r.score ?? 0) > 0 ? ["🥇", "🥈", "🥉"][k] : k + 1}</span><span class="as-av">${esc(r.student.slice(0, 1).toUpperCase())}</span>
-          <b class="as-name">${esc(r.student)}${fin ? " 🏁" : ""}</b><span class="as-score"><span><b>${r.score ?? 0}</b> / ${r.total ?? 0}</span><small>${n}/${qs.length} done</small></span>
-          <span class="as-dots">${qs.map((q) => dot(a[q.i])).join("")}</span></button>`; }).join("");
-      sorted.forEach((r) => seen.add(r.student + (r.answers || []).length));
-      $$(".as-row", box).forEach((b) => b.onclick = () => detail(rows.find((r) => r.student === b.dataset.s)));
-      const fin = rows.filter((r) => (r.answers || []).length >= qs.length).length, graded = rows.filter((r) => r.total);
+      box.innerHTML = sorted.map((r, k) => { const a = by(r), t = T.get(r), fin = t.n >= qs.length;
+        return `<div class="as-row ${fin ? "fin" : ""} ${seen.has(r.student + t.n) ? "" : "fresh"}">
+          <span class="as-rank">${k < 3 && t.right > 0 ? ["🥇", "🥈", "🥉"][k] : k + 1}</span><span class="as-av">${esc(r.student.slice(0, 1).toUpperCase())}</span>
+          <button class="as-name" data-s="${esc(r.student)}">${esc(r.student)}${fin ? " 🏁" : ""}</button>
+          <span class="as-score"><span><b>${t.right}</b> / ${t.judged}</span><small>${t.n}/${qs.length} done${t.todo ? ` · ${t.todo} to mark` : ""}</small></span>
+          <span class="as-dots">${qs.map((q) => dot(r, q, a[q.i])).join("")}</span></div>`; }).join("");
+      sorted.forEach((r) => seen.add(r.student + T.get(r).n));
+      $$("[data-s]", box).forEach((b) => b.onclick = () => detail(rows.find((r) => r.student === b.dataset.s)));
+      // tap a mark: ✍️ → ✅ → ❌ → back to automatic
+      $$("[data-m]", box).forEach((b) => b.onclick = () => { const cut = b.dataset.m.lastIndexOf("|"), student = b.dataset.m.slice(0, cut), i = +b.dataset.m.slice(cut + 1), k = `${student}|${i}`;
+        const cur = k in marks ? marks[k] : undefined; setMark(student, i, cur === undefined ? (b.classList.contains("y") ? 0 : 1) : cur === 1 ? 0 : undefined); CP().beep("tick"); });
+      const fin = rows.filter((r) => T.get(r).n >= qs.length).length, judged = rows.filter((r) => T.get(r).judged);
       $("[data-n=in]", body).textContent = rows.length; $("[data-n=done]", body).textContent = fin;
-      $("[data-n=avg]", body).textContent = graded.length ? Math.round((graded.reduce((s, r) => s + (r.score || 0) / r.total, 0) / graded.length) * 100) + "%" : "–";
+      $("[data-n=avg]", body).textContent = judged.length ? Math.round((judged.reduce((s, r) => s + T.get(r).right / T.get(r).judged, 0) / judged.length) * 100) + "%" : "–";
       // per-question % right, in the header
-      $$(".as-qhead .as-dots i", body).forEach((x, k) => { const done = rows.map((r) => by(r)[qs[k].i]).filter((a) => a && a.ok != null); x.title = done.length ? `${Math.round((done.filter((a) => a.ok).length / done.length) * 100)}% right` : ""; x.style.setProperty("--p", done.length ? done.filter((a) => a.ok).length / done.length : 0); });
+      $$(".as-qhead .as-dots i", body).forEach((x, k) => { const q = qs[k], done = rows.map((r) => { const a = by(r)[q.i]; return a ? eff(r, q, a) : null; }).filter((m) => m !== null);
+        x.title = done.length ? `${Math.round((done.filter(Boolean).length / done.length) * 100)}% right` : ""; x.style.setProperty("--p", done.length ? done.filter(Boolean).length / done.length : 0); });
     }
     function stars() {
       const students = CP().students(), ids = [];
-      rows.forEach((r) => (r.answers || []).forEach((a) => { const k = `${r.student}|${a.i}`; if (a.ok === 1 && !starred.has(k)) { const s = window.LiveBoard?.matchStudent(r.student, students); starred.add(k); if (s) ids.push(s.id); } }));
+      rows.forEach((r) => { const a = by(r); qs.forEach((q) => { const k = `${r.student}|${q.i}`; if (a[q.i] && eff(r, q, a[q.i]) === 1 && !starred.has(k)) { starred.add(k); const s = window.LiveBoard?.matchStudent(r.student, students); if (s) ids.push(s.id); } }); });
+      STARS.set([...starred]);
       if (!ids.length) return;
-      keepStars();
-      if (!first) { CP().awardStudents(ids, 1, `📲 ${act.title}`); new Set(students.filter((s) => ids.includes(s.id)).map((s) => s.groupId).filter(Boolean)).forEach((gid) => CP().react(gid, "cheer")); CP().beep("up"); }
-      else CP().awardStudents(ids, 1, `📲 ${act.title}`);
+      CP().awardStudents(ids, 1, `📲 ${act.title}`);
+      if (!first) { new Set(students.filter((s) => ids.includes(s.id)).map((s) => s.groupId).filter(Boolean)).forEach((gid) => CP().react(gid, "cheer")); CP().beep("up"); }
     }
     async function poll() {
       if (!alive) return;
       try {
         const got = await window.Live.rpc("lesson_submissions_for", { p_key: g.key, p_token: g.token });
-        const before = rows.reduce((s, r) => s + (r.answers || []).length, 0);
+        const sig = (list) => (list || []).map((r) => r.student + ":" + (r.answers || []).length).join(",");
+        const changed = sig(got) !== sig(rows), more = (got || []).reduce((s, r) => s + (r.answers || []).length, 0) > rows.reduce((s, r) => s + (r.answers || []).length, 0);
         rows = got || [];
-        const after = rows.reduce((s, r) => s + (r.answers || []).length, 0);
-        if (after !== before || first) { draw(); stars(); if (!first && after > before) CP().beep("tick"); }
-        first = false; $(".as-live", body).classList.remove("off");
+        if (changed || first) { draw(); stars(); if (!first && more) CP().beep("tick"); }
+        first = false; $(".as-live", body)?.classList.remove("off");
       } catch { $(".as-live", body)?.classList.add("off"); }
       if (alive) timer = setTimeout(poll, 2500);
     }
     function detail(r) {
-      const a = Object.fromEntries((r.answers || []).map((x) => [x.i, x]));
-      CP().modal(`<h2>${esc(r.student)} · ${r.score ?? 0}/${r.total ?? 0}</h2>
-        <ol class="as-detail">${qs.map((q) => { const x = a[q.i], it = q.it;
-          const right = it.type === "mcq" || it.type === "tf" ? (it.answer != null ? it.options[it.answer] : "") : it.type === "blank" ? it.answers.filter((s) => s.trim()).join(", ") : it.type === "open" ? it.model : "";
-          return `<li class="${!x ? "n" : x.ok === 1 ? "y" : x.ok === 0 ? "x" : "w"}"><p>${esc(it.text || (it.segs || []).map((s) => (typeof s === "string" ? s : "____")).join(""))}</p>
-            <b>${x ? `${x.ok === 1 ? "✅" : x.ok === 0 ? "❌" : "✍️"} ${esc(x.a || "—")}` : "⬜ Not answered yet"}</b>${x && x.ok === 0 && right ? `<small>Answer: ${esc(right)}</small>` : x && x.ok == null && right ? `<small>Teacher's answer: ${esc(right)}</small>` : ""}</li>`; }).join("")}</ol>
-        <div class="opts"><button class="btn" data-ok>Close</button></div>`, (d) => ($("[data-ok]", d).onclick = () => d.close()));
+      const a = by(r), t = tally(r);
+      const right = (it) => it.type === "mcq" || it.type === "tf" ? (it.answer != null ? it.options[it.answer] : "") : it.type === "blank" ? it.answers.filter((s) => s.trim()).join(", ") : it.type === "open" ? it.model : it.type === "match" ? it.pairs.map((p) => `${p[0]} → ${p[1]}`).join("; ") : "";
+      CP().modal(`<h2>${esc(r.student)} · ${t.right}/${t.judged}</h2>
+        <ol class="as-detail">${qs.map((q) => { const x = a[q.i], it = q.it, m = x ? eff(r, q, x) : null, want = right(it);
+          return `<li class="${!x ? "n" : m === 1 ? "y" : m === 0 ? "x" : "w"}"><p>${esc(it.text || (it.segs || []).map((s) => (typeof s === "string" ? s : "____")).join(""))}</p>
+            <b>${x ? `${m === 1 ? "✅" : m === 0 ? "❌" : "✍️"} ${esc(x.a || "—")}` : "⬜ Not answered yet"}</b>${x && m !== 1 && want ? `<small>Right answer: ${esc(want)}</small>` : ""}
+            ${x ? `<span class="as-judge"><button class="btn ghost" data-j="${q.i}:1">✅ Right</button><button class="btn ghost" data-j="${q.i}:0">❌ Wrong</button></span>` : ""}</li>`; }).join("")}</ol>
+        <div class="opts"><button class="btn" data-ok>Close</button></div>`, (d) => {
+        $("[data-ok]", d).onclick = () => d.close();
+        $$("[data-j]", d).forEach((b) => b.onclick = () => { const [i, v] = b.dataset.j.split(":").map(Number); setMark(r.student, i, v); d.close(); detail(r); });
+      });
     }
     ctx.onClose(() => { alive = false; clearTimeout(timer); });
     poll();
@@ -865,5 +933,5 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
     CP().toast("⬇️ Downloaded — share this file (or host it) so students can do it on their devices");
   }
 
-  window.ActivityMaker = { open, parse, buildHtml, liveQuestions, runtime, PAGE_CSS, pack, unpack };
+  window.ActivityMaker = { open, parse, buildHtml, liveQuestions, runtime, PAGE_CSS, pack, unpack, markable };
 })();

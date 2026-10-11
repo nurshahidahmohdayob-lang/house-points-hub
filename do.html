@@ -24,7 +24,7 @@
   <main id="act"></main>
   <script src="live-config.js"></script>
   <script src="live.js"></script>
-  <script src="activity.js?v=5"></script>
+  <script src="activity.js?v=7"></script>
   <script>
   (async () => {
     const $ = (s) => document.querySelector(s);
@@ -63,7 +63,7 @@
     function start(name) {
       const KEY = `assign-${token}-${name.toLowerCase()}`;
       const mine = store.get(KEY) || { answers: {}, states: {} };
-      const total = act.items.filter((it) => (it.type === "mcq" || it.type === "tf") ? it.answer != null : it.type === "blank" ? it.answers.some((a) => a.trim()) : it.type === "match").length;
+      const total = act.items.filter((it) => it.type !== "info" && ActivityMaker.markable(it)).length;
       const bar = document.createElement("button"); bar.className = "sync"; bar.hidden = true; document.body.appendChild(bar);
       let sending = false, again = false;
       async function push() {

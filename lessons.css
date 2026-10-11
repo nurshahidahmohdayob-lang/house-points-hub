@@ -438,3 +438,15 @@ body.on-home main { padding-top: 36px; }
 .as-detail li p { margin: 0 0 2px; font-weight: 700; }
 .as-detail li small { display: block; color: var(--muted); }
 .as-detail li.y b { color: #16a34a; } .as-detail li.x b { color: #dc2626; } .as-detail li.w b { color: #7c3aed; } .as-detail li.n b { color: var(--muted); }
+.as-row { cursor: default; }
+.as-row:hover { transform: none; }
+.as-name { border: 0; background: none; font: inherit; font-weight: 800; color: var(--ink); text-align: left; cursor: pointer; padding: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: underline dotted color-mix(in srgb, var(--ink) 30%, transparent); }
+.as-mark { border: 0; background: none; font-size: .95rem; cursor: pointer; padding: 2px 0; border-radius: 6px; }
+.as-mark:hover { background: var(--bg); transform: scale(1.2); }
+.as-mark.w { animation: asBlink 1.6s infinite; }
+.as-mark.mine { box-shadow: inset 0 -3px 0 var(--primary); }
+.as-warn { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+.as-warn small { flex-basis: 100%; color: var(--muted); }
+.as-judge { display: flex; gap: 6px; margin-top: 4px; }
+.as-judge .btn { padding: 4px 10px; font-size: .85rem; }
+.am-auto { display: flex; gap: 8px; align-items: center; font-size: .85rem; color: var(--muted); margin-top: 6px; cursor: pointer; }
