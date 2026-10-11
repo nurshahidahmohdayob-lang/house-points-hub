@@ -84,14 +84,16 @@
     const LISTS = window.CLASS_LISTS || [];
     let games = [], homeTimer = null;
     const stopHome = () => { clearTimeout(homeTimer); homeTimer = null; };
+    // Which year group a game is for: "year1" (Life Competencies ids) or older names like "cp-Year 1" / label "Year 1"
+    const yearOf = (g) => { const m = /year\s*(\d+)/i.exec(`${g.classId || ""} ${g.classLabel || ""}`); return m ? `year${m[1]}` : g.classId; };
 
     // Start here: choose your year group; a game the teacher has started shows at the top ("Live now")
     function home(wantClass) {
       stopHome();
       const draw = () => {
         const live = games.filter((g) => g.phase !== "end");
-        const mine = wantClass ? live.find((g) => g.classId === wantClass) : null;
-        if (mine) { stopHome(); return pickName(mine.code, mine.classId); }
+        const mine = wantClass ? live.find((g) => yearOf(g) === wantClass) : null;
+        if (mine) { stopHome(); return pickName(mine.code, yearOf(mine)); }
         if (wantClass) {
           const label = LISTS.find((c) => c.id === wantClass)?.label || wantClass;
           app.innerHTML = `<div class="home-card"><button class="linkish back" id="back">‹ Back</button><div class="logo">⏳</div><h1>${esc(label)}</h1>
@@ -103,10 +105,10 @@
         app.innerHTML = `<div class="home-card">
           ${live.map((g) => `<button class="live-now" data-g="${esc(g.code)}"><span class="dot">🔴</span><div><b>Live now · ${esc(g.classLabel || "")}</b><span>${esc(g.title || "")}</span></div><span class="j">Join ▶</span></button>`).join("")}
           <div class="logo">🎮</div><h1>Choose your year group</h1>
-          <div class="years">${[1, 2, 3, 4, 5, 6].map((y, k) => { const on = live.some((g) => g.classId === `year${y}`); return `<button class="yr" data-y="year${y}" style="background:${YEAR_COLORS[k]}">Year ${y}${on ? `<span class="badge">LIVE</span>` : ""}</button>`; }).join("")}</div>
+          <div class="years">${[1, 2, 3, 4, 5, 6].map((y, k) => { const on = live.some((g) => yearOf(g) === `year${y}`); return `<button class="yr" data-y="year${y}" style="background:${YEAR_COLORS[k]}">Year ${y}${on ? `<span class="badge">LIVE</span>` : ""}</button>`; }).join("")}</div>
           <p class="hint">🔴 When your teacher starts a live game, it appears here at the top.</p>
           <button class="linkish" id="code">I have a code</button></div>`;
-        app.querySelectorAll("[data-g]").forEach((b) => b.onclick = () => { const g = live.find((x) => x.code === b.dataset.g); stopHome(); pickName(g.code, g.classId); });
+        app.querySelectorAll("[data-g]").forEach((b) => b.onclick = () => { const g = live.find((x) => x.code === b.dataset.g); stopHome(); pickName(g.code, yearOf(g)); });
         app.querySelectorAll("[data-y]").forEach((b) => b.onclick = () => home(b.dataset.y));
         $("#code").onclick = () => { stopHome(); askCode(); };
       };
@@ -127,7 +129,7 @@
       const go = async () => {
         code = inp.value.replace(/\D/g, "").slice(0, 4);
         if (code.length !== 4) return askCode("The code has 4 numbers.");
-        try { const s = await Live.state(code); if (!s) return askCode("No game with that code. Check the board!"); pickName(code, s.classId); }
+        try { const s = await Live.state(code); if (!s) return askCode("No game with that code. Check the board!"); pickName(code, yearOf(s)); }
         catch { askCode("Can't reach the game. Check the internet."); }
       };
       $("#next").onclick = go; inp.onkeydown = (e) => { if (e.key === "Enter") go(); };
@@ -231,7 +233,7 @@
     if (code.length === 4) {
       const again = store.get("live-" + code);
       if (again) { me = again; $("#me").hidden = false; $("#meName").textContent = "🙂 " + me; Live.join(code, me).catch(() => {}).finally(poll); }
-      else Live.state(code).then((s) => (s ? pickName(code, s.classId) : home())).catch(() => askCode());
+      else Live.state(code).then((s) => (s ? pickName(code, yearOf(s)) : home())).catch(() => askCode());
     } else home(new URLSearchParams(location.search).get("class") || undefined);
   })();
   </script>
