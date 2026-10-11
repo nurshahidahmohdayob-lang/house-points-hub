@@ -193,8 +193,6 @@
       ["obj", "🎯", "Objectives", "#2563eb", "#93c5fd", plan.objectives?.length && cards(plan.objectives)],
       ["success", "✅", "Success criteria", "#16a34a", "#86efac", plan.successCriteria?.length && cards(plan.successCriteria)],
       ["skills", "🔑", "Key skills", "#db2777", "#f9a8d4", plan.keySkills?.length && pills(plan.keySkills, "⭐")],
-      ["materials", "🧰", "Materials", "#0d9488", "#5eead4", plan.materials?.length && cards(plan.materials)],
-      ["assess", "📝", "Assessment", "#9333ea", "#d8b4fe", plan.assessment && text(plan.assessment)],
     ].filter((c) => c[5]);
     const cur = cats.find((c) => c[0] === aboutCat);
     return `<section class="card ab" data-about>

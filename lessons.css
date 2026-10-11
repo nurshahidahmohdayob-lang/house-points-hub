@@ -506,7 +506,7 @@ body.on-home main { padding-top: 36px; }
 .ab-btns:has(.on) .ab-btn:not(.on) { opacity: .78; }
 .ab-btns:has(.on) .ab-btn:not(.on):hover { filter: none; opacity: 1; }
 .ab-btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
-@media (min-width: 900px) { .ab-btns { grid-template-columns: repeat(5, 1fr); } }
+@media (min-width: 900px) { .ab-btns { grid-template-columns: repeat(4, 1fr); } }
 .ab-panel { padding: 12px 20px 20px; }
 .ab-hint { text-align: center; color: var(--muted); font-weight: 700; margin: 8px 0 0; animation: ab-bob 1.6s ease-in-out infinite; }
 @keyframes ab-bob { 50% { transform: translateY(-4px); } }
