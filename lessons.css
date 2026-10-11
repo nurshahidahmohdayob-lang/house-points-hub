@@ -477,3 +477,6 @@ body.on-home main { padding-top: 36px; }
 .lc-student-go .go { font-style: normal; margin-top: 6px; background: #40c057; color: #fff; font-weight: 800; font-size: 1.05rem; border-radius: 14px; padding: 6px 20px; box-shadow: 0 5px 0 #2b8a3e; }
 .lc-teacher-go { margin-top: 10px; border: 0; background: none; color: var(--muted); font: inherit; font-weight: 800; font-size: .82rem; text-decoration: underline; cursor: pointer; }
 .lc-teacher-go:hover { color: var(--primary); }
+.lv-run { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: color-mix(in srgb, #f97316 12%, var(--surface)); border: 2px solid #fdba74; border-radius: 16px; padding: 10px 12px; margin: 8px 0; }
+.lv-run > div { flex: 1; min-width: 160px; display: flex; flex-direction: column; }
+.lv-run small { color: var(--muted); font-weight: 700; }

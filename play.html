@@ -91,7 +91,7 @@
     function home(wantClass) {
       stopHome();
       const draw = () => {
-        const live = games.filter((g) => g.phase !== "end");
+        const live = games.filter((g, k, all) => g.phase !== "end" && all.findIndex((x) => x.phase !== "end" && yearOf(x) === yearOf(g)) === k); // newest game per year group
         const mine = wantClass ? live.find((g) => yearOf(g) === wantClass) : null;
         if (mine) { stopHome(); return pickName(mine.code, yearOf(mine)); }
         if (wantClass) {

@@ -248,6 +248,7 @@
           <button class="lc-act" data-go="teach"><span>▶️</span><b>Teach the lesson</b><small>Interactive mind map that grows as you teach, with questions inside</small></button>
           <button class="lc-act" data-go="slides"><span>📑</span><b>Slides</b><small>The classic slide deck with games, timers & polls</small></button>
           <div class="lc-act student"><a class="lc-student-go" href="play.html" target="_blank" rel="noopener"><span>🎮</span><b>I'm a student</b><small>Choose your year group and play the live game!</small><i class="go">Play ▶</i></a></div>
+          <button class="lc-act live" data-go="live"><span>📺</span><b>Teacher board</b><small>Show the live game on the board: who joined, start the questions, scores</small></button>
           <button class="lc-act" data-go="quiz"><span>⚔️</span><b>Team Quiz</b><small>Groups answer, stars drop in the jars</small></button>
           <button class="lc-act" data-go="games"><span>🧩</span><b>Puzzle games</b><small>Match, order, sort & true/false</small></button>
           <button class="lc-act" data-go="board"><span>🎲</span><b>${esc(LC.gameFor(plan.id, w.week).name)}</b><small>The week's board game</small></button>
@@ -777,7 +778,8 @@
       const quiz = LC.quizTen(plan.id, w.week);
       const questions = quiz.map((it) => ({ q: it.q, options: LC.optionsForItem(plan.id, it, quiz), answer: it.a }));
       const title = focusParts(w.focus, plan, w.week).text;
-      window.LiveBoard.board(stage(`📱 Live play · ${esc(title)}`, { jars: false }), plan, w, title, questions); // no jar bar: right answers fill the jars on their own
+      const questionsFor = (planId, week) => { const p = LC.LESSON_PLANS.find((x) => x.id === planId); if (!p) return null; const qz = LC.quizTen(planId, week); return qz.map((it) => ({ q: it.q, options: LC.optionsForItem(planId, it, qz), answer: it.a })); };
+      window.LiveBoard.board(stage(`📺 Teacher board · ${esc(title)}`, { jars: false }), plan, w, title, questions, questionsFor); // no jar bar: right answers fill the jars on their own
     }
     else if (go === "quiz") teamQuiz(plan, w);
     else if (go === "games") puzzles(plan, w);

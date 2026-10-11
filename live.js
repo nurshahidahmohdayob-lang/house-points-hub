@@ -61,20 +61,46 @@
   // Typed answer instead of tiles (fill-in gaps without options, written questions)
   const isTyped = (q) => q.kind === "type" || !(q.options || []).length;
 
-  function setupDialog(plan, w, title, questions, onReady) {
+  function setupDialog(plan, w, title, questions, onReady, questionsFor) {
     let key = ""; try { key = sessionStorage.getItem(KEY_STORE) || ""; } catch { /* private mode */ }
     // Same class ids as the Life Competencies app ("year1"…), so the game shows under "Live now" for that year group
     // on both apps' student pages, and opening a new game ends that class's older one.
     const lists = (window.LC && window.LC.CLASS_LISTS) || window.CLASS_LISTS || [1, 2, 3, 4, 5, 6].map((y) => ({ id: `year${y}`, label: `Year ${y}`, year: y, students: [] }));
-    CP().modal(`<h2>📱 Live play on devices</h2>
-      <p class="muted">Students join on tablets or phones and answer together. Right answers earn ⭐ for the student and their group jar.</p>
+    CP().modal(`<h2>📺 Teacher board</h2>
+      <p class="muted">Students join from <b>I'm a student → Play</b> on their devices and answer together. Right answers earn ⭐ for the student and their group jar.</p>
+      <div class="lv-running"></div>
       <label class="edit-label">Class <select data-class>${lists.map((c) => `<option value="${esc(c.id)}" ${c.year === plan.year ? "selected" : ""}>${esc(c.label)}</option>`).join("")}</select></label>
       <div class="lv-row"><label class="edit-label">Questions <select data-n>${[...new Set([5, 8, 10, 15, questions.length].filter((n) => n <= questions.length || n === 5))].sort((a, b) => a - b).map((n) => `<option value="${n}" ${n === (questions.length <= 15 ? questions.length : 10) ? "selected" : ""}>${n === questions.length && n > 5 ? `All ${n}` : n}</option>`).join("")}</select></label>
       <label class="edit-label">Seconds each <select data-sec>${[10, 15, 20, 30].map((n) => `<option ${n === 20 ? "selected" : ""}>${n}</option>`).join("")}</select></label></div>
       <label class="edit-label">Teacher key <input data-key type="password" autocomplete="current-password" value="${esc(key)}" placeholder="The school's teacher key (same as the Life Competencies app)" /></label>
       <p class="lv-err" hidden></p>
-      <div class="opts"><button class="btn ghost" data-no>Cancel</button><button class="btn" data-go>🚀 Open the game</button></div>`, (d) => {
+      <div class="opts"><button class="btn ghost" data-no>Cancel</button><button class="btn" data-go>🚀 Start a new game</button></div>`, (d) => {
       $("[data-no]", d).onclick = () => d.close();
+      // A game already running for this class (students may have joined it): open its board instead of a new game
+      const yearOf = (g) => { const m = /year\s*(\d+)/i.exec(`${g.classId || ""} ${g.classLabel || ""}`); return m ? `year${m[1]}` : g.classId; };
+      let running = [];
+      const showRunning = () => {
+        const want = $("[data-class]", d).value, mine = running.filter((g) => g.phase !== "end" && yearOf(g) === want).slice(0, 1), box = $(".lv-running", d);
+        box.innerHTML = mine.map((g) => `<div class="lv-run"><span>🔴</span><div><b>Running now · ${esc(g.classLabel)} · code ${esc(g.code)}</b><small>${esc(g.title || "")} · ${g.players} student${g.players === 1 ? "" : "s"} joined</small></div>
+          <button class="btn" data-attach="${esc(g.code)}">📺 Open its board</button></div>`).join("");
+        $$("[data-attach]", box).forEach((b) => b.onclick = async () => {
+          const err = $(".lv-err", d), k = $("[data-key]", d).value.trim();
+          if (!k) { err.hidden = false; err.textContent = "Type the teacher key first (below)."; $("[data-key]", d).focus(); return; }
+          b.disabled = true; b.textContent = "Opening…";
+          try {
+            const st = await Live.state(b.dataset.attach);
+            if (!st) throw new Error("That game has ended");
+            try { sessionStorage.setItem(KEY_STORE, k); } catch { /* private mode */ }
+            // ask the game's own lesson questions (it may be another week than the one open here)
+            let qs = questions;
+            try { const own = questionsFor && st.planId && questionsFor(st.planId, +st.week); if (own && own.length) qs = own; } catch { /* keep this week's */ }
+            d.close();
+            onReady({ key: k, code: b.dataset.attach, stops: Math.min(st.stops || qs.length, qs.length), seconds: st.seconds || 20, cls: st.classLabel || "", questions: qs });
+          } catch (e) { err.hidden = false; err.textContent = "⚠️ " + e.message; b.disabled = false; b.textContent = "📺 Open its board"; }
+        });
+      };
+      $("[data-class]", d).onchange = showRunning;
+      Live.now().then((g) => { running = g; showRunning(); }).catch(() => {});
       $("[data-go]", d).onclick = async () => {
         const btn = $("[data-go]", d), err = $(".lv-err", d);
         const k = $("[data-key]", d).value.trim(), cl = lists.find((c) => c.id === $("[data-class]", d).value) || { id: `year${plan.year}`, label: `Year ${plan.year}` }, cls = cl.label;
@@ -91,9 +117,9 @@
     });
   }
 
-  function board(stageEl, plan, w, title, questions) {
+  function board(stageEl, plan, w, title, questions, questionsFor) {
     const body = $(".lc-stage-body", stageEl);
-    setupDialog(plan, w, title, questions, (g) => run(body, g, questions));
+    setupDialog(plan, w, title, questions, (g) => run(body, g, g.questions || questions), questionsFor);
     body.innerHTML = `<div class="lc-s-center lc-end"><div class="lc-s-emoji">📱</div><h2>Setting up Live play…</h2></div>`;
   }
 
