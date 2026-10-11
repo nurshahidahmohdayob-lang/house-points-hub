@@ -42,3 +42,4 @@ Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) a
   public anon URL/key (same as the LC app's browser bundle) — never put a service-role key here. Opening a game
   needs the school's teacher key (typed by the teacher, kept only in sessionStorage). Right answers give the
   matching Class Points student +1 (matched by name), so their group jar fills too.
+- Old address house-points-hub.vercel.app now forwards to lifecomp.vercel.app via move.js (carries localStorage in the URL hash; new side imports, asks before overwriting different data).
