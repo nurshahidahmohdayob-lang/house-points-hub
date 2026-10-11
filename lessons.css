@@ -678,3 +678,14 @@ body.on-home main { padding-top: 36px; }
 .jg-end { text-align: center; }
 .jg-end h2 { margin: 6px 0; }
 @media (prefers-reduced-motion: reduce) { .jg-slot.on, .jg-slot.no, .jg-piece.no { animation: none; } }
+.jg-menu { width: 100%; max-width: 900px; margin: 0 auto; text-align: center; }
+.jg-menu h2 { margin: 6px 0 16px; }
+.jg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.jg-pick { border: 0; cursor: pointer; font: inherit; color: #fff; display: grid; justify-items: center; gap: 4px; padding: 18px 10px; border-radius: 20px;
+  background: linear-gradient(140deg, var(--a), var(--b)); box-shadow: 0 5px 0 rgba(0,0,0,.22), 0 10px 22px rgba(0,0,0,.12); transition: transform .15s; }
+.jg-pick span { font-size: 2.6rem; line-height: 1.1; }
+.jg-pick b { font-size: 1.15rem; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.jg-pick small { font-weight: 800; opacity: .9; }
+.jg-pick:hover { transform: translateY(-3px) rotate(-1deg); }
+.jg-pick.done { outline: 4px solid #facc15; outline-offset: 3px; }
+.jg-top { display: flex; align-items: center; gap: 12px; justify-content: space-between; }

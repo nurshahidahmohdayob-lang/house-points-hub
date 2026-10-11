@@ -280,7 +280,7 @@
           <a class="lc-act student" href="${LC_APP}/play" target="_blank" rel="noopener"><span>🎮</span><b>I'm a student</b><small>Choose your name and play the game!</small><i class="go">Play ▶</i></a>
           <a class="lc-act teacher" href="${LC_APP}/?go=live" target="_blank" rel="noopener"><span>👩‍🏫</span><b>I'm the teacher</b><small>Set up the game and open the board.</small><i class="go">Teacher 🔒</i></a>
           <button class="lc-act" data-go="quiz"><span>⚔️</span><b>Team Quiz</b><small>Groups race on multiple-choice questions</small></button>
-          <button class="lc-act" data-go="games"><span>🧩</span><b>Jigsaw Puzzle</b><small>Drag the answer pieces onto the questions to build a picture</small></button>
+          <button class="lc-act" data-go="games"><span>🧩</span><b>Jigsaw Puzzles</b><small>30+ questions: drag the answer pieces onto the questions to build pictures</small></button>
           <button class="lc-act" data-go="board"><span>🎲</span><b>${esc(LC.gameFor(plan.id, w.week).name)}</b><small>The week's board game — its own questions</small></button>
           <button class="lc-act" data-go="run"><span>🏃</span><b>${esc(LC.runThemeFor(plan.id, w.week).name)}</b><small>Platform game with question blocks</small></button>
           <button class="lc-act mine" data-go="mine"><span>📄</span><b>My activities</b><small>Upload your worksheet — it becomes an interactive activity</small></button>
@@ -769,7 +769,6 @@
     const short = pool.filter((x) => x.a.length <= 26);
     pool.filter((x) => x.a.length > 26).forEach((x) => sets.quiz.push(x));
     short.forEach((x, i) => [sets.jigsaw, sets.board, sets.quiz][i % 3].push(x));
-    sets.jigsaw = sets.jigsaw.slice(0, 9);
     return sets;
   }
 
@@ -796,56 +795,126 @@
     show();
   }
 
-  /* ---------------- Jigsaw puzzle: drag each answer piece onto its question; right pieces build a picture ---------------- */
-  // Its own third of the week's questions (questionSets). The picture is drawn on a canvas (gradient + the week's emoji +
-  // title) and each slot shows its part of it once answered. Drag a piece onto a slot, or tap a piece then a slot.
-  function jigsaw(plan, w) {
-    const fp = focusParts(w.focus, plan, w.week);
-    const items = questionSets(plan, w).jigsaw;
-    const el = stage(`🧩 Jigsaw Puzzle · ${esc(fp.text)}`);
-    const body = $(".lc-stage-body", el);
-    if (!items.length) { body.innerHTML = `<div class="lc-s-center"><h2>No jigsaw questions for this week</h2></div>`; return; }
-    const n = items.length, cols = n <= 4 ? 2 : 3, rows = Math.ceil(n / cols);
-    const W = 300 * cols, H = 220 * rows;
-    const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
-    const g = cv.getContext("2d"), L = YEAR_LOOK[plan.year] || {};
-    const grad = g.createLinearGradient(0, 0, W, H); grad.addColorStop(0, L.from || "#6b4dff"); grad.addColorStop(1, L.to || "#ff6fb5");
+  /* ---------------- Jigsaw puzzles: drag each answer piece onto its question; right pieces build a picture ---------------- */
+  // At least 30 questions a week, 6 per puzzle, none shared with Team Quiz or the board game: the jigsaw's third of
+  // questionSets, then questions made from the lesson itself (word ↔ meaning, fill-the-gap on its ideas, steps, examples
+  // and success criteria, true/false on the sort cards, the lesson's own gap and match questions), then — only if a week
+  // is still short — revision from the term's other weeks (marked 🔁).
+  const JG_STOP = new Set("about above after again against because before being below between could doing during every from have having into just more most much must other over same should some such than that their them then there these they this those through under until very what when where which while with would your yours".split(" "));
+  function jigsawOwn(plan, week) {
+    const w = weekOf(plan, week), sets = questionSets(plan, w);
+    const norm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const taken = new Set([...sets.quiz, ...sets.board].map((x) => norm(x.q)));
+    const quizText = [...sets.quiz, ...sets.board].map((x) => norm(x.q + " " + x.a)).join(" ");
+    const out = [], seen = new Set();
+    const add = (q, a) => { a = String(a || "").trim(); const k = norm(q); if (!k || !a || a.length > 32 || seen.has(k) || taken.has(k)) return; seen.add(k); out.push({ q, a }); };
+    sets.jigsaw.forEach((x) => add(x.q, x.a));
+    let L = null; try { L = LC.buildLesson(plan, week); } catch { /* questions only */ }
+    const n = L?.notes || {}, topic = focusParts(w.focus, plan, week).text;
+    const keys = [...(n.keywords || []), ...(n.words || []).map((x) => [x.word, x.meaning])];
+    const keyWords = keys.map(([k]) => String(k).toLowerCase());
+    const asked = new Set();
+    keys.forEach(([k, m]) => { const kk = norm(k); if (asked.has(kk) || quizText.includes(`${kk} mean`) || out.some((x) => norm(x.a) === kk)) return; asked.add(kk); add(`Which word means “${m}”?`, k); });
+    (L?.questions || []).forEach((q) => {
+      if (q.kind === "gap" && q.answer) add(q.q, q.answer);
+      if (q.kind === "match") (q.pairs || []).forEach(([l, r]) => { if (/\?$/.test(l)) add(l, r); });
+      if (q.kind === "sort") (q.cards || []).forEach((c) => add(`True or false: “${c.text}” is about ${topic}.`, c.group === 0 ? "True" : "False"));
+    });
+    const gap = (sentence) => {
+      const sx = String(sentence || "").trim(); const words = sx.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g) || [];
+      if (words.length < 4) return;
+      const pick = words.find((x) => keyWords.includes(x.toLowerCase())) || [...words].filter((x) => x.length >= 5 && !JG_STOP.has(x.toLowerCase())).sort((p, q) => q.length - p.length)[0];
+      if (!pick) return;
+      add(`Fill the gap: ${sx.replace(pick, "______")}`, pick.toLowerCase());
+    };
+    const sentences = (t) => String(t || "").split(/(?<=[.!?])\s+/).filter(Boolean);
+    (n.branches || []).forEach((b) => { gap(b.explain || b.title); sentences(b.detail).forEach(gap); gap(b.example); });
+    (n.steps || []).forEach(gap); (n.criteria || []).forEach((c) => gap(String(c).replace(/^I can /, "I can "))); sentences(n.why).forEach(gap); sentences(n.intro).forEach(gap);
+    return out;
+  }
+  function jigsawItems(plan, w) {
+    const items = jigsawOwn(plan, w.week);
+    const seen = new Set(items.map((x) => x.q));
+    const others = plan.weeks.map((x) => x.week).filter((n) => n !== w.week).sort((p, q) => (p < w.week ? w.week - p : 100 + p) - (q < w.week ? w.week - q : 100 + q));
+    for (const n of others) {
+      if (items.length >= 30) break;
+      const label = calOf(plan, n).label || `Week ${n}`;
+      for (const x of jigsawOwn(plan, n)) { if (items.length >= 30) break; if (seen.has(x.q)) continue; seen.add(x.q); items.push({ q: `🔁 ${label}: ${x.q}`, a: x.a }); }
+    }
+    return items.slice(0, 36);
+  }
+  const JG_LOOKS = [["#6b4dff", "#ff6fb5"], ["#0ea5e9", "#22c55e"], ["#f97316", "#facc15"], ["#db2777", "#8b5cf6"], ["#0d9488", "#84cc16"], ["#2563eb", "#06b6d4"], ["#ef4444", "#f59e0b"]];
+  const JG_EXTRA = ["🌈", "🚀", "🦋", "🐢", "🌻", "🎨", "🐬", "🏆", "🦁", "🌍"];
+  function jigsawPicture(emoji, title, cols, rows, look) {
+    const W = 300 * cols, H = 220 * rows, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    const g = cv.getContext("2d"), grad = g.createLinearGradient(0, 0, W, H); grad.addColorStop(0, look[0]); grad.addColorStop(1, look[1]);
     g.fillStyle = grad; g.fillRect(0, 0, W, H);
     g.fillStyle = "rgba(255,255,255,.18)"; for (let k = 0; k < 14; k++) { g.beginPath(); g.arc((k * 173) % W, (k * 97) % H, 30 + (k * 23) % 70, 0, 7); g.fill(); }
     g.fillStyle = "#000"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = `${Math.min(W, H) * 0.42}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-    g.fillText(fp.emoji || "⭐", W / 2, H * 0.44);
+    g.fillText(emoji, W / 2, H * 0.44);
     g.fillStyle = "#fff"; g.shadowColor = "rgba(0,0,0,.35)"; g.shadowBlur = 8;
-    let fs = Math.max(28, W / 16); do { g.font = `900 ${fs}px system-ui, sans-serif`; fs -= 2; } while (g.measureText(fp.text).width > W * 0.92 && fs > 14);
-    g.fillText(fp.text, W / 2, H * 0.86);
-    const pic = cv.toDataURL("image/png");
-    const order = items.map((_, k) => k).sort(() => Math.random() - 0.5);
-    const done = new Set(); let held = null;
-    body.innerHTML = `<div class="jg">
-      <p class="jg-help">Drag each 🧩 answer piece onto its question — or tap a piece, then tap the question. Every right piece shows part of the hidden picture!</p>
-      <div class="jg-board" style="--cols:${cols};--rows:${rows};--pic:url(${pic});max-width:${cols * 330}px">${items.map((it, k) => `<button class="jg-slot" data-s="${k}" style="--x:${(k % cols) * 100 / Math.max(1, cols - 1)}%;--y:${Math.floor(k / cols) * 100 / Math.max(1, rows - 1)}%"><span class="jg-n">${k + 1}</span><span class="jg-q">${esc(it.q)}</span></button>`).join("")}${Array.from({ length: cols * rows - n }, (_, k) => `<div class="jg-slot jg-free" style="--x:${((n + k) % cols) * 100 / Math.max(1, cols - 1)}%;--y:${Math.floor((n + k) / cols) * 100 / Math.max(1, rows - 1)}%"></div>`).join("")}</div>
-      <div class="jg-tray">${order.map((k) => `<button class="jg-piece" draggable="true" data-p="${k}">🧩 ${esc(items[k].a)}</button>`).join("")}</div>
-      <div class="jg-end" hidden></div></div>`;
-    const tryPlace = (p, slot) => {
-      const pk = +p.dataset.p, sk = +slot.dataset.s; if (done.has(sk)) return;
-      if (norm(items[pk].a) === norm(items[sk].a)) {
-        done.add(sk); slot.classList.add("on"); p.remove(); CP().beep("good");
-        if (done.size === n) {
-          CP().beep("win"); CP().confetti(200); $(".jg-board", body).classList.add("all");
-          const end = $(".jg-end", body); end.hidden = false;
-          end.innerHTML = `<h2>🎉 Picture complete!</h2><div class="lc-sp"></div><button class="btn" data-again>🔁 Play again</button>`;
-          starPicker($(".lc-sp", end), "🧩 Jigsaw Puzzle"); $("[data-again]", end).onclick = () => jigsaw(plan, w);
-        }
-      } else { p.classList.add("no"); slot.classList.add("no"); CP().beep("bad"); setTimeout(() => { p.classList.remove("no"); slot.classList.remove("no"); }, 500); }
-      held?.classList.remove("held"); held = null;
+    let fs = Math.max(28, W / 16); do { g.font = `900 ${fs}px system-ui, sans-serif`; fs -= 2; } while (g.measureText(title).width > W * 0.92 && fs > 14);
+    g.fillText(title, W / 2, H * 0.86);
+    return cv.toDataURL("image/png");
+  }
+  function jigsaw(plan, w) {
+    const fp = focusParts(w.focus, plan, w.week);
+    // Mix the kinds (questions, word meanings, true/false, fill the gap) so every puzzle has a bit of each
+    const kindOf = (q) => (/^(🔁[^:]*: )?Fill the gap/.test(q) ? 3 : /^(🔁[^:]*: )?Which word means/.test(q) ? 1 : /^(🔁[^:]*: )?True or false/i.test(q) ? 2 : 0);
+    const byKind = [[], [], [], []]; jigsawItems(plan, w).forEach((x) => byKind[kindOf(x.q)].push(x));
+    const all = []; while (byKind.some((b) => b.length)) byKind.forEach((b) => { if (b.length) all.push(b.shift()); });
+    const el = stage(`🧩 Jigsaw Puzzles · ${esc(fp.text)}`);
+    const body = $(".lc-stage-body", el);
+    if (!all.length) { body.innerHTML = `<div class="lc-s-center"><h2>No jigsaw questions for this week</h2></div>`; return; }
+    const puzzles = []; for (let k = 0; k < all.length; k += 6) puzzles.push(all.slice(k, k + 6));
+    if (puzzles.length > 1 && puzzles[puzzles.length - 1].length < 4) puzzles[puzzles.length - 2].push(...puzzles.pop()); // no tiny last puzzle
+    let notes = {}; try { notes = LC.buildLesson(plan, w.week).notes || {}; } catch { /* default pictures */ }
+    const emojis = [fp.emoji, ...(notes.branches || []).map((b) => b.emoji), ...JG_EXTRA].filter((e, i, a) => e && a.indexOf(e) === i);
+    const solved = new Set();
+    const menu = () => {
+      body.innerHTML = `<div class="jg-menu"><h2>🧩 ${puzzles.length} jigsaw puzzles · ${all.length} questions</h2>
+        <div class="jg-grid">${puzzles.map((pz, k) => `<button class="jg-pick ${solved.has(k) ? "done" : ""}" data-k="${k}" style="--a:${JG_LOOKS[k % JG_LOOKS.length][0]};--b:${JG_LOOKS[k % JG_LOOKS.length][1]}"><span>${solved.has(k) ? "⭐" : emojis[k % emojis.length]}</span><b>Puzzle ${k + 1}</b><small>${pz.length} pieces</small></button>`).join("")}</div>
+        <p class="muted center">${solved.size} of ${puzzles.length} done · tap a puzzle to play</p></div>`;
+      $$("[data-k]", body).forEach((b) => b.onclick = () => play(+b.dataset.k));
     };
-    const norm = (t) => String(t).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    body.addEventListener("click", (e) => {
-      const p = e.target.closest(".jg-piece"); if (p) { held?.classList.remove("held"); held = held === p ? null : p; held?.classList.add("held"); return; }
-      const slot = e.target.closest(".jg-slot[data-s]"); if (slot && held) tryPlace(held, slot);
-    });
-    body.addEventListener("dragstart", (e) => { const p = e.target.closest(".jg-piece"); if (p) { held = p; e.dataTransfer.setData("text/plain", p.dataset.p); } });
-    body.addEventListener("dragover", (e) => { if (e.target.closest(".jg-slot[data-s]")) e.preventDefault(); });
-    body.addEventListener("drop", (e) => { const slot = e.target.closest(".jg-slot[data-s]"); if (!slot) return; e.preventDefault(); const p = $(`.jg-piece[data-p="${e.dataTransfer.getData("text/plain")}"]`, body); if (p) tryPlace(p, slot); });
+    const play = (k) => {
+      const items = puzzles[k], n = items.length, cols = n <= 4 ? 2 : 3, rows = Math.ceil(n / cols);
+      const pic = jigsawPicture(emojis[k % emojis.length], `Puzzle ${k + 1} · ${fp.text}`, cols, rows, JG_LOOKS[k % JG_LOOKS.length]);
+      const order = items.map((_, i) => i).sort(() => Math.random() - 0.5);
+      const done = new Set(); let held = null;
+      const pos = (i) => `--x:${(i % cols) * 100 / Math.max(1, cols - 1)}%;--y:${Math.floor(i / cols) * 100 / Math.max(1, rows - 1)}%`;
+      body.innerHTML = `<div class="jg">
+        <div class="jg-top"><button class="btn ghost" data-menu>‹ All puzzles</button><b>Puzzle ${k + 1} of ${puzzles.length}</b></div>
+        <p class="jg-help">Drag each 🧩 answer piece onto its question — or tap a piece, then tap the question. Every right piece shows part of the hidden picture!</p>
+        <div class="jg-board" style="--cols:${cols};--rows:${rows};--pic:url(${pic});max-width:${cols * 330}px">${items.map((it, i) => `<button class="jg-slot" data-s="${i}" style="${pos(i)}"><span class="jg-n">${i + 1}</span><span class="jg-q">${esc(it.q)}</span></button>`).join("")}${Array.from({ length: cols * rows - n }, (_, i) => `<div class="jg-slot jg-free" style="${pos(n + i)}"></div>`).join("")}</div>
+        <div class="jg-tray">${order.map((i) => `<button class="jg-piece" draggable="true" data-p="${i}">🧩 ${esc(items[i].a)}</button>`).join("")}</div>
+        <div class="jg-end" hidden></div></div>`;
+      $("[data-menu]", body).onclick = menu;
+      const norm = (t) => String(t).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      const tryPlace = (p, slot) => {
+        const pk = +p.dataset.p, sk = +slot.dataset.s; if (done.has(sk)) return;
+        if (norm(items[pk].a) === norm(items[sk].a)) {
+          done.add(sk); slot.classList.add("on"); p.remove(); CP().beep("good");
+          if (done.size === n) {
+            solved.add(k); CP().beep("win"); CP().confetti(200); $(".jg-board", body).classList.add("all");
+            const end = $(".jg-end", body); end.hidden = false;
+            end.innerHTML = `<h2>🎉 Puzzle ${k + 1} complete!</h2><div class="lc-sp"></div><div class="row-gap wrap center">${k + 1 < puzzles.length ? `<button class="btn" data-nextpz>Next puzzle ›</button>` : ""}<button class="btn ghost" data-menu2>All puzzles</button></div>`;
+            starPicker($(".lc-sp", end), "🧩 Jigsaw Puzzle");
+            $("[data-nextpz]", end)?.addEventListener("click", () => play(k + 1)); $("[data-menu2]", end).onclick = menu;
+          }
+        } else { p.classList.add("no"); slot.classList.add("no"); CP().beep("bad"); setTimeout(() => { p.classList.remove("no"); slot.classList.remove("no"); }, 500); }
+        held?.classList.remove("held"); held = null;
+      };
+      const board = $(".jg", body);
+      board.addEventListener("click", (e) => {
+        const p = e.target.closest(".jg-piece"); if (p) { held?.classList.remove("held"); held = held === p ? null : p; held?.classList.add("held"); return; }
+        const slot = e.target.closest(".jg-slot[data-s]"); if (slot && held) tryPlace(held, slot);
+      });
+      board.addEventListener("dragstart", (e) => { const p = e.target.closest(".jg-piece"); if (p) { held = p; e.dataTransfer.setData("text/plain", p.dataset.p); } });
+      board.addEventListener("dragover", (e) => { if (e.target.closest(".jg-slot[data-s]")) e.preventDefault(); });
+      board.addEventListener("drop", (e) => { const slot = e.target.closest(".jg-slot[data-s]"); if (!slot) return; e.preventDefault(); const p = $(`.jg-piece[data-p="${e.dataTransfer.getData("text/plain")}"]`, board); if (p) tryPlace(p, slot); });
+    };
+    menu();
   }
 
   /* ---------------- Board game + Block Run (built by the Life Competencies app) ---------------- */
