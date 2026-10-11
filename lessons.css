@@ -282,3 +282,5 @@ body.lc-open { overflow: hidden; }
 .lc-actcard summary { cursor: pointer; }
 .lc-actcard[open] { border-color: var(--primary); }
 .lc-actcard ol { padding-left: 20px; margin: 6px 0; }
+body.on-home .topbar { display: none; }
+body.on-home main { padding-top: 36px; }

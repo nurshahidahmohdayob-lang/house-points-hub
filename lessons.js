@@ -559,6 +559,10 @@
     if (e.target.closest('[data-tab="home"]')) renderHome();
   });
   if ($("#view-home")?.classList.contains("active")) renderHome();
+  // Home is a clean page: no top menu bar there (it comes back on every other page)
+  const syncHome = () => document.body.classList.toggle("on-home", !!$("#view-home")?.classList.contains("active"));
+  document.addEventListener("click", (e) => { if (e.target.closest("[data-tab], [data-home], [data-y]")) setTimeout(syncHome, 0); });
+  syncHome();
   if ($("#view-lessons")?.classList.contains("active")) renderLessons();
   window.Lessons = { render: renderLessons };
 })();
