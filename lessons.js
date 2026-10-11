@@ -254,7 +254,7 @@
   }
 
   /* ---------------- Full-screen stage with live jars ---------------- */
-  function stage(title, { jars = true } = {}) {
+  function stage(title, { jars = false } = {}) { // no jar bar on lesson screens (teacher asked); stars still go to the jars
     closeStage();
     const el = document.createElement("div");
     el.className = "lc-stage"; el.id = "lcStage";
