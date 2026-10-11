@@ -466,17 +466,17 @@ body.on-home main { padding-top: 36px; }
 .lc-zoom { position: fixed; inset: 0; z-index: 200; background: rgba(10,8,30,.92); display: grid; place-items: center; padding: 16px; cursor: zoom-out; animation: lvPop .25s both; }
 .lc-zoom img { max-width: 100%; max-height: 100%; border-radius: 16px; background: #fff; }
 .lc-zoom .lc-x { position: absolute; top: 14px; right: 14px; }
-/* Lesson page: the students' way in (play.html), with the teacher's start button */
-.lc-act.student { background: var(--surface); border: 2px solid var(--line); padding: 14px 12px 10px; cursor: default; }
-.lc-act.student:hover { transform: none; }
-.lc-student-go { display: flex; flex-direction: column; align-items: center; gap: 2px; text-decoration: none; color: var(--ink); transition: transform .15s; }
-.lc-student-go:hover { transform: translateY(-2px); }
-.lc-student-go span { font-size: 2.3rem; }
-.lc-student-go b { font-family: "Baloo 2", sans-serif; font-size: 1.35rem; color: #2b8a3e; }
-.lc-student-go small { color: var(--muted); font-weight: 700; }
-.lc-student-go .go { font-style: normal; margin-top: 6px; background: #40c057; color: #fff; font-weight: 800; font-size: 1.05rem; border-radius: 14px; padding: 6px 20px; box-shadow: 0 5px 0 #2b8a3e; }
-.lc-teacher-go { margin-top: 10px; border: 0; background: none; color: var(--muted); font: inherit; font-weight: 800; font-size: .82rem; text-decoration: underline; cursor: pointer; }
-.lc-teacher-go:hover { color: var(--primary); }
+/* Lesson page: Live Class in the Life Competencies app — the same two cards as its "Who are you?" screen */
+.lc-act.student, .lc-act.teacher { background: #fff; color: #1e293b; border: 0; text-decoration: none; box-shadow: 0 10px 24px rgba(28,126,214,.18); }
+.lc-act.student { background: linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #1c7ed6, #5ec8f8, #8ce99a) border-box; border: 3px solid transparent; }
+.lc-act.teacher { background: linear-gradient(#ffffffe6, #ffffffe6) padding-box, linear-gradient(135deg, #1c7ed6, #5ec8f8, #8ce99a) border-box; border: 3px solid transparent; }
+.lc-act.student span, .lc-act.teacher span { font-size: 2.6rem; transition: transform .15s; }
+.lc-act.student:hover span { transform: rotate(6deg); } .lc-act.teacher:hover span { transform: rotate(-6deg); }
+.lc-act.student b, .lc-act.teacher b { font-size: 1.4rem; font-weight: 900; }
+.lc-act.student b { color: #2b8a3e; } .lc-act.teacher b { color: #1c7ed6; }
+.lc-act.student small, .lc-act.teacher small { color: #64748b; font-weight: 600; }
+.lc-act .go { font-style: normal; margin-top: 8px; border-radius: 16px; padding: 7px 18px; font-weight: 900; color: #fff; font-size: 1.05rem; }
+.lc-act.student .go { background: #40c057; box-shadow: 0 5px 0 #2b8a3e; } .lc-act.teacher .go { background: #1c7ed6; box-shadow: 0 5px 0 #1864ab; }
 .lv-run { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: color-mix(in srgb, #f97316 12%, var(--surface)); border: 2px solid #fdba74; border-radius: 16px; padding: 10px 12px; margin: 8px 0; }
 .lv-run > div { flex: 1; min-width: 160px; display: flex; flex-direction: column; }
 .lv-run small { color: var(--muted); font-weight: 700; }

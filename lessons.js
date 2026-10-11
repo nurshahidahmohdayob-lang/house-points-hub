@@ -22,6 +22,8 @@
   // it downloads the lessons that app publishes on every deploy and keeps them on this device (Cache Storage),
   // so later visits use the synced lessons without downloading again.
   const LIVE_DATA = window.LC_SYNC_URL || "https://zera-life-competencies.vercel.app/class-points/lc-data.js";
+  // Live Class runs in the Life Competencies app itself (its /play page for students, its Live Class screen + board for the teacher)
+  const LC_APP = "https://zera-life-competencies.vercel.app";
   const LOCAL_DATA = "assets/lc-data.js?v=4a6331";
   const SYNC_CACHE = "class-points-lessons", SYNC_KEY = "/synced-lc-data.js";
   const NEEDS = ["LESSON_PLANS", "noteFor", "deepFor", "visualFor", "quizTen", "optionsForItem", "buildLesson", "expandActivity", "gameFor", "buildGameHtml", "runThemeFor", "buildPlatformerHtml", "runLevels"];
@@ -247,8 +249,8 @@
         <div class="lc-actions">
           <button class="lc-act" data-go="teach"><span>▶️</span><b>Teach the lesson</b><small>Interactive mind map that grows as you teach, with questions inside</small></button>
           <button class="lc-act" data-go="slides"><span>📑</span><b>Slides</b><small>The classic slide deck with games, timers & polls</small></button>
-          <div class="lc-act student"><a class="lc-student-go" href="play.html" target="_blank" rel="noopener"><span>🎮</span><b>I'm a student</b><small>Choose your year group and play the live game!</small><i class="go">Play ▶</i></a></div>
-          <button class="lc-act live" data-go="live"><span>📺</span><b>Teacher board</b><small>Show the live game on the board: who joined, start the questions, scores</small></button>
+          <a class="lc-act student" href="${LC_APP}/play" target="_blank" rel="noopener"><span>🎮</span><b>I'm a student</b><small>Choose your name and play the game!</small><i class="go">Play ▶</i></a>
+          <a class="lc-act teacher" href="${LC_APP}/?go=live" target="_blank" rel="noopener"><span>👩‍🏫</span><b>I'm the teacher</b><small>Set up the game and open the board.</small><i class="go">Teacher 🔒</i></a>
           <button class="lc-act" data-go="quiz"><span>⚔️</span><b>Team Quiz</b><small>Groups answer, stars drop in the jars</small></button>
           <button class="lc-act" data-go="games"><span>🧩</span><b>Puzzle games</b><small>Match, order, sort & true/false</small></button>
           <button class="lc-act" data-go="board"><span>🎲</span><b>${esc(LC.gameFor(plan.id, w.week).name)}</b><small>The week's board game</small></button>
