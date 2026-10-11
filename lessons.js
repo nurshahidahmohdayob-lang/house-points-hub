@@ -279,9 +279,9 @@
         <div class="lc-actions">
           <a class="lc-act student" href="${LC_APP}/play" target="_blank" rel="noopener"><span>🎮</span><b>I'm a student</b><small>Choose your name and play the game!</small><i class="go">Play ▶</i></a>
           <a class="lc-act teacher" href="${LC_APP}/?go=live" target="_blank" rel="noopener"><span>👩‍🏫</span><b>I'm the teacher</b><small>Set up the game and open the board.</small><i class="go">Teacher 🔒</i></a>
-          <button class="lc-act" data-go="quiz"><span>⚔️</span><b>Team Quiz</b><small>Groups answer, stars drop in the jars</small></button>
-          <button class="lc-act" data-go="games"><span>🧩</span><b>Puzzle games</b><small>Match, order, sort & true/false</small></button>
-          <button class="lc-act" data-go="board"><span>🎲</span><b>${esc(LC.gameFor(plan.id, w.week).name)}</b><small>The week's board game</small></button>
+          <button class="lc-act" data-go="quiz"><span>⚔️</span><b>Team Quiz</b><small>Groups race on multiple-choice questions</small></button>
+          <button class="lc-act" data-go="games"><span>🧩</span><b>Jigsaw Puzzle</b><small>Drag the answer pieces onto the questions to build a picture</small></button>
+          <button class="lc-act" data-go="board"><span>🎲</span><b>${esc(LC.gameFor(plan.id, w.week).name)}</b><small>The week's board game — its own questions</small></button>
           <button class="lc-act" data-go="run"><span>🏃</span><b>${esc(LC.runThemeFor(plan.id, w.week).name)}</b><small>Platform game with question blocks</small></button>
           <button class="lc-act mine" data-go="mine"><span>📄</span><b>My activities</b><small>Upload your worksheet — it becomes an interactive activity</small></button>
         </div></div>
@@ -751,9 +751,31 @@
   }
 
   /* ---------------- Team Quiz ---------------- */
-  function teamQuiz(plan, w) {
+  // One week's questions split three ways so Team Quiz, the Jigsaw and the board game never ask the same thing:
+  // the LC quiz ten plus the lesson's own choice / true-false questions, de-duplicated; long answers (sentences) go to
+  // the quiz (they read badly on a jigsaw piece or a game card), short ones are dealt jigsaw → board → quiz in turn.
+  function questionSets(plan, w) {
+    const norm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const seen = new Set(), pool = [];
+    const add = (q, a, options) => {
+      const k = norm(q); if (!k || !a || seen.has(k)) return; seen.add(k);
+      const rest = (options || []).filter((o) => norm(o) !== norm(a));
+      pool.push({ q, a: String(a), options: [String(a), ...rest].slice(0, 4) });
+    };
     const quiz = LC.quizTen(plan.id, w.week);
-    const items = quiz.map((it) => ({ q: it.q, options: LC.optionsForItem(plan.id, it, quiz), answer: it.a }));
+    quiz.forEach((it) => { const o = LC.optionsForItem(plan.id, it, quiz) || []; add(it.q, o.find((x) => norm(x) === norm(it.a)) || it.a, o); });
+    try { (LC.buildLesson(plan, w.week).questions || []).filter((q) => (q.kind === "choice" || q.kind === "truefalse") && q.answer).forEach((q) => add(q.q, q.answer, q.options)); } catch { /* quiz only */ }
+    const sets = { quiz: [], jigsaw: [], board: [] };
+    const short = pool.filter((x) => x.a.length <= 26);
+    pool.filter((x) => x.a.length > 26).forEach((x) => sets.quiz.push(x));
+    short.forEach((x, i) => [sets.jigsaw, sets.board, sets.quiz][i % 3].push(x));
+    sets.jigsaw = sets.jigsaw.slice(0, 9);
+    return sets;
+  }
+
+  function teamQuiz(plan, w) {
+    const shuffle = (a) => a.map((x) => [Math.random(), x]).sort((p, q) => p[0] - q[0]).map((x) => x[1]);
+    const items = questionSets(plan, w).quiz.map((it) => ({ q: it.q, options: shuffle(it.options), answer: it.a }));
     const el = stage(`⚔️ Team Quiz · ${esc(focusParts(w.focus).text)}`);
     const body = $(".lc-stage-body", el);
     let i = 0;
@@ -774,33 +796,63 @@
     show();
   }
 
-  /* ---------------- Puzzle games (the lesson's own question types) ---------------- */
-  function puzzles(plan, w) {
-    const L = LC.buildLesson(plan, w.week);
-    const qs = L.questions;
-    const el = stage(`🧩 Puzzle games · ${esc(focusParts(w.focus).text)}`);
+  /* ---------------- Jigsaw puzzle: drag each answer piece onto its question; right pieces build a picture ---------------- */
+  // Its own third of the week's questions (questionSets). The picture is drawn on a canvas (gradient + the week's emoji +
+  // title) and each slot shows its part of it once answered. Drag a piece onto a slot, or tap a piece then a slot.
+  function jigsaw(plan, w) {
+    const fp = focusParts(w.focus, plan, w.week);
+    const items = questionSets(plan, w).jigsaw;
+    const el = stage(`🧩 Jigsaw Puzzle · ${esc(fp.text)}`);
     const body = $(".lc-stage-body", el);
-    const icon = { choice: "🔘", truefalse: "✔️", gap: "✏️", match: "🔗", order: "🔢", sort: "🗂️" };
-    const solved = new Set();
-    const menu = () => {
-      body.innerHTML = `<div class="lc-pz-menu">${qs.map((q, k) => `<button class="lc-pz ${solved.has(k) ? "done" : ""}" data-k="${k}"><span>${solved.has(k) ? "⭐" : icon[q.kind || "choice"] || "❓"}</span><small>${k + 1}</small></button>`).join("")}</div>
-        <p class="muted center">${solved.size} of ${qs.length} solved · tap a puzzle to play</p>`;
-      $$("[data-k]", body).forEach((b) => b.onclick = () => play(+b.dataset.k));
+    if (!items.length) { body.innerHTML = `<div class="lc-s-center"><h2>No jigsaw questions for this week</h2></div>`; return; }
+    const n = items.length, cols = n <= 4 ? 2 : 3, rows = Math.ceil(n / cols);
+    const W = 300 * cols, H = 220 * rows;
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    const g = cv.getContext("2d"), L = YEAR_LOOK[plan.year] || {};
+    const grad = g.createLinearGradient(0, 0, W, H); grad.addColorStop(0, L.from || "#6b4dff"); grad.addColorStop(1, L.to || "#ff6fb5");
+    g.fillStyle = grad; g.fillRect(0, 0, W, H);
+    g.fillStyle = "rgba(255,255,255,.18)"; for (let k = 0; k < 14; k++) { g.beginPath(); g.arc((k * 173) % W, (k * 97) % H, 30 + (k * 23) % 70, 0, 7); g.fill(); }
+    g.fillStyle = "#000"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = `${Math.min(W, H) * 0.42}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    g.fillText(fp.emoji || "⭐", W / 2, H * 0.44);
+    g.fillStyle = "#fff"; g.shadowColor = "rgba(0,0,0,.35)"; g.shadowBlur = 8;
+    let fs = Math.max(28, W / 16); do { g.font = `900 ${fs}px system-ui, sans-serif`; fs -= 2; } while (g.measureText(fp.text).width > W * 0.92 && fs > 14);
+    g.fillText(fp.text, W / 2, H * 0.86);
+    const pic = cv.toDataURL("image/png");
+    const order = items.map((_, k) => k).sort(() => Math.random() - 0.5);
+    const done = new Set(); let held = null;
+    body.innerHTML = `<div class="jg">
+      <p class="jg-help">Drag each 🧩 answer piece onto its question — or tap a piece, then tap the question. Every right piece shows part of the hidden picture!</p>
+      <div class="jg-board" style="--cols:${cols};--rows:${rows};--pic:url(${pic});max-width:${cols * 330}px">${items.map((it, k) => `<button class="jg-slot" data-s="${k}" style="--x:${(k % cols) * 100 / Math.max(1, cols - 1)}%;--y:${Math.floor(k / cols) * 100 / Math.max(1, rows - 1)}%"><span class="jg-n">${k + 1}</span><span class="jg-q">${esc(it.q)}</span></button>`).join("")}${Array.from({ length: cols * rows - n }, (_, k) => `<div class="jg-slot jg-free" style="--x:${((n + k) % cols) * 100 / Math.max(1, cols - 1)}%;--y:${Math.floor((n + k) / cols) * 100 / Math.max(1, rows - 1)}%"></div>`).join("")}</div>
+      <div class="jg-tray">${order.map((k) => `<button class="jg-piece" draggable="true" data-p="${k}">🧩 ${esc(items[k].a)}</button>`).join("")}</div>
+      <div class="jg-end" hidden></div></div>`;
+    const tryPlace = (p, slot) => {
+      const pk = +p.dataset.p, sk = +slot.dataset.s; if (done.has(sk)) return;
+      if (norm(items[pk].a) === norm(items[sk].a)) {
+        done.add(sk); slot.classList.add("on"); p.remove(); CP().beep("good");
+        if (done.size === n) {
+          CP().beep("win"); CP().confetti(200); $(".jg-board", body).classList.add("all");
+          const end = $(".jg-end", body); end.hidden = false;
+          end.innerHTML = `<h2>🎉 Picture complete!</h2><div class="lc-sp"></div><button class="btn" data-again>🔁 Play again</button>`;
+          starPicker($(".lc-sp", end), "🧩 Jigsaw Puzzle"); $("[data-again]", end).onclick = () => jigsaw(plan, w);
+        }
+      } else { p.classList.add("no"); slot.classList.add("no"); CP().beep("bad"); setTimeout(() => { p.classList.remove("no"); slot.classList.remove("no"); }, 500); }
+      held?.classList.remove("held"); held = null;
     };
-    const play = (k) => {
-      body.innerHTML = `<div class="lc-pz-play"><button class="btn ghost" data-back>‹ All puzzles</button><div class="lc-qbox"></div><div class="lc-after" hidden><div class="lc-sp"></div><button class="btn" data-next>Next puzzle ›</button></div></div>`;
-      $("[data-back]", body).onclick = menu;
-      puzzle($(".lc-qbox", body), qs[k], (ok) => { if (ok) solved.add(k); $(".lc-after", body).hidden = false; starPicker($(".lc-sp", body), "🧩 Puzzle"); });
-      $("[data-next]", body).onclick = () => (k + 1 < qs.length ? play(k + 1) : menu());
-    };
-    menu();
+    const norm = (t) => String(t).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    body.addEventListener("click", (e) => {
+      const p = e.target.closest(".jg-piece"); if (p) { held?.classList.remove("held"); held = held === p ? null : p; held?.classList.add("held"); return; }
+      const slot = e.target.closest(".jg-slot[data-s]"); if (slot && held) tryPlace(held, slot);
+    });
+    body.addEventListener("dragstart", (e) => { const p = e.target.closest(".jg-piece"); if (p) { held = p; e.dataTransfer.setData("text/plain", p.dataset.p); } });
+    body.addEventListener("dragover", (e) => { if (e.target.closest(".jg-slot[data-s]")) e.preventDefault(); });
+    body.addEventListener("drop", (e) => { const slot = e.target.closest(".jg-slot[data-s]"); if (!slot) return; e.preventDefault(); const p = $(`.jg-piece[data-p="${e.dataTransfer.getData("text/plain")}"]`, body); if (p) tryPlace(p, slot); });
   }
 
   /* ---------------- Board game + Block Run (built by the Life Competencies app) ---------------- */
   function gameInput(plan, w) {
-    const quiz = LC.quizTen(plan.id, w.week);
+    const set = questionSets(plan, w).board, qs = set.map((x) => ({ q: x.q, a: x.a }));
     return { year: plan.year, term: plan.term, week: calOf(plan, w.week).label, topic: w.focus, subject: LC.LESSON_SUBJECT, objectives: w.objectives,
-      questions: quiz, gameQuestions: quiz, options: quiz.map((it) => LC.optionsForItem(plan.id, it, quiz)) };
+      questions: qs, gameQuestions: qs, options: set.map((x) => x.options) }; // the board game's own third of the questions
   }
   function frameGame(plan, w, html, title) {
     const el = stage(title);
@@ -819,7 +871,7 @@
       window.LiveBoard.board(stage(`📺 Teacher board · ${esc(title)}`, { jars: false }), plan, w, title, questions, questionsFor); // no jar bar: right answers fill the jars on their own
     }
     else if (go === "quiz") teamQuiz(plan, w);
-    else if (go === "games") puzzles(plan, w);
+    else if (go === "games") jigsaw(plan, w);
     else if (go === "board") { const g = LC.gameFor(plan.id, w.week); frameGame(plan, w, LC.buildGameHtml(g, gameInput(plan, w)), `🎲 ${esc(g.name)}`); }
     else if (go === "mine") window.ActivityMaker.open({ stage, starPicker, plan, w, where: `Year ${plan.year} · T${plan.term} ${calOf(plan, w.week).label}`, onClose: (f) => stageCleanup.push(f) });
     else if (go === "run") { const t = LC.runThemeFor(plan.id, w.week); frameGame(plan, w, LC.buildPlatformerHtml(gameInput(plan, w), t, LC.runLevels(plan.id, w.week, w.focus)), `🏃 ${esc(t.name)}`); }
