@@ -97,11 +97,11 @@
     const sync = $("[data-sync]", root); if (sync) sync.onclick = (e) => syncNow(e.currentTarget);
     const ask = $("[data-synclock]", root); if (ask) ask.onclick = () => { syncAsk = true; redraw(); };
     const cancel = $("[data-synccancel]", root); if (cancel) cancel.onclick = () => { syncAsk = false; redraw(); };
-    const lock = $("[data-synclockagain]", root); if (lock) lock.onclick = () => { try { sessionStorage.removeItem("lc-sync-ok"); } catch {} syncAsk = false; redraw(); renderFoot(); };
+    const lock = $("[data-synclockagain]", root); if (lock) lock.onclick = () => { try { sessionStorage.removeItem("lc-sync-ok"); sessionStorage.removeItem("lc-teacher-pw"); } catch {} syncAsk = false; redraw(); renderFoot(); };
     const form = $("[data-syncform]", root);
     if (form) form.onsubmit = async (e) => {
       e.preventDefault();
-      if (await sha256($("[data-syncpw]", form).value.trim()) === SYNC_PASS_SHA) { try { sessionStorage.setItem("lc-sync-ok", "1"); } catch {} syncAsk = false; redraw(); renderFoot(); }
+      if (await sha256($("[data-syncpw]", form).value.trim()) === SYNC_PASS_SHA) { try { sessionStorage.setItem("lc-sync-ok", "1"); sessionStorage.setItem("lc-teacher-pw", $("[data-syncpw]", form).value.trim()); } catch {} syncAsk = false; redraw(); renderFoot(); }
       else { $(".lc-syncerr", form).hidden = false; $("[data-syncpw]", form).value = ""; $("[data-syncpw]", form).focus(); }
     };
   }
@@ -847,13 +847,13 @@
     const t = e.target;
     if (t.closest("[data-footask]")) { footAsk = true; renderFoot(); }
     else if (t.closest("[data-footcancel]")) { footAsk = false; renderFoot(); }
-    else if (t.closest("[data-footlock]")) { try { sessionStorage.removeItem("lc-sync-ok"); } catch {} footAsk = false; renderFoot(); document.querySelector('[data-tab="home"]').click(); }
+    else if (t.closest("[data-footlock]")) { try { sessionStorage.removeItem("lc-sync-ok"); sessionStorage.removeItem("lc-teacher-pw"); } catch {} footAsk = false; renderFoot(); document.querySelector('[data-tab="home"]').click(); }
     else if (t.closest("[data-foot]")) { document.querySelector(`[data-tab="${t.closest("[data-foot]").dataset.foot}"]`).click(); }
   });
   document.addEventListener("submit", async (e) => {
     const form = e.target.closest("[data-footform]"); if (!form) return;
     e.preventDefault();
-    if (await sha256($("[data-footpw]", form).value.trim()) === SYNC_PASS_SHA) { try { sessionStorage.setItem("lc-sync-ok", "1"); } catch {} footAsk = false; renderFoot(); }
+    if (await sha256($("[data-footpw]", form).value.trim()) === SYNC_PASS_SHA) { try { sessionStorage.setItem("lc-sync-ok", "1"); sessionStorage.setItem("lc-teacher-pw", $("[data-footpw]", form).value.trim()); } catch {} footAsk = false; renderFoot(); }
     else { $(".lc-syncerr", form).hidden = false; $("[data-footpw]", form).value = ""; $("[data-footpw]", form).focus(); }
   });
   renderFoot();

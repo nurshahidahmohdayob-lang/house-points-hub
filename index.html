@@ -9,7 +9,7 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=549536" />
+  <link rel="stylesheet" href="style.css?v=549537" />
   <link rel="stylesheet" href="lessons.css?v=716" />
 </head>
 <body>
@@ -44,7 +44,7 @@
       </div>
       <div class="filters">
         <select id="bYear"></select>
-        <select id="bClass"></select>
+        <select hidden id="bClass"></select>
       </div>
       <div class="podium" id="podium"></div>
       <div class="card jar-card">
@@ -80,7 +80,7 @@
       <div class="filters">
         <input type="search" id="search" placeholder="🔍 Search name…" />
         <select id="fYear"></select>
-        <select id="fClass"></select>
+        <select hidden id="fClass"></select>
         <select id="fGroup"></select>
         <button class="btn ghost" id="selectAll">Select all shown</button>
         <button class="btn ghost" id="clearSel">Clear</button>
@@ -159,15 +159,24 @@
         </div>
         <div class="card">
           <h2>👩‍🎓 Add students</h2>
-          <p class="muted small">Paste one name per line. They'll go into the year, subject and group you choose (subject and group are optional).</p>
+          <p class="muted small">Paste one name per line. They'll go into the year and group you choose (group is optional).</p>
           <textarea id="bulkNames" rows="7" placeholder="Aisyah Rahman&#10;Daniel Lim&#10;Priya Kumar"></textarea>
           <div class="inline-form">
             <select id="bulkYear"></select>
-            <select id="bulkClass" aria-label="Subject"></select>
+            <select hidden id="bulkClass" aria-label="Subject"></select>
             <select id="bulkGroup"></select>
             <button class="btn" id="bulkAdd">Add students</button>
           </div>
         </div>
+      </div>
+      <div class="card commun-card">
+        <h2>🔄 Students from Commun</h2>
+        <p class="muted small">Brings in every active student from Commun and puts each one in their year group (Commun "Year 5" → Year 5).
+          Students already here are matched, not added twice, and keep their points. The first sync takes about 5 minutes
+          (Commun allows 60 look-ups a minute); after that only new students are looked up.</p>
+        <label class="check"><input type="checkbox" id="communRecheck" /> Re-check every student's year group (new school year)</label>
+        <div class="row-gap wrap"><button class="btn" id="communSync">🔄 Sync students from Commun</button></div>
+        <div class="commun-progress" id="communProgress" hidden><div class="bar"><i></i></div><p></p></div>
       </div>
       <div class="card">
         <h2>📋 Student list <span class="muted small" id="studentCount"></span></h2>
@@ -184,7 +193,7 @@
             <button class="btn">Add</button>
           </form>
         </div>
-        <div class="card">
+        <div class="card" hidden>
           <h2>📚 Subjects</h2>
           <p class="muted small">Your own subjects. Give each student a subject in the list above, then filter the leaderboard by subject.</p>
           <div id="subjectEditor"></div>
@@ -224,12 +233,12 @@
   <dialog id="modal"><div id="modalBody"></div></dialog>
 
   <script src="assets/jars/shapes.js?v=549536"></script>
-  <script src="app.js?v=691378"></script>
+  <script src="app.js?v=691379"></script>
   <script src="live-config.js?v=549536"></script>
   <script src="live.js?v=554"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
   <script src="activity.js?v=8"></script>
   <script src="assets/warmup-answers.js?v=1"></script>
-  <script src="lessons.js?v=716"></script>
+  <script src="lessons.js?v=717"></script>
 </body>
 </html>

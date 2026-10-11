@@ -587,7 +587,6 @@
 
     $("#studentCount").textContent = `(${state.students.length})`;
     const groupOpts = (sel) => `<option value="">— none —</option>` + state.groups.map((h) => `<option value="${h.id}" ${h.id === sel ? "selected" : ""}>${esc(h.emoji + " " + h.name)}</option>`).join("");
-    const subjectOpts = (sel) => `<option value="">— none —</option>` + subjects().map((c) => `<option ${c === sel ? "selected" : ""}>${esc(c)}</option>`).join("");
     fillSelect($("#bulkClass"), [["", "No subject"], ...subjects().map((c) => [c, c])]);
     $("#subjectEditor").innerHTML = (state.subjects || []).map((c, i) => `<div class="group-row"><span>📚</span><span style="flex:1">${esc(c)}</span><span class="muted small">${(n => n + (n === 1 ? " student" : " students"))(state.students.filter((s) => s.cls === c).length)}</span><button class="icon-btn" data-delsubject="${i}" title="Remove subject">🗑️</button></div>`).join("") || `<div class="empty">No subjects yet — add one below.</div>`;
     $$("[data-delsubject]").forEach((b) => b.onclick = () => {
@@ -597,11 +596,10 @@
       n ? confirmBox(`Remove ${name}? ${n} student${n > 1 ? "s" : ""} will have no subject (their points stay).`, remove) : remove();
     });
     const yearOpts = (sel) => YEARS.map((y) => `<option ${y === sel ? "selected" : ""}>${y}</option>`).join("");
-    $("#studentTable").innerHTML = state.students.length ? `<tr><th>Name</th><th>Year</th><th>Subject</th><th>Group</th><th>Points</th><th>Spent</th><th></th></tr>` +
+    $("#studentTable").innerHTML = state.students.length ? `<tr><th>Name</th><th>Year</th><th>Group</th><th>Points</th><th>Spent</th><th></th></tr>` +
       [...state.students].sort((a, b) => a.year - b.year || a.name.localeCompare(b.name)).map((s) => `<tr data-id="${s.id}">
         <td><input data-f="name" value="${esc(s.name)}" /></td>
         <td><select data-f="year">${yearOpts(s.year)}</select></td>
-        <td><select data-f="cls">${subjectOpts(s.cls)}</select></td>
         <td><select data-f="groupId">${groupOpts(s.groupId)}</select></td>
         <td>${s.points}</td><td>${s.spent}</td>
         <td><button class="icon-btn" data-delstu title="Remove">🗑️</button></td></tr>`).join("")
@@ -719,7 +717,7 @@
   function poolControls() {
     return `<div class="opts">
       <select data-pool-year><option value="">All years</option>${YEARS.map((y) => `<option value="${y}" ${y === window.currentYear ? "selected" : ""}>Year ${y}</option>`).join("")}</select>
-      <select data-pool-class><option value="">All subjects</option>${subjects().map((c) => `<option>${esc(c)}</option>`).join("")}</select>
+      <select data-pool-class hidden><option value="">All subjects</option>${subjects().map((c) => `<option>${esc(c)}</option>`).join("")}</select>
       <select data-pool-group><option value="">All groups</option>${state.groups.map((h) => `<option value="${h.id}">${esc(h.emoji + " " + h.name)}</option>`).join("")}</select>
     </div>`;
   }
@@ -889,7 +887,72 @@
     save(); render(); toast("✨ Demo class loaded"); confetti();
   }
 
+  /* ---------- Students from Commun (Setup) ----------
+     /api/commun-students keeps the Commun key on the server and needs the teacher password (saved for this tab when
+     Teacher settings is unlocked). Commun's list has no year group, so years come from each student's own record,
+     45 at a time with a pause between rounds (Commun allows 60 calls a minute). Students are matched by Commun id,
+     then by name; points are kept. communYear marks a year that came from Commun, so later syncs skip them. */
+  async function communSync() {
+    const btn = $("#communSync"), box = $("#communProgress"), bar = $(".bar i", box), msg = $("p", box);
+    let pw = ""; try { pw = sessionStorage.getItem("lc-teacher-pw") || ""; } catch (e) {}
+    if (!pw) return toast("🔒 Lock and unlock Teacher settings again, then sync");
+    const show = (t, frac) => { box.hidden = false; msg.textContent = t; if (frac != null) bar.style.width = Math.round(frac * 100) + "%"; };
+    const post = async (body) => {
+      const r = await fetch("/api/commun-students", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: pw, ...body }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+      return d;
+    };
+    const wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
+    const norm = (n) => String(n || "").toLowerCase().replace(/\s+/g, " ").trim();
+    btn.disabled = true;
+    try {
+      show("Getting the student list from Commun…", 0.02);
+      const { students: list } = await post({});
+      const recheck = $("#communRecheck").checked;
+      const linked = new Map(state.students.filter((s) => s.communId).map((s) => [s.communId, s]));
+      const byName = new Map(state.students.filter((s) => !s.communId).map((s) => [norm(s.name), s]));
+      const match = (c) => linked.get(c.communId) || byName.get(norm(c.name));
+      const queue = list.filter((c) => recheck || !match(c)?.communYear);
+      let added = 0, moved = 0, noYear = 0, done = 0, failed = 0;
+      const tries = {};
+      const total = queue.length;
+      while (queue.length) {
+        const batch = queue.splice(0, 45), t0 = Date.now();
+        show(`Looking up year groups… ${done} of ${total}`, 0.05 + 0.95 * (done / Math.max(1, total)));
+        const { years } = await post({ ids: batch.map((c) => c.communId) });
+        batch.forEach((c) => {
+          const y = years[c.communId];
+          if (y == null) { tries[c.communId] = (tries[c.communId] || 0) + 1; if (tries[c.communId] < 3) queue.push(c); else { failed++; done++; } return; }
+          done++;
+          if (!y) { noYear++; return; }
+          let s = match(c);
+          if (s) { if (s.year !== y) moved++; s.year = y; s.communId = c.communId; s.communYear = true; byName.delete(norm(s.name)); linked.set(c.communId, s); }
+          else { s = { id: uid(), communId: c.communId, communYear: true, name: c.name, year: y, cls: "", groupId: "", points: 0, spent: 0 }; state.students.push(s); linked.set(c.communId, s); added++; }
+        });
+        save(); // keep what we have if the tab is closed half way
+        if (queue.length) {
+          for (let left = Math.ceil((61000 - (Date.now() - t0)) / 1000); left > 0; left--) {
+            show(`Looking up year groups… ${done} of ${total} · Commun needs a short pause: ${left}s`, 0.05 + 0.95 * (done / Math.max(1, total)));
+            await wait(1000);
+          }
+        }
+      }
+      render();
+      const parts = [`✅ Done: ${added} new student${added === 1 ? "" : "s"} added`, `${moved} moved to a new year`];
+      if (noYear) parts.push(`${noYear} have no year group in Commun (not added)`);
+      if (failed) parts.push(`${failed} could not be looked up — sync again later`);
+      if (!total) parts.splice(0, parts.length, "✅ Everyone is already up to date");
+      show(parts.join(" · "), 1);
+      toast(added ? `👩‍🎓 ${added} students added from Commun` : "✅ Students synced with Commun"); if (added) confetti();
+    } catch (e) {
+      show(`⚠️ ${e.message || e}`, null);
+      toast("⚠️ Couldn't sync with Commun");
+    } finally { btn.disabled = false; }
+  }
+
   /* ---------- Events ---------- */
+  $("#communSync").onclick = communSync;
   $("#tabs").onclick = (e) => {
     const b = e.target.closest("button"); if (!b) return;
     $$("#tabs button").forEach((x) => x.classList.toggle("active", x === b));

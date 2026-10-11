@@ -372,3 +372,10 @@ dialog.wide { width: min(640px, calc(100% - 24px)); }
 @keyframes jarSad { 0%,100% { translate: 0 0; scale: 1; } 40%,70% { translate: 0 6px; scale: 1.04 .94; } }
 @keyframes jarWow { 0% { rotate: 0deg; scale: 1; } 50% { rotate: 180deg; scale: 1.15; } 100% { rotate: 360deg; scale: 1; } }
 @media (prefers-reduced-motion: reduce) { .jar.r-cheer, .jar.r-dance, .jar.r-sad, .jar.r-wow { animation: none; } }
+
+/* Students from Commun */
+select[hidden], .card[hidden] { display: none !important; }
+.commun-progress { margin-top: 12px; }
+.commun-progress .bar { height: 12px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.commun-progress .bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--primary), #a855f7); transition: width .4s; }
+.commun-progress p { margin: 8px 0 0; font-weight: 700; }
