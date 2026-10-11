@@ -972,7 +972,7 @@
   $("#resetAll").onclick = () => confirmBox("Delete ALL groups, students, rewards and history?", () => { state = DEFAULTS(); selected.clear(); save(); render(); toast("Everything cleared"); });
   $("#soundToggle").onchange = (e) => { state.sound = e.target.checked; save(); };
   $("#activityPicker").onclick = (e) => { const t = e.target.closest(".act-tile"); if (t) openActivity(t.dataset.act); };
-  $("#projectorBtn").onclick = () => { $("#projector").hidden = false; renderProjector(); document.documentElement.requestFullscreen?.().catch(() => {}); };
+  if ($("#projectorBtn")) $("#projectorBtn").onclick = () => { $("#projector").hidden = false; renderProjector(); document.documentElement.requestFullscreen?.().catch(() => {}); };
   $$("[data-pmode]").forEach((b) => b.onclick = () => { projMode = b.dataset.pmode; renderProjector(); });
   ["#bYear", "#bClass"].forEach((sel) => $(sel).addEventListener("input", () => { renderBoard(); if (!$("#projector").hidden) renderProjector(); }));
   $("#closeProjector").onclick = () => { $("#projector").hidden = true; if (document.fullscreenElement) document.exitFullscreen(); };
