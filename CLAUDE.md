@@ -52,3 +52,8 @@ Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) a
   Next (→/Space, O = whole map, drag + wheel to pan/zoom). `mapBranches` builds branches from the same LC data as the
   slides; every branch carries a ❓ question node (quick-check MCQ, think & share with timer, or match/order/sort
   puzzle) that opens in a pop-up and counts toward the ❓ score. The classic deck is still there as 📑 Slides (`teach`).
+- 📲 Students' devices (activity.js `assign`/`results` + `do.html`): reuses the LC app's online-lesson hand-in RPCs
+  (mint_lesson with plan_id `cp-act-<id>`, week 1 → token; submit_lesson per answer with all answers so far;
+  lesson_submissions_for polled every 2.5s by the board). The activity travels in the link hash
+  (`do.html#<token>~<gzip base64url>`, data: images replaced by `{kind:"skip"}` so item indices match the board).
+  Live game (live.js) also accepts typed questions (`kind:"type"`, word wall) and unkeyed ones (polls).

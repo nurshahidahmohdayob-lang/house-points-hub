@@ -34,6 +34,7 @@
     },
     POLL_MS,
   };
+  Live.rpc = rpc; // also used by My activities (online hand-in: mint_lesson / submit_lesson / lesson_submissions_for)
   window.Live = Live;
 
   /* ---------------- Board (teacher's screen, opened from a lesson) ---------------- */
@@ -56,6 +57,9 @@
     return hits.length === 1 ? hits[0] : null;
   }
 
+  // Typed answer instead of tiles (fill-in gaps without options, written questions)
+  const isTyped = (q) => q.kind === "type" || !(q.options || []).length;
+
   function setupDialog(plan, w, title, questions, onReady) {
     let key = ""; try { key = sessionStorage.getItem(KEY_STORE) || ""; } catch { /* private mode */ }
     const classes = [...new Set(CP().students().filter((s) => s.year === plan.year).map((s) => s.cls).filter(Boolean))];
@@ -63,7 +67,7 @@
       <p class="muted">Students join on tablets or phones and answer together. Right answers earn ⭐ for the student and their group jar.</p>
       <label class="edit-label">Class <input data-class list="lv-classes" value="${esc(classes[0] || `Year ${plan.year}`)}" /></label>
       <datalist id="lv-classes">${classes.map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
-      <div class="lv-row"><label class="edit-label">Questions <select data-n>${[5, 8, 10].filter((n) => n <= questions.length || n === 5).map((n) => `<option ${n === Math.min(10, questions.length) ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+      <div class="lv-row"><label class="edit-label">Questions <select data-n>${[...new Set([5, 8, 10, 15, questions.length].filter((n) => n <= questions.length || n === 5))].sort((a, b) => a - b).map((n) => `<option value="${n}" ${n === (questions.length <= 15 ? questions.length : 10) ? "selected" : ""}>${n === questions.length && n > 5 ? `All ${n}` : n}</option>`).join("")}</select></label>
       <label class="edit-label">Seconds each <select data-sec>${[10, 15, 20, 30].map((n) => `<option ${n === 20 ? "selected" : ""}>${n}</option>`).join("")}</select></label></div>
       <label class="edit-label">Teacher key <input data-key type="password" autocomplete="current-password" value="${esc(key)}" placeholder="The school's teacher key (same as the Life Competencies app)" /></label>
       <p class="lv-err" hidden></p>
@@ -120,13 +124,13 @@
 
     const ask = async (n) => {
       i = n; phase = "asking"; revealed = false;
-      const q = questions[i];
-      try { await Live.control({ key: g.key, code: g.code, phase: "asking", stop: i, question: { q: q.q, options: q.options, kind: "choice" }, answer: q.answer, seconds: g.seconds }); }
+      const q = questions[i], typed = isTyped(q);
+      try { await Live.control({ key: g.key, code: g.code, phase: "asking", stop: i, question: { q: q.q, options: typed ? [] : q.options, kind: typed ? "type" : "choice" }, answer: q.answer ?? null, seconds: g.seconds }); }
       catch (e) { CP().toast("⚠️ " + e.message); return; }
       deadline = Date.now() + g.seconds * 1000;
       body.innerHTML = `<div class="lv-ask"><div class="lc-kicker">Question ${i + 1} of ${g.stops} · code ${g.code}</div>
         <p class="lc-q">${esc(q.q)}</p>
-        <div class="lc-tiles">${q.options.map((o, k) => `<div class="lc-tile lv-opt" data-o="${esc(o)}" style="--tc:${TILE_COLORS[k % 6]}"><i>${SHAPES[k % 6]}</i><span>${esc(o)}</span><em class="lv-bar"></em><b class="lv-n"></b></div>`).join("")}</div>
+        ${typed ? `<div class="lv-typed">✍️ Type your answer on your device</div><div class="lv-wall"></div>` : `<div class="lc-tiles">${q.options.map((o, k) => `<div class="lc-tile lv-opt" data-o="${esc(o)}" style="--tc:${TILE_COLORS[k % 6]}"><i>${SHAPES[k % 6]}</i><span>${esc(o)}</span><em class="lv-bar"></em><b class="lv-n"></b></div>`).join("")}</div>`}
         <div class="lv-status"><div class="lv-clock"></div><div class="lv-answered"></div><button class="btn" data-reveal>Show answer</button></div>
         <div class="lv-after" hidden></div></div>`;
       $("[data-reveal]", body).onclick = reveal;
@@ -137,10 +141,16 @@
       if (revealed) return; revealed = true; phase = "reveal";
       try { await Live.control({ key: g.key, code: g.code, phase: "reveal", stop: i }); } catch { /* the board still shows it */ }
       try { st = await Live.state(g.code); } catch { /* keep last */ }
-      const q = questions[i];
-      $$(".lv-opt", body).forEach((t) => { const right = t.dataset.o === q.answer; t.classList.toggle("right", right); t.classList.toggle("dim", !right); });
-      const tally = st?.tally || {}, total = Object.values(tally).reduce((a, b) => a + b, 0) || 1;
+      const q = questions[i], keyed = q.answer != null && q.answer !== "";
+      if (keyed) $$(".lv-opt", body).forEach((t) => { const right = norm(t.dataset.o) === norm(q.answer); t.classList.toggle("right", right); t.classList.toggle("dim", !right); });
+      const tally = st?.tally || {}, count = Object.values(tally).reduce((a, b) => a + b, 0), total = count || 1;
       $$(".lv-opt", body).forEach((t) => { const n = tally[t.dataset.o] || 0; $(".lv-n", t).textContent = n; $(".lv-bar", t).style.width = `${(n / total) * 100}%`; });
+      if (isTyped(q)) {
+        // Word wall of what the class typed; the right answer glows
+        const most = Math.max(1, ...Object.values(tally));
+        $(".lv-typed", body).innerHTML = keyed ? `✅ The answer: <b>${esc(q.answer)}</b>` : q.model ? `💡 Teacher's answer: <b>${esc(q.model)}</b>` : "💬 Here's what the class wrote";
+        $(".lv-wall", body).innerHTML = Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 40).map(([t, n]) => `<span class="lv-word ${keyed && norm(t) === norm(q.answer) ? "right" : ""}" style="font-size:${(1 + (n / most) * 1.1).toFixed(2)}rem">${esc(t)}${n > 1 ? ` <small>×${n}</small>` : ""}</span>`).join("") || `<span class="muted">No answers this time</span>`;
+      }
       // stars: +1 point for every student who got it right (their group jar fills too)
       const students = CP().students();
       const right = players().filter((p) => p.answered && p.lastCorrect);
@@ -153,7 +163,7 @@
       groupsHit.forEach((gid) => CP().react(gid, "cheer"));
       if (right.length) CP().confetti(80);
       $(".lv-after", body).hidden = false;
-      $(".lv-after", body).innerHTML = `<p>${right.length ? `🎉 <b>${right.length}</b> got it right${fresh.length ? ` · ⭐ ${fresh.length} star${fresh.length > 1 ? "s" : ""} added` : ""}` : "Nobody got that one — let's talk about it!"}
+      $(".lv-after", body).innerHTML = `<p>${!keyed ? `📊 <b>${count}</b> answer${count === 1 ? "" : "s"} — no single right answer, let's talk about them!` : right.length ? `🎉 <b>${right.length}</b> got it right${fresh.length ? ` · ⭐ ${fresh.length} star${fresh.length > 1 ? "s" : ""} added` : ""}` : "Nobody got that one — let's talk about it!"}
         ${unknown.length ? `<br><small class="muted">Not on the class list (no star): ${unknown.map(esc).join(", ")}</small>` : ""}</p>
         <button class="btn big" data-next>${i + 1 < g.stops ? "Next question ›" : "🏁 See the winners"}</button>`;
       $("[data-reveal]", body).hidden = true;

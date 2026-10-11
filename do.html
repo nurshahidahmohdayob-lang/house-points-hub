@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <script src="move.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>My Activity</title>
+  <meta name="description" content="Do your teacher's activity and submit each answer." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✏️</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet" />
+  <style id="pageCss"></style>
+  <style>
+    .join { min-height: 90vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 16px; }
+    .join .logo { font-size: 3.5rem; animation: bob 2.4s ease-in-out infinite; }
+    .join h1 { margin: 0; font-size: clamp(1.6rem, 6vw, 2.4rem); }
+    .join input { font: inherit; font-weight: 800; font-size: 1.4rem; text-align: center; border: 3px solid #ddd6fe; border-radius: 16px; padding: 12px; width: min(340px, 100%); color: #24124d; }
+    .join .err { background: #fee2e2; color: #991b1b; padding: 8px 14px; border-radius: 12px; font-weight: 700; }
+    .sync { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 50; background: #24124d; color: #fff; font-weight: 800; border-radius: 999px; padding: 8px 16px; box-shadow: 0 8px 20px rgba(0,0,0,.25); border: 0; font: inherit; }
+    .sync.bad { background: #dc2626; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main id="act"></main>
+  <script src="live-config.js"></script>
+  <script src="live.js"></script>
+  <script src="activity.js?v=5"></script>
+  <script>
+  (async () => {
+    const $ = (s) => document.querySelector(s);
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const root = $("#act");
+    const store = { get: (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } } };
+    $("#pageCss").textContent = ActivityMaker.PAGE_CSS;
+    const fail = (msg) => { root.innerHTML = `<div class="join"><div class="logo">😕</div><h1>${esc(msg)}</h1><p>Ask your teacher for the link again.</p></div>`; };
+
+    // The link: do.html#<token>~<activity, gzipped + base64url>
+    const [token, packed] = decodeURIComponent(location.hash.slice(1)).split("~");
+    if (!token || !packed) return fail("This link isn't complete");
+    let act;
+    try { act = await ActivityMaker.unpack(packed); } catch { return fail("This link can't be opened on this device"); }
+    document.title = act.title;
+
+    let taken = [];
+    try { taken = (await Live.rpc("lesson_for", { p_token: token })) || []; if (!taken.length) return fail("This activity has been closed"); }
+    catch { /* offline: still let them work, sending retries later */ }
+
+    function askName(msg) {
+      const saved = store.get("assign-name") || "";
+      root.innerHTML = `<div class="join"><div class="logo">${esc(act.emoji || "✏️")}</div><h1>${esc(act.title)}</h1><p>Type your name so your teacher can see your answers</p>
+        <input id="name" maxlength="40" autocomplete="given-name" value="${esc(saved)}" placeholder="Your name" />${msg ? `<p class="err">${esc(msg)}</p>` : ""}<button class="big" id="go">Start ✏️</button></div>`;
+      const inp = $("#name"); inp.focus();
+      const go = () => {
+        const name = inp.value.trim().replace(/\s+/g, " ");
+        if (name.length < 2) return askName("Type your name first.");
+        const mine = store.get(`assign-${token}-${name.toLowerCase()}`);
+        if (!mine && taken.some((t) => t.student && t.student.toLowerCase() === name.toLowerCase())) return askName("Someone has already used that name — add your surname or class.");
+        store.set("assign-name", name); start(name);
+      };
+      $("#go").onclick = go; inp.onkeydown = (e) => { if (e.key === "Enter") go(); };
+    }
+
+    function start(name) {
+      const KEY = `assign-${token}-${name.toLowerCase()}`;
+      const mine = store.get(KEY) || { answers: {}, states: {} };
+      const total = act.items.filter((it) => (it.type === "mcq" || it.type === "tf") ? it.answer != null : it.type === "blank" ? it.answers.some((a) => a.trim()) : it.type === "match").length;
+      const bar = document.createElement("button"); bar.className = "sync"; bar.hidden = true; document.body.appendChild(bar);
+      let sending = false, again = false;
+      async function push() {
+        if (sending) { again = true; return; }
+        sending = true; bar.hidden = false; bar.className = "sync"; bar.textContent = "📡 Sending…";
+        const list = Object.entries(mine.answers).map(([i, x]) => ({ i: +i, ...x })).sort((a, b) => a.i - b.i);
+        const score = list.reduce((s, x) => s + (x.ok ? 1 : 0), 0);
+        try {
+          await Live.rpc("submit_lesson", { p_token: token, p_student: name, p_answers: list, p_score: score, p_total: total, p_reflection: "" });
+          bar.textContent = "✅ Sent to your teacher"; setTimeout(() => { if (!sending) bar.hidden = true; }, 1800);
+        } catch (e) {
+          bar.className = "sync bad"; bar.textContent = "⚠️ Not sent — tap to try again"; bar.onclick = push;
+        }
+        sending = false;
+        if (again) { again = false; push(); }
+      }
+      ActivityMaker.runtime({ ...act, mode: "submit", name }, {
+        saved: mine.states,
+        onSend: (i, entry, state) => { mine.answers[i] = entry; mine.states[i] = state; store.set(KEY, mine); push(); },
+      });
+      if (Object.keys(mine.answers).length) push(); // make sure the board has everything already done here
+    }
+    askName();
+  })();
+  </script>
+</body>
+</html>

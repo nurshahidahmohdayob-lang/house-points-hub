@@ -107,6 +107,20 @@
         if (lastPhase === key) { const b = $(".bar i"); if (b) b.style.width = left() + "%"; return; }
         lastPhase = key;
         const q = st.question;
+        if (q.kind === "type" || !(q.options || []).length) {
+          app.innerHTML = `<p class="muted">Question ${st.stop + 1} of ${st.stops}</p><div class="q">${esc(q.q)}</div><div class="bar"><i style="width:${left()}%"></i></div>
+            <input id="typed" maxlength="120" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type your answer ✏️" /><button class="go" id="send">Send ✈️</button>`;
+          const inp = $("#typed"); inp.focus();
+          const send = async () => {
+            const v = inp.value.trim().replace(/\s+/g, " ").replace(/[.!]+$/, "");
+            if (!v || myChoice !== null) return;
+            myChoice = v; buzz(30);
+            try { myResult = await Live.submit(code, me, st.stop, v); } catch { myResult = null; }
+            lastPhase = ""; draw();
+          };
+          $("#send").onclick = send; inp.onkeydown = (e) => { if (e.key === "Enter") send(); };
+          return;
+        }
         app.innerHTML = `<p class="muted">Question ${st.stop + 1} of ${st.stops}</p><div class="q">${esc(q.q)}</div><div class="bar"><i style="width:${left()}%"></i></div>
           <div class="tiles">${q.options.map((o, k) => `<button class="tile" data-k="${k}" style="background:${COLORS[k % 6]}"><i>${SHAPES[k % 6]}</i>${esc(o)}</button>`).join("")}</div>`;
         app.querySelectorAll(".tile").forEach((b) => b.onclick = async () => {
@@ -119,7 +133,8 @@
       } else if (st.phase === "reveal") {
         if (lastPhase === key) return; lastPhase = key;
         const right = myChoice !== null && st.answer && myChoice.trim().toLowerCase() === st.answer.trim().toLowerCase();
-        if (myChoice === null) app.innerHTML = `<div class="result">⏰</div><h2>Too slow this time!</h2><p>The answer was <b>${esc(st.answer || "")}</b></p>`;
+        if (!st.answer) app.innerHTML = myChoice === null ? `<div class="result">⏰</div><h2>Time's up!</h2><p>Look at the board 👀</p>` : `<div class="result">💬</div><h2>Thanks for sharing!</h2><p>Look at the board to see what everyone said 👀</p>`;
+        else if (myChoice === null) app.innerHTML = `<div class="result">⏰</div><h2>Too slow this time!</h2><p>The answer was <b>${esc(st.answer || "")}</b></p>`;
         else if (right) { app.innerHTML = `<div class="result">🎉</div><h2>Correct!</h2><div class="pts">+${myResult?.points ?? ""} ⭐</div>`; buzz([60, 40, 60]); }
         else app.innerHTML = `<div class="result">💪</div><h2>Not quite!</h2><p>The answer was <b>${esc(st.answer || "")}</b></p>`;
       } else if (st.phase === "end") {
