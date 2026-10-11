@@ -7,6 +7,7 @@
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const CP = () => window.ClassPoints;
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const norm = (t) => String(t ?? "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
   const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const KEY = "class-points-lessons";
   const LETTERS = ["A", "B", "C", "D", "E", "F"];
@@ -195,8 +196,8 @@
         </div>
         ${w.objectives ? `<p class="lc-obj"><b>🎯 Today:</b> ${esc(w.objectives)}</p>` : ""}
         <div class="lc-actions">
-          <button class="lc-act" data-go="teach"><span>▶️</span><b>Teach the lesson</b><small>Interactive slides with games, timers & polls</small></button>
-          <button class="lc-act" data-go="mind"><span>🧠</span><b>Mind map</b><small>Tap the bubbles to explore</small></button>
+          <button class="lc-act" data-go="teach"><span>▶️</span><b>Teach the lesson</b><small>Interactive mind map that grows as you teach, with questions inside</small></button>
+          <button class="lc-act" data-go="slides"><span>📑</span><b>Slides</b><small>The classic slide deck with games, timers & polls</small></button>
           <button class="lc-act live" data-go="live"><span>📱</span><b>Live play</b><small>Students answer on their own devices</small></button>
           <button class="lc-act" data-go="quiz"><span>⚔️</span><b>Team Quiz</b><small>Groups answer, stars drop in the jars</small></button>
           <button class="lc-act" data-go="games"><span>🧩</span><b>Puzzle games</b><small>Match, order, sort & true/false</small></button>
@@ -444,41 +445,222 @@
     $$(".lc-check", box).forEach((b) => b.onclick = () => { b.classList.toggle("on"); b.textContent = (b.classList.contains("on") ? "✅ " : "⬜ ") + b.textContent.slice(2); });
   }
 
-  /* ---------------- Mind map ---------------- */
-  function mindMap(plan, w) {
-    const L = LC.buildLesson(plan, w.week), n = L.notes;
-    const el = stage(`🧠 Mind map · ${esc(focusParts(w.focus).text)}`, { jars: false });
-    const branches = n.branches || [];
-    const kw = (n.keywords || []).slice(0, 6);
-    const nodes = [...branches.map((b) => ({ type: "branch", emoji: b.emoji, title: b.title, body: b.detail || b.explain })), ...kw.map(([word, meaning]) => ({ type: "word", emoji: "🔤", title: word, body: meaning }))];
-    $(".lc-stage-body", el).innerHTML = `<div class="lc-mind"><svg class="lc-mind-lines"></svg>
-      <button class="lc-node centre"><span>${n.centre?.emoji || "🧠"}</span><b>${esc(n.centre?.text || focusParts(w.focus).text)}</b></button>
-      ${nodes.map((x, k) => `<button class="lc-node ${x.type}" data-k="${k}"><span>${x.emoji}</span><b>${esc(x.title)}</b></button>`).join("")}
-      <div class="lc-mind-card" hidden></div></div>
-      <p class="muted center">Tap a bubble to open its idea · ${nodes.length} ideas to explore</p>`;
-    const box = $(".lc-mind", el), svg = $("svg", box);
-    const layout = () => {
-      const W = box.clientWidth, H = box.clientHeight, cx = W / 2, cy = H / 2;
-      const rx = Math.min(W * 0.38, 520), ry = Math.min(H * 0.36, 260);
-      const c = $(".centre", box); c.style.left = cx + "px"; c.style.top = cy + "px";
-      let lines = "";
-      $$(".lc-node[data-k]", box).forEach((b, k) => {
-        const a = -Math.PI / 2 + (k / nodes.length) * Math.PI * 2;
-        const x = cx + Math.cos(a) * rx, y = cy + Math.sin(a) * ry;
-        b.style.left = x + "px"; b.style.top = y + "px"; b.style.animationDelay = (k * 0.35) + "s";
-        lines += `<path d="M${cx},${cy} Q${(cx + x) / 2 + Math.sin(a) * 30},${(cy + y) / 2 - Math.cos(a) * 30} ${x},${y}" />`;
-      });
-      svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.innerHTML = lines;
+  /* ---------------- Teach as a mind map (graphical notes that grow branch by branch, with questions inside) ---------------- */
+  const BRANCH_COLORS = ["#7c3aed", "#f59e0b", "#10b981", "#3b82f6", "#ec4899", "#f97316", "#14b8a6", "#ef4444", "#8b5cf6", "#0ea5e9", "#84cc16"];
+  function mapBranches(plan, w) {
+    const id = plan.id, wk = w.week, fp = focusParts(w.focus, plan, w.week);
+    const note = LC.noteFor(id, wk) || { idea: fp.text, points: [], examples: [] };
+    const deep = LC.deepFor(id, wk) || { why: "", words: [], steps: [] };
+    const vis = LC.visualFor(id, wk, note) || { emoji: fp.emoji, definition: note.idea, cards: [], partner: [] };
+    const lesson = LC.buildLesson(plan, wk);
+    const quiz = LC.quizTen(id, wk);
+    const doNow = w.doNow || LC.doNowFor(id, wk) || "";
+    const acts = LC.expandActivity(w.activities || "") || [];
+    const criteria = LC.weekCriteria(w.objectives, deep.steps, 3, w.assessment) || [];
+    const used = new Set();
+    const asQuiz = (item) => { used.add(item.q); return { kind: "choice", q: item.q, options: LC.optionsForItem(id, item, quiz), answer: item.a, label: "Quick check" }; };
+    const nextQuiz = () => { const item = quiz.find((x) => !used.has(x.q)); return item ? asQuiz(item) : null; };
+    const cardQ = (text) => { const item = quiz.find((x) => norm(x.q) === norm(text) && !used.has(x.q)); return item ? asQuiz(item) : { kind: "think", q: text, sec: 30, label: "Think & share" }; };
+    const B = [];
+    B.push({ emoji: "🎯", title: "Our learning", leaves: [...(w.objectives ? [{ emoji: "🎯", text: w.objectives }] : []), ...criteria.slice(0, 3).map((c) => ({ emoji: "✅", text: c }))],
+      q: doNow ? { kind: "think", q: doNow, sec: 180, label: "Warm-up" } : nextQuiz() });
+    B.push({ emoji: vis.emoji || fp.emoji, title: "The big idea", leaves: [{ emoji: "💡", text: vis.definition || note.idea }, ...(deep.why ? [{ kind: "reveal", emoji: "🤔", label: "Why does it matter?", text: deep.why }] : [])], q: null });
+    if (deep.words?.length) B.push({ emoji: "📖", title: "Words we need", leaves: deep.words.slice(0, 5).map((x) => ({ kind: "word", word: x.word, text: x.meaning })),
+      q: deep.words.length > 1 ? { kind: "puzzle", puzzle: { kind: "match", q: "Match each word to what it means.", pairs: deep.words.map((x) => [x.word, x.meaning]) }, q: "Match the words", label: "Word match" } : null });
+    (vis.cards || []).slice(0, 4).forEach((c) => B.push({ emoji: c.emoji, title: c.title, leaves: [...(c.line ? [{ emoji: "💬", text: c.line }] : []), ...((c.pictures || []).length ? [{ kind: "pics", pics: c.pictures }] : [])],
+      q: c.question ? cardQ(c.question) : null }));
+    if (note.examples?.length || note.watchOut) B.push({ emoji: "👀", title: "What it looks like", leaves: [...(note.examples || []).slice(0, 3).map((e) => ({ kind: "reveal", emoji: "💡", label: "Tap to see an example", text: e })), ...(note.watchOut ? [{ emoji: "⚠️", text: `Watch out: ${note.watchOut}` }] : [])], q: null });
+    if (deep.steps?.length) B.push({ emoji: "🪜", title: "How to do it", leaves: deep.steps.slice(0, 5).map((s, k) => ({ emoji: `${k + 1}️⃣`, text: s })),
+      q: deep.steps.length > 2 ? { kind: "puzzle", puzzle: { kind: "order", q: "Put the steps in the right order.", order: deep.steps }, q: "Put the steps in order", label: "Order it" } : null });
+    if (vis.partner?.length || acts.length) B.push({ emoji: "🧑‍🤝‍🧑", title: "Talk & do", leaves: [...(vis.partner || []).slice(0, 2).map((p) => ({ kind: "talk", emoji: "🗣️", text: p })), ...acts.slice(0, 3).map((a) => ({ kind: "activity", emoji: "🧩", text: a.guide?.title || a.label, act: a }))], q: null });
+    const lq = lesson.questions.find((q) => q.kind === "sort") || lesson.questions.find((q) => q.kind === "match");
+    B.push({ emoji: "🎟️", title: "Wrap up", leaves: [{ emoji: "📝", text: "Today I learned…" }, { emoji: "🚀", text: "One thing I will do is…" }, { emoji: "🤔", text: "I'm still wondering…" }, { kind: "poll", emoji: "🙋", text: "How did today go?" }],
+      q: lq ? { kind: "puzzle", puzzle: lq, q: lq.q, label: "Final puzzle" } : null });
+    B.forEach((b) => { if (!b.q) b.q = nextQuiz(); });
+    return { centre: { emoji: fp.emoji, text: fp.text }, branches: B };
+  }
+
+  function teachMap(plan, w) {
+    const { centre, branches } = mapBranches(plan, w);
+    const el = stage(`🧠 ${esc(centre.text)}`);
+    const body = $(".lc-stage-body", el);
+    body.classList.add("mm-body");
+    const nQ = branches.filter((b) => b.q).length;
+    $(".lc-stage-extra", el).innerHTML = `<span class="mm-score" title="Questions answered">❓ <b>0</b> / ${nQ}</span><button class="btn ghost mm-slides" title="Show the classic slides instead">📑 Slides</button>`;
+    $(".mm-slides", el).onclick = () => teach(plan, w);
+    const leafHtml = (l, bi, li) => {
+      const k = l.kind || "text", at = `data-b="${bi}" data-l="${li}"`;
+      if (k === "word") return `<button class="mm-leaf word" ${at}><b>${esc(l.word)}</b><span class="mm-back">${esc(l.text)}</span><small>tap to flip</small></button>`;
+      if (k === "reveal") return `<button class="mm-leaf reveal" ${at}><span class="mm-e">${l.emoji}</span><span class="mm-t"><b class="mm-front">${esc(l.label)}</b><span class="mm-back">${esc(l.text)}</span></span></button>`;
+      if (k === "pics") return `<div class="mm-leaf pics" ${at}>${l.pics.map((p) => `<span class="mm-pic"><i>${p.emoji}</i><small>${esc(p.label)}</small></span>`).join("")}</div>`;
+      return `<button class="mm-leaf ${k}" ${at}><span class="mm-e">${l.emoji}</span><span class="mm-t">${esc(l.text)}</span>${k === "activity" || k === "talk" || k === "poll" ? `<i class="mm-go">›</i>` : ""}</button>`;
     };
-    layout(); const ro = new ResizeObserver(layout); ro.observe(box); stageCleanup.push(() => ro.disconnect());
-    const card = $(".lc-mind-card", box);
-    $$(".lc-node[data-k]", box).forEach((b) => b.onclick = () => {
-      const x = nodes[+b.dataset.k]; b.classList.add("seen");
-      card.hidden = false; card.innerHTML = `<button class="lc-x" aria-label="Close">✕</button><div class="lc-s-emoji">${x.emoji}</div><h2>${esc(x.title)}</h2><p class="lc-s-lead">${esc(x.body || "")}</p>`;
-      card.animate([{ opacity: 0, transform: "translate(-50%,-50%) scale(.8)" }, { opacity: 1, transform: "translate(-50%,-50%) scale(1)" }], { duration: 220, easing: "ease-out" });
-      $(".lc-x", card).onclick = () => card.hidden = true; CP().beep("up");
-      if ($$(".lc-node[data-k]:not(.seen)", box).length === 0) { CP().toast("🎉 Every idea explored!"); CP().confetti(100); }
-    });
+    body.innerHTML = `<div class="mm-view"><div class="mm-world"><svg class="mm-lines"></svg>
+        <div class="mm-centre"><span class="mm-e">${centre.emoji}</span><b>${esc(centre.text)}</b><small>Year ${plan.year} · Week ${w.week}</small></div>
+        ${branches.map((b, bi) => `<div class="mm-branch-set" data-set="${bi}" style="--bc:${BRANCH_COLORS[bi % BRANCH_COLORS.length]}">
+          <button class="mm-branch" data-branch="${bi}"><span class="mm-e">${b.emoji}</span><b>${esc(b.title)}</b></button>
+          ${b.leaves.map((l, li) => leafHtml(l, bi, li)).join("")}
+          ${b.q ? `<button class="mm-leaf mm-q" data-q="${bi}"><span class="mm-e">❓</span><span class="mm-t"><small>${esc(b.q.label || "Question")}</small>${esc(b.q.q)}</span></button>` : ""}
+        </div>`).join("")}
+      </div>
+      <div class="mm-pop" hidden></div></div>
+      <div class="mm-bar"><button class="btn ghost" data-mm="prev">‹ Back</button><div class="mm-dots">${branches.map((b, bi) => `<button data-dot="${bi}" style="--bc:${BRANCH_COLORS[bi % BRANCH_COLORS.length]}" title="${esc(b.title)}">${b.emoji}</button>`).join("")}</div>
+        <button class="btn ghost" data-mm="all" title="See the whole map (O)">🔭 Whole map</button><button class="btn" data-mm="next">Next branch ›</button></div>`;
+
+    const view = $(".mm-view", body), world = $(".mm-world", body), svg = $(".mm-lines", body), pop = $(".mm-pop", body);
+    let shown = 0, focus = -1, pan = { x: 0, y: 0 }, cam = { x: 0, y: 0, s: 1 }, answered = new Set(), stopPop = null;
+    const boxes = [];   // world-space box of each branch set, for the camera
+
+    // Classic two-sided mind map: branches stacked down the right, then up the left; leaves fan out beside each branch
+    function layout() {
+      const C = $(".mm-centre", world), BX = 330, LX = 520, GAP = 18, BLOCK_GAP = 46;
+      const sets = $$(".mm-branch-set", world);
+      const right = Math.ceil(sets.length / 2);
+      const sides = [sets.slice(0, right), sets.slice(right).reverse()];
+      let lines = "";
+      sides.forEach((list, side) => {
+        const dir = side === 0 ? 1 : -1;
+        const blocks = list.map((set) => { const leaves = $$(".mm-leaf", set); const h = Math.max($(".mm-branch", set).offsetHeight, leaves.reduce((s, l) => s + l.offsetHeight + GAP, -GAP)); return { set, leaves, h }; });
+        const total = blocks.reduce((s, b) => s + b.h + BLOCK_GAP, -BLOCK_GAP);
+        let y = -total / 2;
+        blocks.forEach(({ set, leaves, h }) => {
+          const bi = +set.dataset.set, color = BRANCH_COLORS[bi % BRANCH_COLORS.length];
+          const br = $(".mm-branch", set), bw = br.offsetWidth, cy = y + h / 2;
+          const bx = dir * BX;
+          br.style.left = (bx - bw / 2) + "px"; br.style.top = (cy - br.offsetHeight / 2) + "px";
+          const on = bi < shown ? "on" : "";
+          lines += `<path class="trunk ${on}" data-p="${bi}" pathLength="1" stroke="${color}" d="M${dir * 60},0 C${dir * 180},0 ${bx - dir * (bw / 2 + 120)},${cy} ${bx - dir * bw / 2},${cy}" />`;
+          let ly = cy - leaves.reduce((s, l) => s + l.offsetHeight + GAP, -GAP) / 2, minX = Math.min(bx - bw / 2, dir * LX), maxX = Math.max(bx + bw / 2, dir * LX);
+          leaves.forEach((l) => {
+            const lw = l.offsetWidth, lh = l.offsetHeight, x = dir > 0 ? LX : -LX - lw;
+            l.style.left = x + "px"; l.style.top = ly + "px";
+            lines += `<path class="twig ${on}" data-p="${bi}" pathLength="1" stroke="${color}" d="M${bx + dir * bw / 2},${cy} C${bx + dir * (bw / 2 + 60)},${cy} ${dir * LX - dir * 70},${ly + lh / 2} ${dir > 0 ? LX : -LX},${ly + lh / 2}" />`;
+            minX = Math.min(minX, x); maxX = Math.max(maxX, x + lw); ly += lh + GAP;
+          });
+          boxes[bi] = { x1: minX, x2: maxX, y1: y, y2: y + h };
+          y += h + BLOCK_GAP;
+        });
+      });
+      C.style.left = -C.offsetWidth / 2 + "px"; C.style.top = -C.offsetHeight / 2 + "px";
+      svg.innerHTML = lines;
+      camera(false);
+    }
+    // Zoom the camera onto one branch, or out to the whole map
+    function camera(animate = true) {
+      const vw = view.clientWidth, vh = view.clientHeight;
+      let b;
+      if (focus < 0) {
+        const vis = boxes.filter((_, i) => i < shown);
+        const C = $(".mm-centre", world);
+        b = vis.reduce((a, x) => ({ x1: Math.min(a.x1, x.x1), x2: Math.max(a.x2, x.x2), y1: Math.min(a.y1, x.y1), y2: Math.max(a.y2, x.y2) }), { x1: -C.offsetWidth / 2, x2: C.offsetWidth / 2, y1: -C.offsetHeight / 2, y2: C.offsetHeight / 2 });
+        if (!vis.length) b = { x1: b.x1 - 200, x2: b.x2 + 200, y1: b.y1 - 120, y2: b.y2 + 120 };
+      } else {
+        const x = boxes[focus];   // the branch, its notes and a glimpse of the trunk back to the centre
+        b = { x1: x.x1 < 0 ? x.x1 : x.x1 - 120, x2: x.x2 > 0 ? x.x2 : x.x2 + 120, y1: x.y1, y2: x.y2 };
+      }
+      const pad = 40, s = Math.min(1.35, (vw - pad * 2) / (b.x2 - b.x1), (vh - pad * 2) / (b.y2 - b.y1));
+      cam = { s, x: vw / 2 - ((b.x1 + b.x2) / 2) * s, y: vh / 2 - ((b.y1 + b.y2) / 2) * s };
+      pan = { x: 0, y: 0 };
+      world.style.transition = animate ? "transform .75s cubic-bezier(.3,.9,.3,1)" : "none";
+      paint();
+    }
+    const paint = () => (world.style.transform = `translate(${cam.x + pan.x}px, ${cam.y + pan.y}px) scale(${cam.s})`);
+
+    function reveal(n) {
+      shown = Math.max(shown, Math.min(branches.length, n));
+      $$(".mm-branch-set", world).forEach((s) => s.classList.toggle("on", +s.dataset.set < shown));
+      $$("path[data-p]", svg).forEach((p) => p.classList.toggle("on", +p.dataset.p < shown));
+    }
+    function go(bi) {
+      closePop();
+      if (bi >= branches.length) { focus = -1; camera(); CP().toast("🎉 The whole map is done — great lesson!"); CP().confetti(90); markDots(); return; }
+      bi = Math.max(-1, bi);
+      if (bi >= 0) { const fresh = bi >= shown; reveal(bi + 1); if (fresh) { CP().beep("up"); $$(`.mm-branch-set[data-set="${bi}"] > *`, world).forEach((x, k) => x.animate([{ opacity: 0, transform: "scale(.6)" }, { opacity: 1, transform: "scale(1)" }], { duration: 420, delay: 250 + k * 140, easing: "cubic-bezier(.3,1.5,.5,1)", fill: "backwards" })); } }
+      focus = bi; camera(); markDots();
+    }
+    function markDots() {
+      $$("[data-dot]", body).forEach((d) => { const i = +d.dataset.dot; d.classList.toggle("on", i === focus); d.classList.toggle("seen", i < shown); d.classList.toggle("done", answered.has(i)); });
+      $("[data-mm=next]", body).textContent = focus === -1 && shown === 0 ? "Start ›" : focus >= branches.length - 1 || (focus === -1 && shown >= branches.length) ? "🔭 Finish" : "Next branch ›";
+    }
+
+    function closePop() { if (stopPop) { stopPop(); stopPop = null; } pop.hidden = true; pop.innerHTML = ""; }
+    function openPop(html, wireFn) {
+      closePop();
+      pop.innerHTML = `<button class="lc-x mm-x" aria-label="Close">✕</button><div class="mm-pop-in">${html}</div>`;
+      pop.hidden = false;
+      pop.animate([{ opacity: 0, transform: "translate(-50%,-46%) scale(.9)" }, { opacity: 1, transform: "translate(-50%,-50%) scale(1)" }], { duration: 240, easing: "ease-out" });
+      $(".mm-x", pop).onclick = closePop;
+      const stops = []; wireFn && wireFn($(".mm-pop-in", pop), stops); stopPop = () => stops.forEach((f) => f && f());
+    }
+    function done(bi) {
+      if (answered.has(bi)) return;
+      answered.add(bi); $(`[data-q="${bi}"]`, world)?.classList.add("done");
+      $(".mm-score b", el).textContent = answered.size; markDots();
+      if (answered.size === nQ) { CP().toast("🏆 Every question answered!"); CP().confetti(120); }
+    }
+    function question(bi) {
+      const Q = branches[bi].q;
+      const color = BRANCH_COLORS[bi % BRANCH_COLORS.length];
+      if (Q.kind === "think") return openPop(`<div class="mm-kick" style="--bc:${color}">${esc(Q.label)}</div><div class="lc-s-emoji">💭</div><h2>${esc(Q.q)}</h2><div class="mm-row"><div data-h="timer"></div><div data-h="pick"></div></div><button class="btn" data-h="ok">✅ We talked about it</button>`, (h, stops) => {
+        stops.push(timerWidget($("[data-h=timer]", h), Q.sec || 30)); namePicker($("[data-h=pick]", h), plan.year);
+        $("[data-h=ok]", h).onclick = () => { done(bi); CP().beep("win"); closePop(); };
+      });
+      openPop(`<div class="mm-kick" style="--bc:${color}">${esc(Q.label || "Question")}</div><div data-h="q"></div><div data-h="stars"></div>`, (h) => {
+        puzzle($("[data-h=q]", h), Q.kind === "choice" ? Q : Q.puzzle, () => { done(bi); starPicker($("[data-h=stars]", h), `🧠 ${branches[bi].title}`); });
+      });
+    }
+    function leaf(bi, li, btn) {
+      const l = branches[bi].leaves[li], k = l.kind || "text";
+      if (k === "word" || k === "reveal") { btn.classList.toggle("flipped"); CP().beep("tick"); return requestAnimationFrame(layout); }
+      if (k === "talk") return openPop(`<div class="lc-s-emoji">🗣️</div><h2>${esc(l.text)}</h2><p class="muted">Talk to your partner</p><div class="mm-row"><div data-h="timer"></div><div data-h="pick"></div></div>`, (h, stops) => { stops.push(timerWidget($("[data-h=timer]", h), 90)); namePicker($("[data-h=pick]", h), plan.year); });
+      if (k === "poll") return openPop(`<div data-h="poll"></div><div data-h="stars"></div>`, (h) => { facePoll($("[data-h=poll]", h), "Hands up! How did you feel about today?"); starPicker($("[data-h=stars]", h), "🎟️ Great lesson", { label: "Star groups of the lesson:", stars: 2 }); });
+      if (k === "activity") {
+        const g = l.act.guide || {};
+        return openPop(`<h2>🧩 ${esc(g.title || l.text)}</h2>${g.what ? `<p class="lc-s-lead">${esc(g.what)}</p>` : ""}${g.steps?.length ? `<ol class="lc-s-steps small">${g.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>` : ""}
+          ${g.needs ? `<p class="muted">🧰 ${esc(Array.isArray(g.needs) ? g.needs.join(", ") : g.needs)}</p>` : ""}<div data-h="timer"></div><div data-h="stars"></div>`, (h, stops) => { stops.push(timerWidget($("[data-h=timer]", h), (g.minutes || 10) * 60)); starPicker($("[data-h=stars]", h), `🧑‍🤝‍🧑 ${g.title || l.text}`, { label: "Which groups worked brilliantly?" }); });
+      }
+      btn.classList.toggle("hl"); CP().beep("tick"); // highlighter pen on a note
+    }
+
+    body.onclick = (e) => {
+      const t = e.target;
+      if (t.closest(".mm-pop")) return;
+      const q = t.closest("[data-q]"); if (q) return question(+q.dataset.q);
+      const lf = t.closest(".mm-leaf[data-l]"); if (lf) return leaf(+lf.dataset.b, +lf.dataset.l, lf);
+      const br = t.closest("[data-branch]"); if (br) return go(+br.dataset.branch === focus ? -1 : +br.dataset.branch);
+      if (t.closest(".mm-centre")) return go(-1);
+      const dot = t.closest("[data-dot]"); if (dot) return go(+dot.dataset.dot);
+      const mm = t.closest("[data-mm]")?.dataset.mm;
+      if (mm === "next") go(focus === -1 ? (shown > 0 && shown < branches.length ? shown : shown ? branches.length : 0) : focus + 1);
+      else if (mm === "prev") go(focus <= 0 ? -1 : focus - 1);
+      else if (mm === "all") { closePop(); focus = -1; camera(); markDots(); }
+    };
+    // Drag the map around; mouse wheel / pinch zooms
+    let drag = null;
+    view.addEventListener("pointerdown", (e) => { if (e.target.closest("button, .mm-pop, .mm-leaf")) return; drag = { x: e.clientX - pan.x, y: e.clientY - pan.y }; view.setPointerCapture(e.pointerId); world.style.transition = "none"; view.classList.add("grab"); });
+    view.addEventListener("pointermove", (e) => { if (!drag) return; pan = { x: e.clientX - drag.x, y: e.clientY - drag.y }; paint(); });
+    view.addEventListener("pointerup", () => { drag = null; view.classList.remove("grab"); });
+    view.addEventListener("wheel", (e) => {
+      if (e.target.closest(".mm-pop")) return;
+      e.preventDefault();
+      const r = view.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, k = Math.exp(-e.deltaY * 0.0015);
+      const s = Math.max(0.15, Math.min(3, cam.s * k)), f = s / cam.s;
+      const ox = cam.x + pan.x, oy = cam.y + pan.y;
+      cam = { s, x: mx - (mx - ox) * f, y: my - (my - oy) * f }; pan = { x: 0, y: 0 };
+      world.style.transition = "none"; paint();
+    }, { passive: false });
+    const key = (e) => {
+      if ($("#modal").open || /INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return;
+      if (e.key === "Escape" && !pop.hidden) { e.stopImmediatePropagation(); return closePop(); }
+      if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") { e.preventDefault(); $("[data-mm=next]", body).click(); }
+      if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); $("[data-mm=prev]", body).click(); }
+      if (e.key === "o" || e.key === "O") $("[data-mm=all]", body).click();
+    };
+    document.addEventListener("keydown", key, true);
+    const ro = new ResizeObserver(() => camera(false)); ro.observe(view);
+    stageCleanup.push(() => { document.removeEventListener("keydown", key, true); ro.disconnect(); closePop(); });
+    layout(); markDots();
+    document.fonts?.ready.then(() => $("#lcStage") === el && layout());
   }
 
   /* ---------------- Team Quiz ---------------- */
@@ -540,8 +722,8 @@
   }
 
   function open(go, plan, w) {
-    if (go === "teach") teach(plan, w);
-    else if (go === "mind") mindMap(plan, w);
+    if (go === "teach") teachMap(plan, w);
+    else if (go === "slides") teach(plan, w);
     else if (go === "live") {
       const quiz = LC.quizTen(plan.id, w.week);
       const questions = quiz.map((it) => ({ q: it.q, options: LC.optionsForItem(plan.id, it, quiz), answer: it.a }));

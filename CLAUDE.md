@@ -48,3 +48,7 @@ Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) a
   and answers (Answer: lines, Answer key heading, ✓ or bold option). Teacher confirms answers, then Play (iframe with
   self-checking page from `buildHtml()`), Live play (MCQ/TF only), or Download a standalone student HTML. Saved in
   localStorage `class-points-activities-v1`.
+- ▶️ Teach the lesson = `teachMap` (lessons.js): a two-sided mind map / graphical notes that grows one branch per
+  Next (→/Space, O = whole map, drag + wheel to pan/zoom). `mapBranches` builds branches from the same LC data as the
+  slides; every branch carries a ❓ question node (quick-check MCQ, think & share with timer, or match/order/sort
+  puzzle) that opens in a pop-up and counts toward the ❓ score. The classic deck is still there as 📑 Slides (`teach`).

@@ -177,24 +177,6 @@ body.lc-open { overflow: hidden; }
 .center { text-align: center; }
 
 /* ---------- Mind map ---------- */
-.lc-mind { position: relative; flex: 1; min-height: 420px; }
-.lc-mind-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
-.lc-mind-lines path { fill: none; stroke: color-mix(in srgb, var(--primary) 45%, transparent); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 10 8; animation: lcFlow 2s linear infinite; }
-@keyframes lcFlow { to { stroke-dashoffset: -36; } }
-.lc-node { position: absolute; transform: translate(-50%, -50%); border: 0; border-radius: 999px; padding: 10px 16px; cursor: pointer; display: flex; align-items: center; gap: 8px; max-width: 240px;
-  background: var(--surface); color: var(--ink); box-shadow: var(--shadow); font-weight: 800; animation: lcFloat 4s ease-in-out infinite; text-align: left; }
-.lc-node span { font-size: 1.6rem; }
-.lc-node b { font-size: .95rem; line-height: 1.15; }
-.lc-node.word { background: color-mix(in srgb, #22c55e 16%, var(--surface)); }
-.lc-node.branch { background: color-mix(in srgb, #3b82f6 14%, var(--surface)); }
-.lc-node.seen::after { content: "✓"; position: absolute; top: -6px; right: -4px; background: var(--good); color: #fff; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: .8rem; }
-.lc-node.centre { background: linear-gradient(135deg, var(--primary), #a855f7); color: #fff; padding: 18px 26px; z-index: 2; animation: none; flex-direction: column; text-align: center; }
-.lc-node.centre span { font-size: 3rem; }
-.lc-node.centre b { font-size: 1.3rem; }
-@keyframes lcFloat { 0%, 100% { margin-top: 0; } 50% { margin-top: -8px; } }
-.lc-mind-card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5; width: min(560px, 92%); background: var(--surface); border-radius: 24px; padding: 24px; box-shadow: 0 24px 60px rgba(30,20,80,.3); text-align: center; }
-.lc-mind-card .lc-x { position: absolute; top: 12px; right: 12px; }
-
 /* ---------- Embedded games ---------- */
 .lc-frame { flex: 1; width: 100%; border: 0; border-radius: 20px; background: #fff; box-shadow: var(--shadow); min-height: 420px; }
 
@@ -342,3 +324,64 @@ body.on-home main { padding-top: 36px; }
 .am-save { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; position: sticky; bottom: 0; padding: 10px 0; background: linear-gradient(transparent, var(--bg) 40%); }
 .am-after { margin-top: 8px; }
 .am-after:empty { display: none; }
+
+/* ---------- ▶️ Teach as a mind map (teachMap in lessons.js) ---------- */
+.lc-stage-body.mm-body { padding: 0; overflow: hidden; }
+.mm-view { position: relative; flex: 1; min-height: 0; overflow: hidden; cursor: grab; touch-action: none;
+  background: radial-gradient(circle, color-mix(in srgb, var(--ink) 12%, transparent) 1.2px, transparent 1.4px) 0 0 / 26px 26px, var(--bg); }
+.mm-view.grab { cursor: grabbing; }
+.mm-world { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
+.mm-lines { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
+.mm-lines path { fill: none; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset .9s ease-out; }
+.mm-lines path.on { stroke-dashoffset: 0; }
+.mm-lines .trunk { stroke-width: 12; }
+.mm-lines .twig { stroke-width: 4; transition-delay: .3s; opacity: .7; }
+.mm-centre { position: absolute; z-index: 2; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; width: 260px; padding: 20px 22px; border-radius: 40% 46% 42% 48% / 48% 40% 50% 42%; cursor: pointer;
+  color: #fff; background: linear-gradient(135deg, #7c3aed, #ec4899); box-shadow: 0 10px 0 rgba(80,20,120,.25), 0 20px 40px rgba(124,58,237,.35); }
+.mm-centre .mm-e { font-size: 3.4rem; animation: lcBounce 2.4s ease-in-out infinite; }
+.mm-centre b { font-family: "Baloo 2", sans-serif; font-size: 1.6rem; line-height: 1.1; }
+.mm-centre small { opacity: .85; font-weight: 700; }
+.mm-branch-set > * { position: absolute; visibility: hidden; }
+.mm-branch-set.on > * { visibility: visible; }
+.mm-branch { display: flex; align-items: center; gap: 8px; width: max-content; max-width: 250px; padding: 12px 18px; border: 0; border-radius: 22px; cursor: pointer; text-align: left;
+  color: #fff; background: var(--bc); box-shadow: 0 6px 0 color-mix(in srgb, var(--bc) 60%, #000); font: inherit; }
+.mm-branch .mm-e { font-size: 2rem; }
+.mm-branch b { font-family: "Baloo 2", sans-serif; font-size: 1.25rem; line-height: 1.1; }
+.mm-leaf { display: flex; align-items: center; gap: 10px; width: max-content; max-width: 340px; padding: 10px 14px; border-radius: 16px; cursor: pointer; text-align: left; font: inherit; font-weight: 700; font-size: 1.02rem; line-height: 1.3;
+  color: var(--ink); background: var(--surface); border: 3px solid color-mix(in srgb, var(--bc) 45%, transparent); box-shadow: 0 4px 0 color-mix(in srgb, var(--bc) 25%, transparent); transition: background .2s, transform .15s; }
+.mm-leaf:hover { transform: translateY(-2px); }
+.mm-leaf .mm-e { font-size: 1.5rem; flex: none; }
+.mm-leaf.hl { background: linear-gradient(transparent 30%, color-mix(in srgb, #fde047 75%, transparent) 30%, color-mix(in srgb, #fde047 75%, transparent) 88%, transparent 88%), var(--surface); }
+.mm-go { font-style: normal; margin-left: auto; padding-left: 6px; font-size: 1.4rem; color: var(--bc); }
+.mm-leaf.word { flex-direction: column; align-items: center; min-width: 140px; text-align: center; background: color-mix(in srgb, var(--bc) 10%, var(--surface)); }
+.mm-leaf.word b { font-family: "Baloo 2", sans-serif; font-size: 1.3rem; }
+.mm-leaf.word small { color: var(--muted); font-size: .72rem; }
+.mm-leaf .mm-back { display: none; }
+.mm-leaf.flipped .mm-back { display: block; }
+.mm-leaf.word.flipped { background: var(--bc); color: #fff; }
+.mm-leaf.word.flipped small, .mm-leaf.reveal.flipped .mm-front { display: none; }
+.mm-leaf.reveal { border-style: dashed; }
+.mm-leaf.reveal.flipped { border-style: solid; background: color-mix(in srgb, var(--bc) 10%, var(--surface)); }
+.mm-leaf.pics { gap: 14px; cursor: default; }
+.mm-pic { display: flex; flex-direction: column; align-items: center; }
+.mm-pic i { font-style: normal; font-size: 2.2rem; }
+.mm-pic small { font-weight: 800; color: var(--muted); }
+.mm-leaf.mm-q { background: color-mix(in srgb, #fde047 35%, var(--surface)); border: 3px solid #f59e0b; border-radius: 20px 20px 20px 4px; animation: mmWiggle 2.6s ease-in-out infinite; }
+.mm-leaf.mm-q .mm-t small { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: #b45309; }
+.mm-leaf.mm-q.done { animation: none; background: color-mix(in srgb, #22c55e 18%, var(--surface)); border-color: #22c55e; }
+.mm-leaf.mm-q.done .mm-e { font-size: 0; } .mm-leaf.mm-q.done .mm-e::before { content: "✅"; font-size: 1.5rem; }
+@keyframes mmWiggle { 0%, 88%, 100% { rotate: 0deg; } 91% { rotate: -2deg; } 94% { rotate: 2deg; } 97% { rotate: -1deg; } }
+.mm-pop { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 20; width: min(720px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow: auto; cursor: default;
+  background: var(--surface); border-radius: 28px; padding: 26px; box-shadow: 0 30px 80px rgba(30,20,80,.35); text-align: center; touch-action: auto; }
+.mm-pop .mm-x { position: absolute; top: 12px; right: 12px; }
+.mm-pop h2 { font-size: clamp(1.3rem, 3vw, 2rem); margin: 4px 0 10px; }
+.mm-kick { display: inline-block; background: var(--bc); color: #fff; font-weight: 800; border-radius: 999px; padding: 4px 14px; font-size: .85rem; text-transform: uppercase; letter-spacing: .05em; }
+.mm-row { display: flex; gap: 20px; justify-content: center; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+.mm-bar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line); background: var(--surface); }
+.mm-dots { flex: 1; display: flex; gap: 6px; justify-content: center; overflow-x: auto; padding: 4px; }
+.mm-dots button { flex: none; width: 40px; height: 40px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg); font-size: 1.2rem; cursor: pointer; opacity: .45; position: relative; }
+.mm-dots button.seen { opacity: 1; border-color: var(--bc); }
+.mm-dots button.on { background: var(--bc); transform: translateY(-3px); box-shadow: 0 4px 0 color-mix(in srgb, var(--bc) 60%, #000); }
+.mm-dots button.done::after { content: "✓"; position: absolute; right: -5px; top: -5px; width: 18px; height: 18px; border-radius: 50%; background: var(--good, #22c55e); color: #fff; font-size: .7rem; display: grid; place-items: center; }
+.mm-score { font-weight: 800; background: color-mix(in srgb, #fde047 40%, var(--surface)); border-radius: 999px; padding: 6px 12px; margin-right: 8px; }
+@media (max-width: 640px) { .mm-bar .btn.ghost[data-mm="all"] { display: none; } .mm-bar .btn { padding: 8px 10px; } }
