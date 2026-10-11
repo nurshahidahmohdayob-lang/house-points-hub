@@ -202,6 +202,7 @@
           <button class="lc-act" data-go="games"><span>🧩</span><b>Puzzle games</b><small>Match, order, sort & true/false</small></button>
           <button class="lc-act" data-go="board"><span>🎲</span><b>${esc(LC.gameFor(plan.id, w.week).name)}</b><small>The week's board game</small></button>
           <button class="lc-act" data-go="run"><span>🏃</span><b>${esc(LC.runThemeFor(plan.id, w.week).name)}</b><small>Platform game with question blocks</small></button>
+          <button class="lc-act mine" data-go="mine"><span>📄</span><b>My activities</b><small>Upload your worksheet — it becomes an interactive activity</small></button>
         </div>
         ${weekDetails(plan, w)}
       </div>`;
@@ -550,6 +551,7 @@
     else if (go === "quiz") teamQuiz(plan, w);
     else if (go === "games") puzzles(plan, w);
     else if (go === "board") { const g = LC.gameFor(plan.id, w.week); frameGame(plan, w, LC.buildGameHtml(g, gameInput(plan, w)), `🎲 ${esc(g.name)}`); }
+    else if (go === "mine") window.ActivityMaker.open({ stage, starPicker, plan, w, where: `Year ${plan.year} · T${plan.term} W${w.week}`, onClose: (f) => stageCleanup.push(f) });
     else if (go === "run") { const t = LC.runThemeFor(plan.id, w.week); frameGame(plan, w, LC.buildPlatformerHtml(gameInput(plan, w), t, LC.runLevels(plan.id, w.week, w.focus)), `🏃 ${esc(t.name)}`); }
   }
 
