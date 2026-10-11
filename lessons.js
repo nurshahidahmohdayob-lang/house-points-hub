@@ -24,7 +24,7 @@
   const LIVE_DATA = window.LC_SYNC_URL || "https://zera-life-competencies.vercel.app/class-points/lc-data.js";
   // Live Class runs in the Life Competencies app itself (its /play page for students, its Live Class screen + board for the teacher)
   const LC_APP = "https://zera-life-competencies.vercel.app";
-  const LOCAL_DATA = "assets/lc-data.js?v=8ddd63";
+  const LOCAL_DATA = "assets/lc-data.js?v=426661";
   const SYNC_CACHE = "class-points-lessons", SYNC_KEY = "/synced-lc-data.js";
   const NEEDS = ["LESSON_PLANS", "noteFor", "deepFor", "visualFor", "quizTen", "optionsForItem", "buildLesson", "expandActivity", "gameFor", "buildGameHtml", "runThemeFor", "buildPlatformerHtml", "runLevels"];
   const usable = (x) => x && NEEDS.every((k) => k in x) && Array.isArray(x.LESSON_PLANS) && x.LESSON_PLANS.length > 0;
