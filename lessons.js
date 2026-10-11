@@ -569,8 +569,12 @@
     const body = $(".lc-stage-body", el);
     body.classList.add("mm-body");
     const nQ = branches.filter((b) => b.q).length;
-    $(".lc-stage-extra", el).innerHTML = `<span class="mm-score" title="Questions answered">❓ <b>0</b> / ${nQ}</span><button class="btn ghost mm-slides" title="Show the classic slides instead">📑 Slides</button>`;
-    $(".mm-slides", el).onclick = () => teach(plan, w);
+    $(".lc-stage-extra", el).innerHTML = `<span class="mm-score" title="Questions answered">❓ <b>0</b> / ${nQ}</span><button class="btn ghost mm-full" title="Full screen for the class">⛶ Full screen</button>`;
+    // Full screen for the projector; the label follows the browser (Esc also leaves full screen)
+    const fsBtn = $(".mm-full", el), fsLabel = () => { fsBtn.textContent = document.fullscreenElement ? "🗗 Exit full screen" : "⛶ Full screen"; };
+    fsBtn.onclick = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.())?.catch?.(() => {});
+    document.addEventListener("fullscreenchange", fsLabel);
+    stageCleanup.push(() => { document.removeEventListener("fullscreenchange", fsLabel); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); });
     const leafHtml = (l, bi, li) => {
       const k = l.kind || "text", at = `data-b="${bi}" data-l="${li}"`;
       if (k === "word") return `<button class="mm-leaf word" ${at}><b>${esc(l.word)}</b><span class="mm-back">${esc(l.text)}</span><small>tap to flip</small></button>`;
