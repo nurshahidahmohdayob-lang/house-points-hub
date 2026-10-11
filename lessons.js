@@ -366,7 +366,8 @@
     const all = CP().students();
     const pool = all.filter((s) => !year || s.year === year);
     const names = (pool.length ? pool : all).map((s) => s.name);
-    host.innerHTML = `<div class="lc-picker"><div class="lc-pick-name">${names.length ? "🎯 Who will share?" : "Add students in ⚙️ Setup to pick names"}</div>${names.length ? `<button class="btn big" data-spin>🎲 Pick someone</button>` : ""}</div>`;
+    if (!names.length) { host.innerHTML = ""; return; } // no students yet: no picker
+    host.innerHTML = `<div class="lc-picker"><div class="lc-pick-name">🎯 Who will share?</div><button class="btn big" data-spin>🎲 Pick someone</button></div>`;
     const btn = $("[data-spin]", host); if (!btn) return;
     const used = new Set();
     btn.onclick = () => {
