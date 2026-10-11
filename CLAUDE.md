@@ -1,7 +1,7 @@
 # Class Points Hub
 
 Static site (index.html, style.css, app.js) — no build step. Pushing to `main` auto-deploys to
-https://house-points-hub.vercel.app (Vercel team scope `zera-education-suite-s-projects`).
+https://lifecomp.vercel.app (also https://house-points-hub.vercel.app; Vercel project `house-points-hub`, team scope `zera-education-suite-s-projects`).
 
 ## 3D design workflow (always use Blender)
 Any 3D look in the app (jars, lids, stars, trophies, new props) is **modelled and rendered in Blender**, not drawn in CSS/SVG.
