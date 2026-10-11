@@ -247,8 +247,7 @@
         <div class="lc-actions">
           <button class="lc-act" data-go="teach"><span>▶️</span><b>Teach the lesson</b><small>Interactive mind map that grows as you teach, with questions inside</small></button>
           <button class="lc-act" data-go="slides"><span>📑</span><b>Slides</b><small>The classic slide deck with games, timers & polls</small></button>
-          <div class="lc-act student"><a class="lc-student-go" href="play.html" target="_blank" rel="noopener"><span>🎮</span><b>I'm a student</b><small>Choose your year group and play the live game!</small><i class="go">Play ▶</i></a>
-            <button class="lc-teacher-go" data-go="live" title="Opens the game on your board — students then join with Play">🧑‍🏫 Start the live game</button></div>
+          <div class="lc-act student"><a class="lc-student-go" href="play.html" target="_blank" rel="noopener"><span>🎮</span><b>I'm a student</b><small>Choose your year group and play the live game!</small><i class="go">Play ▶</i></a></div>
           <button class="lc-act" data-go="quiz"><span>⚔️</span><b>Team Quiz</b><small>Groups answer, stars drop in the jars</small></button>
           <button class="lc-act" data-go="games"><span>🧩</span><b>Puzzle games</b><small>Match, order, sort & true/false</small></button>
           <button class="lc-act" data-go="board"><span>🎲</span><b>${esc(LC.gameFor(plan.id, w.week).name)}</b><small>The week's board game</small></button>
