@@ -180,7 +180,7 @@
   const list = (arr, cls = "") => (arr && arr.length ? `<ul class="lc-dl ${cls}">${arr.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "");
   const chips = (arr, icon, cls = "") => (arr && arr.length ? `<div class="lc-badges">${arr.map((x) => `<span class="lc-badge ${cls}">${icon} ${esc(x)}</span>`).join("")}</div>` : "");
   // About the term: colourful category buttons; tap one and only its information shows (tap again to hide)
-  let aboutCat = null, weeksOpen = false;
+  let aboutCat = null, weeksOpen = false, actsOpen = false;
   function termDetails(plan) {
     const tt = (theme(plan.year).terms || []).find((x) => x.term === plan.term) || {}, L = YEAR_LOOK[plan.year] || {};
     const cards = (arr) => `<div class="ab-cards">${arr.map((x, i) => `<div class="ab-card" style="--i:${i}"><span class="n">${i + 1}</span><p>${esc(x)}</p></div>`).join("")}</div>`;
@@ -261,6 +261,8 @@
           </div>
         </div>
         ${w.objectives ? `<p class="lc-obj"><b>🎯 Today:</b> ${esc(w.objectives)}</p>` : ""}
+        <div class="lc-actbox ${actsOpen ? "open" : ""}">
+        <button class="lc-weektoggle lc-acttoggle" data-acts aria-expanded="${actsOpen}"><span class="e">🚀</span><span class="t"><b>Teach & play</b><small>Mind map, slides, live game, quiz, puzzles, games & my activities</small></span><i>${actsOpen ? "Hide ▲" : "Open ▼"}</i></button>
         <div class="lc-actions">
           <button class="lc-act" data-go="teach"><span>▶️</span><b>Teach the lesson</b><small>Interactive mind map that grows as you teach, with questions inside</small></button>
           <button class="lc-act" data-go="slides"><span>📑</span><b>Slides</b><small>The classic slide deck with games, timers & polls</small></button>
@@ -271,13 +273,14 @@
           <button class="lc-act" data-go="board"><span>🎲</span><b>${esc(LC.gameFor(plan.id, w.week).name)}</b><small>The week's board game</small></button>
           <button class="lc-act" data-go="run"><span>🏃</span><b>${esc(LC.runThemeFor(plan.id, w.week).name)}</b><small>Platform game with question blocks</small></button>
           <button class="lc-act mine" data-go="mine"><span>📄</span><b>My activities</b><small>Upload your worksheet — it becomes an interactive activity</small></button>
-        </div>
+        </div></div>
         ${weekDetails(plan, w)}
       </div>`;
     $("[data-sync]", root).onclick = (e) => syncNow(e.currentTarget);
     $("[data-home]", root).onclick = () => document.querySelector('[data-tab="home"]').click();
     $$("[data-term]", root).forEach((b) => b.onclick = () => { pick.term = +b.dataset.term; pick.week = 1; renderLessons(); });
     $$("[data-week]", root).forEach((b) => b.onclick = () => { pick.week = +b.dataset.week; weeksOpen = false; renderLessons(); });
+    $("[data-acts]", root).onclick = () => { actsOpen = !actsOpen; const box = $(".lc-actbox", root); box.classList.toggle("open", actsOpen); const b = $("[data-acts]", root); b.setAttribute("aria-expanded", actsOpen); $("i", b).textContent = actsOpen ? "Hide ▲" : "Open ▼"; };
     $("[data-weeks]", root).onclick = () => { weeksOpen = !weeksOpen; renderLessons(); }; // the week strip stays hidden until the button is tapped
     $$("[data-go]", root).forEach((b) => b.onclick = () => open(b.dataset.go, plan, w));
     if (weeksOpen) { const on = $(".lc-week.on", root), strip = $(".lc-weeks", root); if (on) strip.scrollLeft = on.offsetLeft - strip.offsetLeft - (strip.clientWidth - on.offsetWidth) / 2; }

@@ -555,3 +555,11 @@ body.on-home main { padding-top: 36px; }
 .lc-ans li::before { content: "✅ "; }
 .mm-pop .lc-ans, .lc-s-split .lc-ans { text-align: center; }
 .mm-pop .lc-ans ul, .lc-s-split .lc-ans ul { text-align: left; }
+
+/* ---- Lesson action cards: hidden behind one button ---- */
+.lc-actbox { margin: 12px 0; }
+.lc-acttoggle { background: linear-gradient(120deg, #0ea5e9, #6366f1 55%, #a855f7); box-shadow: 0 5px 0 #3730a3, 0 10px 22px rgba(99, 102, 241, .3); }
+.lc-actbox.open .lc-acttoggle { transform: translateY(3px); box-shadow: 0 2px 0 #3730a3, 0 6px 14px rgba(99, 102, 241, .25); }
+.lc-actbox:not(.open) .lc-actions { display: none; }
+.lc-actbox.open .lc-actions { margin-top: 14px; animation: ab-in .3s ease-out; }
+.lc-weekinfo .lc-ans { margin: 4px 0 12px; max-width: none; }
