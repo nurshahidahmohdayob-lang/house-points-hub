@@ -60,3 +60,4 @@ Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) a
 - Weeks follow the LC app's term calendar: `LC.termSchedule(planId)` (class-points-entry.ts / lc/entry.ts, mirrors
   lessonUnits + fitToTerm in the LC app's page.tsx) gives calendar week → lesson week(s) + class date. A class that
   falls on a holiday shifts every later lesson (e.g. Year 2 calendar Week 7 = lesson 6). Pick the next lesson on Home.
+- Warm-up pictures: `assets/pictures/<plan>-<week>.svg`, drawn by `assets/pictures/make_pictures.py` (flat SVG); list them in `PICTURES` in lessons.js.

@@ -459,3 +459,10 @@ body.on-home main { padding-top: 36px; }
 .lc-weeks { padding-top: 14px; }
 .lc-also { margin: 2px 0 6px; font-weight: 700; font-size: .85rem; color: var(--muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .lc-also .lc-chip { padding: 4px 12px; font-size: .85rem; }
+/* Warm-up pictures (assets/pictures) */
+.lc-pic-btn { position: relative; display: block; margin: 8px auto 12px; padding: 0; border: 4px solid #fff; border-radius: 18px; overflow: hidden; cursor: zoom-in; background: #fff; box-shadow: 0 10px 24px rgba(30,20,80,.18); width: min(560px, 100%); }
+.lc-pic-btn img { display: block; width: 100%; height: auto; }
+.lc-pic-btn span { position: absolute; right: 8px; bottom: 8px; background: rgba(0,0,0,.55); color: #fff; font-weight: 800; font-size: .8rem; border-radius: 999px; padding: 3px 10px; }
+.lc-zoom { position: fixed; inset: 0; z-index: 200; background: rgba(10,8,30,.92); display: grid; place-items: center; padding: 16px; cursor: zoom-out; animation: lvPop .25s both; }
+.lc-zoom img { max-width: 100%; max-height: 100%; border-radius: 16px; background: #fff; }
+.lc-zoom .lc-x { position: absolute; top: 14px; right: 14px; }
