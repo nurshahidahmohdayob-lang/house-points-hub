@@ -23,5 +23,12 @@
     "api/commun-students.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/game",
+      "destination": "https://zera-life-competencies.vercel.app/play",
+      "permanent": false
+    }
+  ]
 }

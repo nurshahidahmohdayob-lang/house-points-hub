@@ -70,4 +70,5 @@ Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) a
 - Warm-up "show the class" material: `assets/warmup-show.js` (window.WARMUP_SHOW, 20 warm-ups that say "Show two versions… / Hold up… / Show an advert…": chat vs email, headline, advert, clock SVG, object cards…), rendered by `warmShowHtml` under the question; styles .ws-* in lessons.css.
 - Warm-up text for the class: `assets/warmup-student.js` (window.WARMUP_STUDENT, all 234 rewritten to talk to students); `warmText` uses it in the mind-map pop-up and Do now slide. The lesson page no longer has the "This week's activities" section (removed on request).
 - Warm-up pictures: `assets/pictures/<plan>-<week>.svg`, drawn by `assets/pictures/make_pictures.py` (flat SVG); list them in `PICTURES` in lessons.js.
+- lifecomp.vercel.app/game (vercel.json redirect) → LC /play: the one student link the LC app shares everywhere (its shortWeekUrl returns it).
 - Live Class now runs in the Life Competencies app itself: lesson cards "I'm a student" → LC /play, "I'm the teacher" → LC /?go=live (its setup + /live/board). play.html just redirects to LC /play (keeps ?c=code).
