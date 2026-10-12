@@ -640,7 +640,7 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
       <div class="am-list">${list.length ? list.map((a) => `<div class="am-item" data-id="${a.id}">
           <div class="am-emo">${esc(a.emoji || "✏️")}</div>
           <div class="am-meta"><b>${esc(a.title)}</b><small>${questions(a).length} questions${a.where ? ` · ${esc(a.where)}` : ""} · ${new Date(a.created).toLocaleDateString()}${unkeyed(a) ? ` · <span class="am-warn">${unkeyed(a)} without an answer</span>` : ""}</small></div>
-          <div class="am-btns"><button class="btn" data-a="play">▶ Play</button><button class="btn" data-a="assign" title="Students do it on their own devices and submit each answer — names and marks appear on your board">📲 Students' devices</button><button class="btn ghost" data-a="live" title="A quiz game: everyone answers the same question together">📱 Live game</button><button class="btn ghost" data-a="dl" title="Download for students">⬇️ Download</button><button class="btn ghost" data-a="edit">✏️ Edit</button><button class="btn ghost am-del" data-a="del" title="Delete">🗑</button></div>
+          <div class="am-btns"><button class="btn" data-a="play">▶ Play</button><button class="btn" data-a="assign" title="Students do it on their own devices and submit each answer — names and marks appear on your board">📲 Students' devices</button><button class="btn ghost" data-a="live" title="A quiz game: everyone answers the same question together">📱 Live game</button><button class="btn ghost" data-a="print" title="Print a paper worksheet (or save it as a PDF) — every answer box is left empty">🖨️ Print worksheet</button><button class="btn ghost" data-a="dl" title="Download the interactive page for students' devices">⬇️ Download</button><button class="btn ghost" data-a="edit">✏️ Edit</button><button class="btn ghost am-del" data-a="del" title="Delete">🗑</button></div>
         </div>`).join("") : `<p class="muted am-none">Nothing here yet — upload your first worksheet above ⬆️</p>`}</div>
     </div>`;
 
@@ -664,6 +664,7 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
         if (go === "play") play(a);
         else if (go === "edit") edit(a, false);
         else if (go === "dl") download(a);
+        else if (go === "print") printSheet(a);
         else if (go === "live") live(a);
         else if (go === "assign") assign(a);
         else if (go === "del") {
@@ -749,8 +750,9 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
 
   function play(act) {
     const el = ctx.stage(`${esc(act.emoji || "📄")} ${esc(act.title)}`);
-    $(".lc-stage-extra", el).innerHTML = `<button class="btn ghost am-back">‹ My activities</button>`;
+    $(".lc-stage-extra", el).innerHTML = `<button class="btn am-print" style="margin-right:8px" title="Print a paper worksheet (or save it as a PDF) — every answer box is left empty">🖨️ Print worksheet</button><button class="btn ghost am-back">‹ My activities</button>`;
     $(".am-back", el).onclick = library;
+    $(".am-print", el).onclick = () => printSheet(act);
     const body = $(".lc-stage-body", el);
     body.innerHTML = `<iframe class="lc-frame" title="${esc(act.title)}" sandbox="allow-scripts"></iframe><div class="am-after" hidden></div>`;
     $(".lc-frame", body).srcdoc = buildHtml(act);
@@ -952,6 +954,72 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
     poll();
   }
 
+  /* ================= Printable worksheet (paper copy: every box left empty for students to write in) ================= */
+  function printHtml(act) {
+    const L = "ABCDEFGH";
+    let n = 0;
+    const mix = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    const total = act.items.filter((i) => i.type !== "info").length;
+    const body = act.items.map((it) => {
+      if (it.type === "info") {
+        if (it.kind === "skip") return "";
+        if (it.kind === "h") return `<h2>${esc(it.text)}</h2>`;
+        if (it.kind === "img") return `<figure><img src="${esc(it.src)}" alt="${esc(it.alt)}"></figure>`;
+        if (it.kind === "bank") return `<div class="bank"><b>Word bank:</b> ${it.words.map((w) => `<span>${esc(w)}</span>`).join("")}</div>`;
+        return `<p class="info">${it.kind === "li" ? "• " : ""}${esc(it.text)}</p>`;
+      }
+      const num = `<span class="no">${++n}.</span>`;
+      if (it.type === "mcq") return `<section class="q">${num}<div><p>${esc(it.text)}</p><ol class="opts">${it.options.map((o, k) => `<li><span class="circ"></span><b>${L[k]}.</b> ${esc(o)}</li>`).join("")}</ol></div></section>`;
+      if (it.type === "tf") return `<section class="q">${num}<div><p>${esc(it.text)}</p><div class="tf">${it.options.map((o) => `<span><span class="box"></span> ${esc(o)}</span>`).join("")}</div></div></section>`;
+      if (it.type === "blank") return `<section class="q">${num}<div><p class="gaps">${it.segs.map((sg) => typeof sg === "string" ? esc(sg) : `<span class="gap"></span>${sg.choices ? `<small> (${sg.choices.map(esc).join(" / ")})</small>` : ""}`).join("")}</p></div></section>`;
+      if (it.type === "open") return `<section class="q">${num}<div><p>${esc(it.text)}</p><div class="lines"><i></i><i></i><i></i><i></i></div></div></section>`;
+      if (it.type === "match") {
+        const right = mix(it.pairs.map((p) => p[1]));
+        return `<section class="q">${num}<div><p>${esc(it.text)} <small>Write the letter in the box.</small></p><table class="match">${it.pairs.map((p, k) => `<tr><td>${k + 1}. ${esc(p[0])}</td><td class="lb"><span class="box big"></span></td><td><b>${L[k] || k + 1}.</b> ${esc(right[k])}</td></tr>`).join("")}</table></div></section>`;
+      }
+      return "";
+    }).join("");
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(act.title)}</title>
+<style>
+@page{size:A4;margin:14mm}
+*{box-sizing:border-box}
+body{font:12.5pt/1.5 "Nunito","Segoe UI",Arial,sans-serif;color:#111;margin:0;background:#fff}
+h1{font-size:19pt;margin:0 0 6px;text-align:center}
+.who{display:flex;gap:18px;margin:10px 0 14px;font-weight:700}.who span{flex:1;display:flex;gap:6px;align-items:flex-end}.who i{flex:1;border-bottom:1.5px solid #111;height:1.2em}
+.who .sc{flex:0 0 auto}.who .sc i{flex:0 0 60px}
+h2{font-size:14pt;margin:16px 0 6px;border-bottom:2px solid #111;padding-bottom:2px;break-after:avoid}
+p{margin:0 0 6px}.info{margin:6px 0}
+figure{margin:8px 0;text-align:center}figure img{max-width:60%;max-height:45mm}
+.q{display:flex;align-items:baseline;gap:8px;margin:10px 0;break-inside:avoid}.q>div{flex:1}.no{font-weight:800;min-width:1.6em}
+.opts{list-style:none;padding:0;margin:4px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}.opts li{display:flex;gap:6px;align-items:baseline}
+.circ{display:inline-block;width:13px;height:13px;border:1.5px solid #111;border-radius:50%;flex:none;transform:translateY(2px)}
+.box{display:inline-block;width:15px;height:15px;border:1.5px solid #111;vertical-align:-3px}.box.big{width:30px;height:26px}
+.tf{display:flex;gap:30px;margin-top:4px}
+.gaps{line-height:2.2}.gap{display:inline-block;min-width:110px;border-bottom:1.5px solid #111;margin:0 4px}
+.lines i{display:block;height:9mm;border-bottom:1px solid #777}
+.match{border-collapse:collapse;margin-top:4px;width:100%}.match td{padding:5px 8px;vertical-align:middle}.match .lb{width:46px;text-align:center}
+.bank{border:1.5px solid #111;border-radius:6px;padding:6px 10px;margin:8px 0}.bank span{display:inline-block;margin:2px 10px 2px 0}
+small{color:#444}
+</style></head><body>
+<h1>${esc(act.title)}</h1>
+<div class="who"><span>Name: <i></i></span><span>Class: <i></i></span><span>Date: <i></i></span><span class="sc">Score: <i></i> / ${total}</span></div>
+${body}
+</body></html>`;
+  }
+  function printSheet(act) {
+    const f = document.createElement("iframe");
+    f.setAttribute("aria-hidden", "true");
+    f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+    document.body.appendChild(f);
+    const d = f.contentDocument; d.open(); d.write(printHtml(act)); d.close();
+    const imgs = [...d.images].map((im) => im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }));
+    Promise.race([Promise.all(imgs), new Promise((r) => setTimeout(r, 3000))]).then(() => {
+      f.contentWindow.focus(); f.contentWindow.print();
+      setTimeout(() => f.remove(), 60000);
+    });
+    CP().toast("🖨️ Choose your printer — or “Save as PDF” to download it");
+  }
+
   function download(act) {
     const blob = new Blob([buildHtml(act)], { type: "text/html" });
     const a = document.createElement("a");
@@ -962,5 +1030,5 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
     CP().toast("⬇️ Downloaded — share this file (or host it) so students can do it on their devices");
   }
 
-  window.ActivityMaker = { open, parse, buildHtml, liveQuestions, runtime, PAGE_CSS, pack, unpack, markable };
+  window.ActivityMaker = { open, parse, buildHtml, printHtml, liveQuestions, runtime, PAGE_CSS, pack, unpack, markable };
 })();
