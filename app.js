@@ -424,12 +424,26 @@
     toast(`🎉 ${s.name} got: ${r.name}`);
     render();
   }
+  // "All students": everyone in the list who can afford it gets the reward (the rest are skipped).
+  function redeemAll(ids, rid) {
+    const r = state.rewards.find((x) => x.id === rid); if (!r) return;
+    const ok = ids.map(student).filter((s) => s && balance(s) >= r.cost);
+    if (!ok.length) { toast(`Nobody has ${r.cost} points yet`); beep("down"); return; }
+    const skip = ids.length - ok.length;
+    confirmBox(`Give ${r.emoji || "🎁"} ${r.name} to ${ok.length} student${ok.length > 1 ? "s" : ""}? Each spends ${r.cost} points.${skip ? ` ${skip} can't afford it yet and will be skipped.` : ""}`, () => {
+      ok.forEach((s) => s.spent += r.cost);
+      state.log.unshift({ id: uid(), ts: Date.now(), type: "redeem", studentIds: ok.map((s) => s.id), pts: -r.cost, reason: `${r.emoji} ${r.name}` });
+      save(); beep("buy"); confetti(200);
+      toast(`🎉 ${ok.length} student${ok.length > 1 ? "s" : ""} got: ${r.name}`);
+      render();
+    });
+  }
   function undo() {
     const e = state.log[0];
     if (!e) return toast("Nothing to undo");
     if (e.type === "student") e.studentIds.forEach((id) => { const s = student(id); if (s) s.points -= e.pts; });
     else if (e.type === "group") { const h = group(e.groupId); if (h) h.bonus -= e.pts; }
-    else if (e.type === "redeem") { const s = student(e.studentIds[0]); if (s) s.spent += e.pts; }
+    else if (e.type === "redeem") e.studentIds.forEach((id) => { const s = student(id); if (s) s.spent += e.pts; });
     state.log.shift(); save(); render(); toast("↩️ Undone");
   }
 
@@ -542,18 +556,24 @@
 
   function renderRewards() {
     const sel = $("#redeemStudent");
-    fillSelect(sel, [["", "— choose a student —"], ...[...state.students].filter((s) => !window.currentYear || s.year === window.currentYear).sort((a, b) => a.name.localeCompare(b.name)).map((s) => [s.id, `${s.name} (Y${s.year})`])]);
-    const s = student(sel.value);
-    $("#redeemBalance").innerHTML = s ? `💰 ${esc(s.name)} can spend <b>${balance(s)}</b> points <span class="muted small">(earned ${s.points}, spent ${s.spent})</span>` : `<span class="muted">Pick a student to see what they can afford.</span>`;
+    const list = [...state.students].filter((s) => !window.currentYear || s.year === window.currentYear).sort((a, b) => a.name.localeCompare(b.name));
+    fillSelect(sel, [["", "— choose a student —"], ...(list.length ? [["*all", `👥 All students (${list.length})`]] : []), ...list.map((s) => [s.id, `${s.name} (Y${s.year})`])]);
+    const all = sel.value === "*all", s = all ? null : student(sel.value);
+    const can = (r) => list.filter((x) => balance(x) >= r.cost).length;
+    $("#redeemBalance").innerHTML = all ? `👥 <b>${list.length}</b> students${window.currentYear ? " in Year " + window.currentYear : ""} · Redeem gives the reward to everyone who can afford it`
+      : s ? `💰 ${esc(s.name)} can spend <b>${balance(s)}</b> points <span class="muted small">(earned ${s.points}, spent ${s.spent})</span>` : `<span class="muted">Pick a student (or 👥 All students) to see what they can afford.</span>`;
     $("#rewardGrid").innerHTML = [...state.rewards].sort((a, b) => a.cost - b.cost).map((r) => {
-      const locked = s && balance(s) < r.cost;
+      const n = all ? can(r) : 0;
+      const locked = all ? !n : s && balance(s) < r.cost;
+      const label = all ? (n ? `Redeem for ${n}` : "🔒 Nobody yet") : locked ? "🔒 Need " + (r.cost - balance(s)) : "Redeem";
       return `<div class="reward ${locked ? "locked" : ""}">
         <button class="x" data-del="${r.id}" title="Remove reward">✕</button>
         <div class="re">${esc(r.emoji || "🎁")}</div><div class="rn">${esc(r.name)}</div><div class="rc">${r.cost} pts</div>
-        <button class="btn" data-buy="${r.id}" ${!s || locked ? "disabled style='opacity:.5;cursor:not-allowed'" : ""}>${locked ? "🔒 Need " + (r.cost - balance(s)) : "Redeem"}</button>
+        ${all ? `<div class="muted small">${n} of ${list.length} can afford</div>` : ""}
+        <button class="btn" data-buy="${r.id}" ${(!s && !all) || locked ? "disabled style='opacity:.5;cursor:not-allowed'" : ""}>${label}</button>
       </div>`;
     }).join("") || `<div class="empty">No rewards yet — add one below.</div>`;
-    $$("[data-buy]").forEach((b) => b.onclick = () => redeem(sel.value, b.dataset.buy));
+    $$("[data-buy]").forEach((b) => b.onclick = () => all ? redeemAll(list.map((x) => x.id), b.dataset.buy) : redeem(sel.value, b.dataset.buy));
     $$("[data-del]").forEach((b) => b.onclick = () => confirmBox("Remove this reward?", () => { state.rewards = state.rewards.filter((r) => r.id !== b.dataset.del); save(); render(); }));
   }
 
