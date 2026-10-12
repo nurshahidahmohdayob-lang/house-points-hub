@@ -689,3 +689,8 @@ body.on-home main { padding-top: 36px; }
 .jg-pick:hover { transform: translateY(-3px) rotate(-1deg); }
 .jg-pick.done { outline: 4px solid #facc15; outline-offset: 3px; }
 .jg-top { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+
+/* ---- Shared lesson link (/map/3-1-8): students & parents see only the mind map ---- */
+.mm-sharebox { display: flex; gap: 8px; margin-top: 12px; }
+.mm-sharebox input { flex: 1; min-width: 0; font: inherit; font-weight: 700; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg); color: var(--ink); }
+body.share-view .lc-stage-top .lc-x, body.share-view .teacher-foot, body.share-view .lc-sp, body.share-view [data-h="stars"], body.share-view [data-h="pick"] { display: none !important; }

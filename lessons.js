@@ -15,6 +15,7 @@
 
   let LC = null, loading = null;
   let pick = loadPick();
+  const SHARE = /^\d{1,2}-[1-3]-\d{1,2}$/.test(new URLSearchParams(location.search).get("map") || "") ? new URLSearchParams(location.search).get("map") : "";
   function loadPick() { try { return { year: 1, term: 1, week: 1, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { return { year: 1, term: 1, week: 1 }; } }
   function savePick() { try { localStorage.setItem(KEY, JSON.stringify(pick)); } catch { /* private mode */ } }
 
@@ -569,7 +570,18 @@
     const body = $(".lc-stage-body", el);
     body.classList.add("mm-body");
     const nQ = branches.filter((b) => b.q).length;
-    $(".lc-stage-extra", el).innerHTML = `<span class="mm-score" title="Questions answered">❓ <b>0</b> / ${nQ}</span><button class="btn ghost mm-full" title="Full screen for the class">⛶ Full screen</button>`;
+    $(".lc-stage-extra", el).innerHTML = `<span class="mm-score" title="Questions answered">❓ <b>0</b> / ${nQ}</span><button class="btn ghost mm-full" title="Full screen for the class">⛶ Full screen</button>${SHARE ? "" : `<button class="btn ghost mm-share" title="A link for students and parents">🔗 Share</button>`}`;
+    // 🔗 Share: lifecomp.vercel.app/map/<year>-<term>-<calendar week> opens just this mind map (share mode, below)
+    const shareBtn = $(".mm-share", el);
+    if (shareBtn) shareBtn.onclick = () => {
+      const cal = Number(/Week (\d+)/.exec(calOf(plan, w.week).label || "")?.[1] || w.week);
+      const link = `${location.origin}/map/${plan.year}-${plan.term}-${cal}`;
+      openPop(`<div class="lc-s-emoji">🔗</div><h2>Share this lesson</h2><p class="muted">Students and parents can open the mind map at home — no log-in, no class names.</p>
+        <div class="mm-sharebox"><input readonly value="${esc(link)}" aria-label="Share link"><button class="btn" data-h="copy">📋 Copy</button></div>`, (h) => {
+        const inp = $("input", h); inp.onfocus = () => inp.select();
+        $("[data-h=copy]", h).onclick = () => navigator.clipboard?.writeText(link).then(() => { $("[data-h=copy]", h).textContent = "✅ Copied!"; }, () => inp.select());
+      });
+    };
     // Full screen for the projector; the label follows the browser (Esc also leaves full screen)
     const fsBtn = $(".mm-full", el), fsLabel = () => { fsBtn.textContent = document.fullscreenElement ? "🗗 Exit full screen" : "⛶ Full screen"; };
     fsBtn.onclick = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.())?.catch?.(() => {});
@@ -998,6 +1010,19 @@
     if (k === "students") $("#fYear")?.dispatchEvent(new Event("input"));
   });
   document.addEventListener("click", (e) => { if (e.target.closest("[data-tab], [data-ytab], [data-home], [data-y]")) setTimeout(renderYearNav, 0); });
+
+  // Share mode: lifecomp.vercel.app/map/3-1-8 (→ /?map=3-1-8) opens only that lesson's mind map for students and
+  // parents — no close button, no star/group pickers, no teacher settings (CSS: body.share-view).
+  if (SHARE) {
+    document.body.classList.add("share-view");
+    loadData().then(() => {
+      const [y, t, cal] = SHARE.split("-").map(Number);
+      const plan = LC.LESSON_PLANS.find((p) => p.year === y && p.term === t);
+      if (!plan) return;
+      const row = (LC.termSchedule ? LC.termSchedule(plan.id) : []).find((r) => r.cal === `Week ${cal}` && r.weeks.length);
+      teachMap(plan, weekOf(plan, row ? row.weeks[0] : cal));
+    });
+  }
 
   // Load + draw when the Lessons / Home tabs are opened
   document.addEventListener("click", (e) => {

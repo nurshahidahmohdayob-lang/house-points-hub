@@ -29,6 +29,11 @@
       "source": "/game",
       "destination": "https://zera-life-competencies.vercel.app/play",
       "permanent": false
+    },
+    {
+      "source": "/map/:code",
+      "destination": "/?map=:code",
+      "permanent": false
     }
   ]
 }
