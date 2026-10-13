@@ -11,6 +11,16 @@
   const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const KEY = "class-points-lessons";
   const LETTERS = ["A", "B", "C", "D", "E", "F"];
+  // Presentation clickers: most send PageDown/PageUp or the arrows, some send Space, Enter,
+  // N/P or the media keys. A button left focused by a click is let go, so Space/Enter
+  // move the lesson on rather than pressing that button again.
+  const pointerKey = (e) => {
+    const k = e.key, onBtn = /^(BUTTON|A)$/.test(document.activeElement?.tagName || "");
+    const dir = ["ArrowRight", "ArrowDown", "PageDown", " ", "n", "N", "MediaTrackNext", "MediaFastForward"].includes(k) || (k === "Enter" && !onBtn) ? 1
+      : ["ArrowLeft", "ArrowUp", "PageUp", "p", "P", "MediaTrackPrevious", "MediaRewind"].includes(k) ? -1 : 0;
+    if (dir && onBtn) document.activeElement.blur();
+    return dir;
+  };
   const TILE_COLORS = ["#ef4444", "#3b82f6", "#f59e0b", "#22c55e", "#a855f7", "#14b8a6"];
 
   let LC = null, loading = null;
@@ -506,7 +516,7 @@
     };
     $(".lc-nav.prev", body).onclick = () => show(i - 1, -1);
     $(".lc-nav.next", body).onclick = () => show(i + 1, 1);
-    const key = (e) => { if ($("#modal").open || /INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return; if (e.key === "ArrowRight" || e.key === "PageDown") show(i + 1, 1); if (e.key === "ArrowLeft" || e.key === "PageUp") show(i - 1, -1); };
+    const key = (e) => { if ($("#modal").open || /INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return; const d = pointerKey(e); if (d) { e.preventDefault(); show(i + d, d); } };
     document.addEventListener("keydown", key);
     stageCleanup.push(() => { document.removeEventListener("keydown", key); stopTimers.forEach((f) => f()); });
     show(0);
@@ -751,8 +761,9 @@
     const key = (e) => {
       if ($("#modal").open || $(".lc-zoom") || /INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return;
       if (e.key === "Escape" && !pop.hidden) { e.stopImmediatePropagation(); return closePop(); }
-      if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") { e.preventDefault(); $("[data-mm=next]", body).click(); }
-      if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); $("[data-mm=prev]", body).click(); }
+      if (!pop.hidden && /^Arrow(Up|Down)$/.test(e.key)) return; // scrolls a long question
+      const d = pointerKey(e);
+      if (d) { e.preventDefault(); $(`[data-mm=${d > 0 ? "next" : "prev"}]`, body).click(); }
       if (e.key === "o" || e.key === "O") $("[data-mm=all]", body).click();
     };
     document.addEventListener("keydown", key, true);
