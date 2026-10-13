@@ -64,11 +64,15 @@
 
   const group = (id) => state.groups.find((h) => h.id === id);
   const student = (id) => state.students.find((s) => s.id === id);
-  const groupTotal = (h) => h.bonus + state.students.filter((s) => s.groupId === h.id).reduce((a, s) => a + s.points, 0);
+  // Each year group has its own jars: stars given while a year is open go to h.byYear[year] and only count for that
+  // year's members. With no year open (all years) a jar shows everything. h.bonus = stars from before jars were per year.
+  const yearNow = () => window.currentYear || null;
+  const yearBonus = (h, y) => y ? (h.byYear?.[y] || 0) : h.bonus + Object.values(h.byYear || {}).reduce((a, n) => a + n, 0);
+  const groupTotal = (h, y = yearNow()) => yearBonus(h, y) + state.students.filter((s) => s.groupId === h.id && (!y || s.year === y)).reduce((a, s) => a + s.points, 0);
   // A student's points = their own awards + the group stars they shared (gp). The jar counts only the own awards
   // plus its bonus, so a group star still adds exactly one star to the jar.
   const pts = (s) => s.points + (s.gp || 0);
-  const members = (hid) => state.students.filter((s) => s.groupId === hid).sort((a, b) => a.name.localeCompare(b.name));
+  const members = (hid, y = yearNow()) => state.students.filter((s) => s.groupId === hid && (!y || s.year === y)).sort((a, b) => a.name.localeCompare(b.name));
   const balance = (s) => pts(s) - s.spent;
   const initials = (n) => n.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   const timeAgo = (ts) => {
@@ -415,10 +419,11 @@
   // Group stars also go to every member's own points (not when the jar is emptied: members keep theirs).
   function awardGroup(hid, pts, reason, share = true) {
     const h = group(hid); if (!h || !pts) return;
-    h.bonus += pts;
+    const y = yearNow();
+    if (y) { h.byYear = h.byYear || {}; h.byYear[y] = (h.byYear[y] || 0) + pts; } else h.bonus += pts;
     const ids = share ? members(hid).map((s) => s.id) : [];
     ids.forEach((id) => { const s = student(id); s.gp = (s.gp || 0) + pts; });
-    state.log.unshift({ id: uid(), ts: Date.now(), type: "group", groupId: hid, pts, reason, memberIds: ids });
+    state.log.unshift({ id: uid(), ts: Date.now(), type: "group", groupId: hid, pts, reason, memberIds: ids, year: y });
     save();
     if (pts < 0) beep("down");
     toast(`${pts > 0 ? "+" + pts + " ⭐" : pts} → ${h.emoji} ${h.name}${ids.length ? ` + ${ids.length} member${ids.length > 1 ? "s" : ""}` : ""}${reason ? " · " + reason : ""}`);
@@ -452,7 +457,7 @@
     const e = state.log[0];
     if (!e) return toast("Nothing to undo");
     if (e.type === "student") e.studentIds.forEach((id) => { const s = student(id); if (s) s.points -= e.pts; });
-    else if (e.type === "group") { const h = group(e.groupId); if (h) h.bonus -= e.pts; (e.memberIds || []).forEach((id) => { const s = student(id); if (s) s.gp = (s.gp || 0) - e.pts; }); }
+    else if (e.type === "group") { const h = group(e.groupId); if (h) { if (e.year) h.byYear[e.year] = (h.byYear?.[e.year] || 0) - e.pts; else h.bonus -= e.pts; } (e.memberIds || []).forEach((id) => { const s = student(id); if (s) s.gp = (s.gp || 0) - e.pts; }); }
     else if (e.type === "redeem") e.studentIds.forEach((id) => { const s = student(id); if (s) s.spent += e.pts; });
     state.log.shift(); save(); render(); toast("↩️ Undone");
   }
@@ -505,7 +510,7 @@
     $("#recentFeed").innerHTML = recent.length ? recent.map(feedItem).join("") : `<div class="empty">No points given yet.</div>`;
   }
   function describe(e) {
-    if (e.type === "group") { const h = group(e.groupId); return `${esc(h?.emoji || "")} <b>${esc(h?.name || "Group")}</b> (group bonus)`; }
+    if (e.type === "group") { const h = group(e.groupId); return `${esc(h?.emoji || "")} <b>${esc(h?.name || "Group")}</b>${e.year ? " Y" + e.year : ""} (group bonus)`; }
     const names = e.studentIds.map((id) => student(id)?.name || "(removed)");
     return `<b>${esc(names.length > 3 ? names.slice(0, 3).join(", ") + ` +${names.length - 3}` : names.join(", "))}</b>`;
   }
@@ -656,6 +661,7 @@
   function editJarDialog(gid) {
     const g = group(gid); if (!g) return;
     const draft = { name: g.name, emoji: g.emoji, color: g.color, shape: shapeOf(g), mem: new Set(members(gid).map((s) => s.id)) };
+    const had = new Set(draft.mem); // this year's members when opened (other years' members are left alone)
     const d = modal(`<h2>✏️ Edit jar</h2>
       <div class="edit-jar">
         <div class="edit-preview">
@@ -670,10 +676,10 @@
             ${PALETTE.map((c) => `<button type="button" class="sw" data-c="${c}" style="--sw:${c}" aria-label="Colour ${c}"></button>`).join("")}
             <label class="sw custom" title="Pick any colour"><input type="color" data-custom /></label>
           </div>
-          <div class="edit-label">👥 Names in this group <small class="muted">— every star in this jar also goes to each of them</small></div>
+          <div class="edit-label">👥 Names in this group${window.currentYear ? ` · Year ${window.currentYear}` : ""} <small class="muted">— every star in this jar also goes to each of them</small></div>
           <div class="mem-pick">
             <div class="mem-bar"><select data-memyear><option value="">All years</option>${YEARS.map((y) => `<option value="${y}" ${y === window.currentYear ? "selected" : ""}>Year ${y}</option>`).join("")}</select>
-              <input data-memfind placeholder="🔎 Find a name" /><span class="muted small" data-memcount></span></div>
+              <input data-memfind placeholder="🔎 Find a name (any year)" /><span class="muted small" data-memcount></span></div>
             <div class="mem-list" data-memlist></div>
           </div>
           <div class="edit-label">Jar shape</div>
@@ -702,8 +708,8 @@
       $$(".shape-tile", d).forEach((b) => b.onclick = () => { draft.shape = b.dataset.shape; draw(true); });
       const drawMem = () => {
         const y = $("[data-memyear]", d).value, q = $("[data-memfind]", d).value.trim().toLowerCase();
-        const list = [...state.students].filter((s) => draft.mem.has(s.id) || ((!y || String(s.year) === y) && (!q || s.name.toLowerCase().includes(q))))
-          .sort((a, b) => (draft.mem.has(b.id) - draft.mem.has(a.id)) || a.name.localeCompare(b.name));
+        const list = [...state.students].filter((s) => draft.mem.has(s.id) || (q ? s.name.toLowerCase().includes(q) : (!y || String(s.year) === y)))
+          .sort((a, b) => (draft.mem.has(b.id) - draft.mem.has(a.id)) || (y && q ? (String(b.year) === y) - (String(a.year) === y) : 0) || a.name.localeCompare(b.name));
         $("[data-memcount]", d).textContent = `${draft.mem.size} chosen`;
         $("[data-memlist]", d).innerHTML = list.map((s) => {
           const other = s.groupId && s.groupId !== gid ? group(s.groupId) : null;
@@ -722,7 +728,7 @@
         cur.color = draft.color; cur.shape = draft.shape;
         state.students.forEach((s) => {
           if (draft.mem.has(s.id)) s.groupId = gid;
-          else if (s.groupId === gid) s.groupId = "";
+          else if (s.groupId === gid && had.has(s.id)) s.groupId = "";
         });
         save(); d.close(); render();
         toast(`✨ ${cur.emoji} ${cur.name} updated`);
@@ -1085,7 +1091,7 @@
   };
   $("#loadDemo").onclick = loadDemo;
   $("#resetPoints").onclick = () => confirmBox("Set every student's points and group bonuses back to 0? (Students stay.)", () => {
-    state.students.forEach((s) => { s.points = 0; s.gp = 0; s.spent = 0; }); state.groups.forEach((h) => h.bonus = 0); state.log = []; save(); render(); toast("Points reset");
+    state.students.forEach((s) => { s.points = 0; s.gp = 0; s.spent = 0; }); state.groups.forEach((h) => { h.bonus = 0; h.byYear = {}; }); state.log = []; save(); render(); toast("Points reset");
   });
   $("#resetAll").onclick = () => confirmBox("Delete ALL groups, students, rewards and history?", () => { state = DEFAULTS(); selected.clear(); save(); render(); toast("Everything cleared"); });
   $("#soundToggle").onchange = (e) => { state.sound = e.target.checked; save(); };

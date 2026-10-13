@@ -24,6 +24,7 @@ shapes need no hand-tuned CSS. Teachers pick name / emoji / colour / shape per g
 When editing static files, bump the `?v=` on style.css / app.js / shapes.js in index.html.
 
 Group members: names chosen in the ✏️ jar editor set each student's `groupId`; first names show under the jar (tap = editor). `awardGroup` gives every member the same stars in `s.gp` (log `memberIds`, undo reverses; Empty jar doesn't share). A student's points everywhere = `pts(s)` = `points + gp`; the jar total still = bonus + members' own `points`, so one tap = one star.
+Jars are per year: with a year open (`window.currentYear`) stars go to `h.byYear[year]` and only that year's members count/share (`yearNow`, `groupTotal(h, y)`, `members(hid, y)`); `h.bonus` = stars from before (counted only with no year open). The member picker's search looks in every year; saving only un-assigns this year's members.
 
 Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) and the glass (`.jar-tint`), multiply blend — render lids white.
 
