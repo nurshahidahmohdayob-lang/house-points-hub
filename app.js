@@ -65,7 +65,11 @@
   const group = (id) => state.groups.find((h) => h.id === id);
   const student = (id) => state.students.find((s) => s.id === id);
   const groupTotal = (h) => h.bonus + state.students.filter((s) => s.groupId === h.id).reduce((a, s) => a + s.points, 0);
-  const balance = (s) => s.points - s.spent;
+  // A student's points = their own awards + the group stars they shared (gp). The jar counts only the own awards
+  // plus its bonus, so a group star still adds exactly one star to the jar.
+  const pts = (s) => s.points + (s.gp || 0);
+  const members = (hid) => state.students.filter((s) => s.groupId === hid).sort((a, b) => a.name.localeCompare(b.name));
+  const balance = (s) => pts(s) - s.spent;
   const initials = (n) => n.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   const timeAgo = (ts) => {
     const d = (Date.now() - ts) / 1000;
@@ -165,6 +169,7 @@
       </div>
       <div class="jar-name"></div>
       <div class="jar-count"><b>0</b> ⭐</div>
+      <button class="jar-members" data-edit title="Add or remove names in this group"></button>
       <div class="jar-tools">
         <button data-minus title="Take one star away"><b class="minus-sign">−</b> Deduct</button>
         <button data-empty title="Empty this jar">🫙 Empty</button>
@@ -181,9 +186,9 @@
       const cur = group(g.id), total = groupTotal(cur);
       if (total <= 0) return toast("This jar is already empty");
       confirmBox(`Empty ${cur.emoji} ${cur.name}'s jar? All ${total} stars (and full-jar badges) go back to 0. Students keep their own points.`,
-        () => awardGroup(g.id, -total, "🫙 Emptied jar"));
+        () => awardGroup(g.id, -total, "🫙 Emptied jar", false));
     };
-    $("[data-edit]", w).onclick = () => editJarDialog(g.id);
+    $$("[data-edit]", w).forEach((b) => b.onclick = () => editJarDialog(g.id));
     jar._nextBlink = Date.now() + 800 + Math.random() * 3000;
     return w;
   }
@@ -342,6 +347,8 @@
       const total = groupTotal(g), rank = ranked.findIndex((x) => x.h.id === g.id);
       w.style.setProperty("--hc", g.color);
       $(".jar-name", w).textContent = `${g.emoji} ${g.name}`;
+      const mem = members(g.id), mb = $(".jar-members", w);
+      if (mb) mb.innerHTML = mem.length ? mem.map((s) => `<span>${esc(s.name.split(/\s+/)[0])}</span>`).join("") : `<em>＋ Add names</em>`;
       $(".jar-rank", w).textContent = total > 0 ? medals[rank] || "" : "";
       $(".jar", w).setAttribute("aria-label", `${g.name}: ${total} stars. Add a star`);
       const cnt = $(".jar-count b", w);
@@ -405,13 +412,16 @@
       if (card) { const f = document.createElement("div"); f.className = "float " + (pts > 0 ? "plus" : "minus"); f.textContent = (pts > 0 ? "+" : "") + pts; card.appendChild(f); setTimeout(() => f.remove(), 1000); }
     });
   }
-  function awardGroup(hid, pts, reason) {
+  // Group stars also go to every member's own points (not when the jar is emptied: members keep theirs).
+  function awardGroup(hid, pts, reason, share = true) {
     const h = group(hid); if (!h || !pts) return;
     h.bonus += pts;
-    state.log.unshift({ id: uid(), ts: Date.now(), type: "group", groupId: hid, pts, reason });
+    const ids = share ? members(hid).map((s) => s.id) : [];
+    ids.forEach((id) => { const s = student(id); s.gp = (s.gp || 0) + pts; });
+    state.log.unshift({ id: uid(), ts: Date.now(), type: "group", groupId: hid, pts, reason, memberIds: ids });
     save();
     if (pts < 0) beep("down");
-    toast(`${pts > 0 ? "+" + pts + " ⭐" : pts} → ${h.emoji} ${h.name}${reason ? " · " + reason : ""}`);
+    toast(`${pts > 0 ? "+" + pts + " ⭐" : pts} → ${h.emoji} ${h.name}${ids.length ? ` + ${ids.length} member${ids.length > 1 ? "s" : ""}` : ""}${reason ? " · " + reason : ""}`);
     render();
   }
   function redeem(sid, rid) {
@@ -442,7 +452,7 @@
     const e = state.log[0];
     if (!e) return toast("Nothing to undo");
     if (e.type === "student") e.studentIds.forEach((id) => { const s = student(id); if (s) s.points -= e.pts; });
-    else if (e.type === "group") { const h = group(e.groupId); if (h) h.bonus -= e.pts; }
+    else if (e.type === "group") { const h = group(e.groupId); if (h) h.bonus -= e.pts; (e.memberIds || []).forEach((id) => { const s = student(id); if (s) s.gp = (s.gp || 0) - e.pts; }); }
     else if (e.type === "redeem") e.studentIds.forEach((id) => { const s = student(id); if (s) s.spent += e.pts; });
     state.log.shift(); save(); render(); toast("↩️ Undone");
   }
@@ -461,7 +471,7 @@
 
   function boardStudents() {
     const y = $("#bYear").value, c = $("#bClass").value;
-    return state.students.filter((s) => (!y || String(s.year) === y) && (!c || s.cls === c)).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+    return state.students.filter((s) => (!y || String(s.year) === y) && (!c || s.cls === c)).sort((a, b) => pts(b) - pts(a) || a.name.localeCompare(b.name));
   }
 
   let jarsReady = false;
@@ -478,14 +488,14 @@
       return `<div class="pod p${i + 1}">
         <div class="avatar" style="background:${esc(g?.color || "#6b4dff")}">${esc(initials(s.name))}</div>
         <div class="pod-name">${esc(s.name)}</div>
-        <div class="pod-pts">${s.points} pts</div>
+        <div class="pod-pts">${pts(s)} pts</div>
         <div class="pod-step">${["🥇", "🥈", "🥉"][i]}</div>
       </div>`;
     }).join("") : `<div class="empty">No students yet — add them in ⚙️ Setup or load the demo class.</div>`;
 
     $("#topStudents").innerHTML = ranked.length ? ranked.map((s) => {
       const g = group(s.groupId);
-      return `<li><span class="dot" style="background:${esc(g?.color || "#ccc")}"></span>${esc(s.name)} <span class="muted small">Y${s.year}${g ? " · " + esc(g.emoji + " " + g.name) : ""}</span><span class="pts">${s.points}</span></li>`;
+      return `<li><span class="dot" style="background:${esc(g?.color || "#ccc")}"></span>${esc(s.name)} <span class="muted small">Y${s.year}${g ? " · " + esc(g.emoji + " " + g.name) : ""}</span><span class="pts">${pts(s)}</span></li>`;
     }).join("") : `<div class="empty">Nobody here yet.</div>`;
 
     const boardOn = $("#view-board").classList.contains("active");
@@ -531,7 +541,7 @@
         <div class="avatar" style="background:${esc(h?.color || "#888")}">${esc(initials(s.name))}</div>
         <div class="nm">${esc(s.name)}</div>
         <div class="sub">${esc(h ? h.emoji + " " + h.name : "No group")} · Y${s.year}${s.cls ? " · " + esc(s.cls) : ""}</div>
-        <div class="sp">${s.points}</div>
+        <div class="sp">${pts(s)}</div>
       </div>`;
     }).join("") : `<div class="empty" style="grid-column:1/-1">No students match. Add students in ⚙️ Setup.</div>`;
     $$("#studentGrid .stu").forEach((el) => {
@@ -561,7 +571,7 @@
     const all = sel.value === "*all", s = all ? null : student(sel.value);
     const can = (r) => list.filter((x) => balance(x) >= r.cost).length;
     $("#redeemBalance").innerHTML = all ? `👥 <b>${list.length}</b> students${window.currentYear ? " in Year " + window.currentYear : ""} · Redeem gives the reward to everyone who can afford it`
-      : s ? `💰 ${esc(s.name)} can spend <b>${balance(s)}</b> points <span class="muted small">(earned ${s.points}, spent ${s.spent})</span>` : `<span class="muted">Pick a student (or 👥 All students) to see what they can afford.</span>`;
+      : s ? `💰 ${esc(s.name)} can spend <b>${balance(s)}</b> points <span class="muted small">(earned ${pts(s)}, spent ${s.spent})</span>` : `<span class="muted">Pick a student (or 👥 All students) to see what they can afford.</span>`;
     $("#rewardGrid").innerHTML = [...state.rewards].sort((a, b) => a.cost - b.cost).map((r) => {
       const n = all ? can(r) : 0;
       const locked = all ? !n : s && balance(s) < r.cost;
@@ -621,7 +631,7 @@
         <td><input data-f="name" value="${esc(s.name)}" /></td>
         <td><select data-f="year">${yearOpts(s.year)}</select></td>
         <td><select data-f="groupId">${groupOpts(s.groupId)}</select></td>
-        <td>${s.points}</td><td>${s.spent}</td>
+        <td>${pts(s)}</td><td>${s.spent}</td>
         <td><button class="icon-btn" data-delstu title="Remove">🗑️</button></td></tr>`).join("")
       : `<tr><td class="empty">No students yet.</td></tr>`;
     $$("#studentTable tr[data-id]").forEach((row) => {
@@ -645,7 +655,7 @@
     "#3b82f6", "#06b6d4", "#14b8a6", "#22c55e", "#84cc16", "#eab308"];
   function editJarDialog(gid) {
     const g = group(gid); if (!g) return;
-    const draft = { name: g.name, emoji: g.emoji, color: g.color, shape: shapeOf(g) };
+    const draft = { name: g.name, emoji: g.emoji, color: g.color, shape: shapeOf(g), mem: new Set(members(gid).map((s) => s.id)) };
     const d = modal(`<h2>✏️ Edit jar</h2>
       <div class="edit-jar">
         <div class="edit-preview">
@@ -659,6 +669,12 @@
           <div class="swatches">
             ${PALETTE.map((c) => `<button type="button" class="sw" data-c="${c}" style="--sw:${c}" aria-label="Colour ${c}"></button>`).join("")}
             <label class="sw custom" title="Pick any colour"><input type="color" data-custom /></label>
+          </div>
+          <div class="edit-label">👥 Names in this group <small class="muted">— every star in this jar also goes to each of them</small></div>
+          <div class="mem-pick">
+            <div class="mem-bar"><select data-memyear><option value="">All years</option>${YEARS.map((y) => `<option value="${y}" ${y === window.currentYear ? "selected" : ""}>Year ${y}</option>`).join("")}</select>
+              <input data-memfind placeholder="🔎 Find a name" /><span class="muted small" data-memcount></span></div>
+            <div class="mem-list" data-memlist></div>
           </div>
           <div class="edit-label">Jar shape</div>
           <div class="shape-tiles">
@@ -684,12 +700,30 @@
       $$(".sw[data-c]", d).forEach((b) => b.onclick = () => { draft.color = b.dataset.c; draw(); });
       $("[data-custom]", d).oninput = (e) => { draft.color = e.target.value; draw(); };
       $$(".shape-tile", d).forEach((b) => b.onclick = () => { draft.shape = b.dataset.shape; draw(true); });
+      const drawMem = () => {
+        const y = $("[data-memyear]", d).value, q = $("[data-memfind]", d).value.trim().toLowerCase();
+        const list = [...state.students].filter((s) => draft.mem.has(s.id) || ((!y || String(s.year) === y) && (!q || s.name.toLowerCase().includes(q))))
+          .sort((a, b) => (draft.mem.has(b.id) - draft.mem.has(a.id)) || a.name.localeCompare(b.name));
+        $("[data-memcount]", d).textContent = `${draft.mem.size} chosen`;
+        $("[data-memlist]", d).innerHTML = list.map((s) => {
+          const other = s.groupId && s.groupId !== gid ? group(s.groupId) : null;
+          return `<label class="mem ${draft.mem.has(s.id) ? "on" : ""}"><input type="checkbox" data-sid="${s.id}" ${draft.mem.has(s.id) ? "checked" : ""}> ${esc(s.name)} <small class="muted">Y${s.year}${other ? ` · now in ${esc(other.emoji + " " + other.name)}` : ""}</small></label>`;
+        }).join("") || `<div class="muted small">No students found${state.students.length ? "" : " — add students in Setup first"}.</div>`;
+        $$("[data-sid]", d).forEach((c) => c.onchange = () => { c.checked ? draft.mem.add(c.dataset.sid) : draft.mem.delete(c.dataset.sid); c.parentElement.classList.toggle("on", c.checked); $("[data-memcount]", d).textContent = `${draft.mem.size} chosen`; });
+      };
+      $("[data-memyear]", d).onchange = drawMem;
+      $("[data-memfind]", d).oninput = drawMem;
+      drawMem();
       $("[data-cancel]", d).onclick = () => d.close();
       $("[data-save]", d).onclick = () => {
         const cur = group(gid); if (!cur) return d.close();
         cur.name = draft.name.trim() || cur.name;
         cur.emoji = draft.emoji.trim() || cur.emoji;
         cur.color = draft.color; cur.shape = draft.shape;
+        state.students.forEach((s) => {
+          if (draft.mem.has(s.id)) s.groupId = gid;
+          else if (s.groupId === gid) s.groupId = "";
+        });
         save(); d.close(); render();
         toast(`✨ ${cur.emoji} ${cur.name} updated`);
       };
@@ -719,7 +753,7 @@
     $("#projBars").hidden = projMode === "groups";
     $("#projJars").hidden = projMode !== "groups";
     if (projMode === "groups") return renderJars($("#projJars"), true);
-    list = boardStudents().slice(0, 10).map((s) => ({ color: group(s.groupId)?.color || "#8b7bff", label: s.name, t: s.points }));
+    list = boardStudents().slice(0, 10).map((s) => ({ color: group(s.groupId)?.color || "#8b7bff", label: s.name, t: pts(s) }));
     const max = Math.max(1, ...list.map((x) => x.t));
     $("#projBars").innerHTML = list.length ? list.map((x) => `<div class="pbar" style="--hc:${esc(x.color)}">
       <div class="pv">${x.t}</div><div class="col" style="height:${Math.max(2, (x.t / max) * 70)}%"></div><div class="pn">${esc(x.label)}</div></div>`).join("") : `<div class="empty" style="color:#fff">Nothing to show yet.</div>`;
@@ -1051,7 +1085,7 @@
   };
   $("#loadDemo").onclick = loadDemo;
   $("#resetPoints").onclick = () => confirmBox("Set every student's points and group bonuses back to 0? (Students stay.)", () => {
-    state.students.forEach((s) => { s.points = 0; s.spent = 0; }); state.groups.forEach((h) => h.bonus = 0); state.log = []; save(); render(); toast("Points reset");
+    state.students.forEach((s) => { s.points = 0; s.gp = 0; s.spent = 0; }); state.groups.forEach((h) => h.bonus = 0); state.log = []; save(); render(); toast("Points reset");
   });
   $("#resetAll").onclick = () => confirmBox("Delete ALL groups, students, rewards and history?", () => { state = DEFAULTS(); selected.clear(); save(); render(); toast("Everything cleared"); });
   $("#soundToggle").onchange = (e) => { state.sound = e.target.checked; save(); };

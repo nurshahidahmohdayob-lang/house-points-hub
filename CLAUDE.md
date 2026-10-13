@@ -23,6 +23,8 @@ Blender writes `assets/jars/shapes.js` with each shape's measured star area and 
 shapes need no hand-tuned CSS. Teachers pick name / emoji / colour / shape per group in the ✏️ jar editor.
 When editing static files, bump the `?v=` on style.css / app.js / shapes.js in index.html.
 
+Group members: names chosen in the ✏️ jar editor set each student's `groupId`; first names show under the jar (tap = editor). `awardGroup` gives every member the same stars in `s.gp` (log `memberIds`, undo reverses; Empty jar doesn't share). A student's points everywhere = `pts(s)` = `points + gp`; the jar total still = bonus + members' own `points`, so one tap = one star.
+
 Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) and the glass (`.jar-tint`), multiply blend — render lids white.
 
 ## Life Competencies lessons (📚 Lessons tab)
