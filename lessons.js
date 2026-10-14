@@ -79,43 +79,23 @@
       LC = x; source = "synced"; loading = Promise.resolve(x);
       CP().toast(before && before === x.BUILT?.commit ? "✅ Already up to date with Life Competencies" : "🎉 Lessons synced with Life Competencies");
       CP().confetti(70);
-      renderLessons();
+      renderLessons(); renderFoot();
     } catch (e) {
       btn.dataset.why = e?.message || String(e); // kept for troubleshooting
       CP().toast("⚠️ Couldn't reach the Life Competencies app — check the internet and try again");
-      btn.disabled = false; btn.textContent = "🔄 Sync with Life Competencies";
+      btn.disabled = false; btn.textContent = "🔄 Sync lessons";
     }
   }
-  // Sync sits at the bottom of the page, teacher only: unlocked with the teacher password (only its SHA-256 is kept
+  // Sync sits in the teacher footer (beside History / Setup), teacher only: unlocked with the teacher password (only its SHA-256 is kept
   // here) for this browser tab. A simple lock to keep students away, not real security.
   const SYNC_PASS_SHA = "8b42d912a9d46626e3dc9895a15ce1ff70456abc7167d6498c45921336625816";
   const syncOpen = () => { try { return sessionStorage.getItem("lc-sync-ok") === "1"; } catch { return false; } };
-  let syncAsk = false;
-  function syncBar() {
-    if (!syncOpen()) return `<div class="lc-syncbar lc-synclock">${syncAsk
-      ? `<form class="lc-syncpass" data-syncform><label>🔒 Teacher password <input type="password" inputmode="numeric" autocomplete="off" required data-syncpw></label><button class="btn">Unlock</button><button type="button" class="btn ghost" data-synccancel>Cancel</button><span class="lc-syncerr" hidden>❌ Wrong password</span></form>`
-      : `<button class="btn ghost lc-syncbtn" data-synclock>🔒 Teacher: sync lessons</button>`}</div>`;
+  const syncWhat = () => {
     const at = LC?.BUILT?.at ? new Date(LC.BUILT.at) : null;
-    const when = at ? at.toLocaleString([], { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
-    const what = source === "synced" ? `🔄 Synced lessons${when ? ` · from ${when}` : ""}` : `📦 Built-in lessons${when ? ` · from ${when}` : ""}`;
-    return `<div class="lc-syncbar"><span class="lc-sync ${source === "synced" ? "ok" : ""}">${what}</span>
-      <button class="btn ghost lc-syncbtn" data-sync title="Download the latest lessons from your Life Competencies app">🔄 Sync with Life Competencies</button>
-      <button class="btn ghost lc-syncbtn" data-synclockagain title="Lock again">🔒 Lock</button></div>`;
-  }
+    const when = at ? ` · from ${at.toLocaleString([], { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : "";
+    return (source === "synced" ? "Synced lessons" : "Built-in lessons") + when;
+  };
   async function sha256(t) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join(""); }
-  function wireSync(root) {
-    const redraw = () => { const bar = $(".lc-syncbar", root); bar.outerHTML = syncBar(); wireSync(root); $("[data-syncpw]", root)?.focus(); };
-    const sync = $("[data-sync]", root); if (sync) sync.onclick = (e) => syncNow(e.currentTarget);
-    const ask = $("[data-synclock]", root); if (ask) ask.onclick = () => { syncAsk = true; redraw(); };
-    const cancel = $("[data-synccancel]", root); if (cancel) cancel.onclick = () => { syncAsk = false; redraw(); };
-    const lock = $("[data-synclockagain]", root); if (lock) lock.onclick = () => { try { sessionStorage.removeItem("lc-sync-ok"); sessionStorage.removeItem("lc-teacher-pw"); } catch {} syncAsk = false; redraw(); renderFoot(); };
-    const form = $("[data-syncform]", root);
-    if (form) form.onsubmit = async (e) => {
-      e.preventDefault();
-      if (await sha256($("[data-syncpw]", form).value.trim()) === SYNC_PASS_SHA) { try { sessionStorage.setItem("lc-sync-ok", "1"); sessionStorage.setItem("lc-teacher-pw", $("[data-syncpw]", form).value.trim()); } catch {} syncAsk = false; redraw(); renderFoot(); }
-      else { $(".lc-syncerr", form).hidden = false; $("[data-syncpw]", form).value = ""; $("[data-syncpw]", form).focus(); }
-    };
-  }
 
   const planFor = (year, term) => LC.LESSON_PLANS.find((p) => p.year === year && p.term === term);
   // Pictures drawn for warm-ups that say "Show a picture / photo of …" (assets/pictures/<plan>-<week>.svg)
@@ -318,9 +298,7 @@
           </div>
           ${shareOpen ? `<div class="mm-sharebox lc-sharebox"><input readonly value="${esc(shareLink)}" aria-label="Share link"><button class="btn" data-copy>📋 Copy</button></div>` : ""}
         </div></li>
-      </ol>
-      ${syncBar()}`;
-    wireSync(root);
+      </ol>`;
     renderYearNav();
     $$("[data-week]", root).forEach((b) => b.onclick = () => { pick.week = +b.dataset.week; weeksOpen = false; shareOpen = false; renderLessons(); });
     $("[data-weeks]", root).onclick = () => { weeksOpen = !weeksOpen; renderLessons(); };
@@ -1081,16 +1059,16 @@
     const f = $("#teacherFoot"); if (!f) return;
     if (typeof renderYearNav === "function" && $("#yearNav")) setTimeout(renderYearNav, 0);
     f.innerHTML = syncOpen()
-      ? `<button class="btn ghost" data-foot="history">📜 History</button><button class="btn ghost" data-foot="settings">⚙️ Setup</button><button class="btn ghost" data-footlock>🔒 Lock</button>`
+      ? `<button class="btn ghost" data-foot="history">📜 History</button><button class="btn ghost" data-foot="settings">⚙️ Setup</button><button class="btn ghost" data-footsync title="${esc(syncWhat())} — download the latest lessons from your Life Competencies app">🔄 Sync lessons</button><button class="btn ghost" data-footlock>🔒 Lock</button>`
       : footAsk
         ? `<form class="lc-syncpass" data-footform><label>🔒 Teacher password <input type="password" inputmode="numeric" autocomplete="off" required data-footpw></label><button class="btn">Unlock</button><button type="button" class="btn ghost" data-footcancel>Cancel</button><span class="lc-syncerr" hidden>❌ Wrong password</span></form>`
-        : `<button class="btn ghost" data-footask>🔒 Teacher settings</button>`;
+        : `<button class="btn ghost" data-footask>🔒 Teacher settings</button><button class="btn ghost" data-footask>🔒 Teacher: sync lessons</button>`;
     $("[data-footpw]", f)?.focus();
-    const bar = $("#lessonsRoot .lc-syncbar"); if (bar && !bar.contains(document.activeElement)) { bar.outerHTML = syncBar(); wireSync($("#lessonsRoot")); } // same lock
   }
   document.addEventListener("click", (e) => {
     const t = e.target;
     if (t.closest("[data-footask]")) { footAsk = true; renderFoot(); }
+    else if (t.closest("[data-footsync]")) syncNow(t.closest("[data-footsync]")).then(() => {}, () => {});
     else if (t.closest("[data-footcancel]")) { footAsk = false; renderFoot(); }
     else if (t.closest("[data-footlock]")) { try { sessionStorage.removeItem("lc-sync-ok"); sessionStorage.removeItem("lc-teacher-pw"); } catch {} footAsk = false; renderFoot(); document.querySelector('[data-tab="home"]').click(); }
     else if (t.closest("[data-foot]")) { document.querySelector(`[data-tab="${t.closest("[data-foot]").dataset.foot}"]`).click(); }
