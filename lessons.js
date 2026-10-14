@@ -282,7 +282,7 @@
           </div>
         </div></li>
         <li class="lc-step"><span class="lc-n">2</span><div class="lc-sbody">
-          <div class="lc-shead"><h3>Teach</h3><small>Mind map · warm-up · questions</small></div>
+          <div class="lc-shead"><h3>Note</h3><small>Mind map · warm-up · questions</small></div>
           <div class="card lc-home"><div class="lc-home-head">
             <div class="lc-big-emoji">${fp.emoji}</div>
             <div>
@@ -291,7 +291,7 @@
               <h2 class="lc-title">${esc(fp.text)}</h2>
               <div class="lc-badges">${(plan.competencies || []).map((c) => `<span class="lc-badge">🧠 ${esc(c)}</span>`).join("")}${(plan.values || []).map((v) => `<span class="lc-badge v">💎 ${esc(v)}</span>`).join("")}</div>
             </div>
-            <button class="lc-teachbtn" data-go="teach" title="Interactive mind map that grows as you teach, with questions inside"><span>▶️</span><b>Teach the lesson</b><small>Mind map with questions inside</small></button>
+            <button class="lc-teachbtn" data-go="teach" title="Interactive mind map that grows as you teach, with questions inside"><span>▶️</span><b>Open the note</b><small>Mind map with questions inside</small></button>
           </div>
           ${w.objectives ? `<p class="lc-obj"><b>🎯 Today:</b> ${esc(w.objectives)}</p>` : ""}</div>
         </div></li>
