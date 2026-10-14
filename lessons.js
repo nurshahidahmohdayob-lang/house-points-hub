@@ -1066,12 +1066,10 @@
     let head = ""; try { head = yearHeader(pick.year); } catch { head = `<div class="year-head"><button class="btn ghost" data-home>‹ All years</button><h2>Year ${pick.year}</h2></div>`; }
     const terms = active === "lessons" && termsOpen && LC ? [1, 2, 3].map((t) => planFor(pick.year, t)).filter(Boolean) : [];
     // Terms + About Term sit as a sub-menu right under "Lessons"
-    const sub = terms.length ? `<div class="ynav-terms">${terms.map((p) => `<button data-sterm="${p.term}" class="${p.term === pick.term ? "on" : ""}"><b>Term ${p.term}</b><span>${esc(p.title)}</span></button>`).join("")}
-        <button data-sabout class="ynav-about ${aboutOpen ? "on" : ""}">ℹ️ About Term ${pick.term}</button></div>` : "";
+    const sub = terms.length ? `<div class="ynav-terms">${terms.map((p) => `<button data-sterm="${p.term}" class="${p.term === pick.term ? "on" : ""}"><b>Term ${p.term}</b><span>${esc(p.title)}</span></button>`).join("")}</div>` : "";
     nav.innerHTML = on ? `${head}<aside class="ynav-side"><nav class="year-tabs">${YEAR_TABS.map(([k, e, t]) => `<button data-ytab="${k}" class="${k === active ? "on" : ""}"><span>${e}</span>${t}${k === "lessons" && active === "lessons" ? `<i class="ycaret">${termsOpen ? "▴" : "▾"}</i>` : ""}${TEACHER_TABS.has(k) && !syncOpen() ? `<i class="ylock" title="Teacher only">🔒</i>` : ""}</button>${k === "lessons" ? sub : ""}`).join("")}</nav></aside>` : "";
     document.body.classList.toggle("ynav-on", on);
     $$("[data-sterm]", nav).forEach((b) => b.onclick = () => { pick.term = +b.dataset.sterm; const n = nextLesson(pick.year); pick.week = n && n.term === pick.term ? n.week : 1; weeksOpen = false; shareOpen = false; renderLessons(); });
-    const ab = $("[data-sabout]", nav); if (ab) ab.onclick = () => { aboutOpen = !aboutOpen; renderLessons(); if (aboutOpen) $("[data-about]")?.scrollIntoView({ behavior: "smooth", block: "start" }); };
     const home = $("[data-home]", nav); if (home) home.onclick = () => document.querySelector('[data-tab="home"]').click();
   }
   document.addEventListener("click", (e) => {
