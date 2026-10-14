@@ -856,3 +856,4 @@ body.ynav-on #view-lessons > .section-head { display: none; }
   .year-tabs .ynav-terms { order: 99; flex: 1 1 100%; margin: 4px 0 0; padding: 0; border: 0; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
 }
 .year-tabs .ynav-terms button[data-sterm] { display: grid; justify-items: start; justify-content: stretch; text-align: left; }
+.year-tabs .ycaret { font-style: normal; margin-left: auto; font-size: .9rem; opacity: .9; }
