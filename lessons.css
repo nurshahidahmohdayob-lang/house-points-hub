@@ -694,3 +694,72 @@ body.on-home main { padding-top: 36px; }
 .mm-sharebox { display: flex; gap: 8px; margin-top: 12px; }
 .mm-sharebox input { flex: 1; min-width: 0; font: inherit; font-weight: 700; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg); color: var(--ink); }
 body.share-view .lc-stage-top .lc-x, body.share-view .teacher-foot, body.share-view .lc-sp, body.share-view [data-h="stars"], body.share-view [data-h="pick"] { display: none !important; }
+
+/* ---- Proposal B: side menu + four steps (Pick the week → Teach → Play → Wrap up) ---- */
+@media (min-width: 900px) {
+  body.ynav-on #app { display: grid; grid-template-columns: 210px minmax(0, 1fr); column-gap: 24px; align-items: start; }
+  body.ynav-on #yearNav { display: contents; }
+  body.ynav-on #yearNav .year-head { grid-column: 1 / -1; }
+  body.ynav-on .ynav-side { grid-column: 1; position: sticky; top: 84px; display: grid; gap: 14px; }
+  body.ynav-on #app > .view.active { grid-column: 2; min-width: 0; }
+  body.ynav-on .ynav-side .year-tabs { grid-template-columns: 1fr; gap: 6px; }
+  body.ynav-on .ynav-side .year-tabs button { justify-content: flex-start; padding: 10px 14px; font-size: .98rem; }
+}
+.ynav-side { margin-bottom: 14px; }
+.ynav-side .year-tabs button { box-shadow: none; border: 2px solid var(--line); }
+.ynav-side .year-tabs button.on { border-color: transparent; box-shadow: 0 3px 0 #4a2fd6; }
+.ynav-terms { display: grid; gap: 6px; background: var(--surface); border: 2px solid var(--line); border-radius: 18px; padding: 10px; }
+.ynav-terms > small { font-weight: 900; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0 4px; }
+.ynav-terms button { border: 0; background: transparent; border-radius: 12px; padding: 7px 10px; cursor: pointer; font: inherit; text-align: left; color: var(--ink); display: grid; }
+.ynav-terms button span { color: var(--muted); font-size: .82rem; font-weight: 700; line-height: 1.2; }
+.ynav-terms button:hover { background: color-mix(in srgb, var(--primary) 6%, transparent); }
+.ynav-terms button.on { background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
+.ynav-terms .ynav-about { margin-top: 4px; border: 2px dashed var(--line); font-weight: 800; text-align: center; display: block; }
+.ynav-terms .ynav-about.on { border-style: solid; border-color: var(--primary); }
+@media (max-width: 899px) {
+  .ynav-side { display: grid; gap: 10px; }
+  .ynav-side .year-tabs { display: flex; overflow-x: auto; gap: 8px; padding-bottom: 4px; }
+  .ynav-side .year-tabs button { flex: 0 0 auto; padding: 8px 14px; }
+  .ynav-terms { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .ynav-terms > small { grid-column: 1 / -1; }
+}
+body.ynav-on #view-lessons > .section-head { display: none; }
+
+.lc-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+.lc-step { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 14px; position: relative; }
+.lc-step:not(:last-child)::before { content: ""; position: absolute; left: 19px; top: 44px; bottom: -18px; width: 2px; background: var(--line); }
+.lc-n { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-family: "Baloo 2", sans-serif; font-weight: 800; font-size: 1.3rem; color: #fff; background: var(--primary); box-shadow: 0 3px 0 #4a2fd6; position: relative; z-index: 1; }
+.lc-sbody { min-width: 0; }
+.lc-shead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 4px 0 10px; }
+.lc-shead h3 { margin: 0; font-family: "Baloo 2", sans-serif; font-size: 1.45rem; line-height: 1.1; }
+.lc-shead small { color: var(--muted); font-weight: 700; }
+.lc-steps .lc-weekbox { margin: 0; }
+.lc-weekpick { width: 100%; display: flex; align-items: center; gap: 12px; border: 2px solid var(--line); background: var(--surface); border-radius: 16px; padding: 10px 14px; cursor: pointer; font: inherit; text-align: left; color: var(--ink); }
+.lc-weekpick:hover { border-color: var(--primary); }
+.lc-weekpick .e { font-size: 1.9rem; }
+.lc-weekpick .t { flex: 1; display: grid; min-width: 0; }
+.lc-weekpick b { font-size: 1.1rem; }
+.lc-weekpick small { color: var(--muted); font-weight: 700; }
+.lc-weekpick i { font-style: normal; font-weight: 900; color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); border-radius: 999px; padding: 6px 14px; white-space: nowrap; }
+.lc-weekpick:focus-visible, .lc-wrapbtn:focus-visible, .ynav-terms button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.lc-steps .lc-home { margin: 0; }
+.lc-steps .lc-actions { margin-top: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 700px) { .lc-steps .lc-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.lc-steps .lc-act { border-radius: 16px; padding: 14px 10px; background: var(--surface); border: 2px solid var(--line); color: var(--ink); }
+.lc-steps .lc-act:hover { border-color: var(--primary); transform: translateY(-2px); }
+.lc-steps .lc-act span { font-size: 2rem; line-height: 1.1; }
+.lc-steps .lc-act { justify-content: flex-start; min-height: 0; }
+.lc-steps .lc-act small { font-size: .82rem; line-height: 1.25; }
+.lc-steps .lc-act.live { cursor: default; }
+.lc-steps .lc-act.live:hover { transform: none; }
+.lc-live2 { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; justify-content: center; }
+.lc-live2 a { text-decoration: none; font-weight: 900; font-size: .85rem; color: #fff; border-radius: 999px; padding: 5px 12px; background: var(--good); }
+.lc-live2 a + a { background: var(--primary); }
+.lc-wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 10px; }
+.lc-wrapbtn { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; text-align: left; border: 2px solid var(--line); background: var(--surface); border-radius: 16px; padding: 10px 14px; cursor: pointer; font: inherit; color: var(--ink); }
+.lc-wrapbtn span { grid-row: span 2; font-size: 1.6rem; }
+.lc-wrapbtn small { color: var(--muted); font-weight: 700; font-size: .8rem; }
+.lc-wrapbtn:hover, .lc-wrapbtn.on { border-color: var(--primary); }
+.lc-sharebox { margin-top: 10px; }
+@media (max-width: 520px) { .lc-step { grid-template-columns: 30px minmax(0, 1fr); gap: 10px; } .lc-n { width: 30px; height: 30px; font-size: 1rem; } .lc-step:not(:last-child)::before { left: 14px; top: 34px; } }
+.lc-steps + .lc-syncbar { margin: 26px 0 8px; padding-top: 14px; border-top: 2px dashed var(--line); justify-content: center; }

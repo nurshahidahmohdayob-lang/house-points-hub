@@ -218,7 +218,7 @@
   const list = (arr, cls = "") => (arr && arr.length ? `<ul class="lc-dl ${cls}">${arr.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "");
   const chips = (arr, icon, cls = "") => (arr && arr.length ? `<div class="lc-badges">${arr.map((x) => `<span class="lc-badge ${cls}">${icon} ${esc(x)}</span>`).join("")}</div>` : "");
   // About the term: colourful category buttons; tap one and only its information shows (tap again to hide)
-  let aboutCat = null, weeksOpen = false, actsOpen = false;
+  let aboutCat = null, weeksOpen = false, aboutOpen = false, shareOpen = false;
   function termDetails(plan) {
     const tt = (theme(plan.year).terms || []).find((x) => x.term === plan.term) || {}, L = YEAR_LOOK[plan.year] || {};
     const cards = (arr) => `<div class="ab-cards">${arr.map((x, i) => `<div class="ab-card" style="--i:${i}"><span class="n">${i + 1}</span><p>${esc(x)}</p></div>`).join("")}</div>`;
@@ -262,49 +262,71 @@
     pick.year = plan.year; pick.term = plan.term;
     const w = weekOf(plan, pick.week); pick.week = w.week; savePick();
     const fp = focusParts(w.focus, plan, w.week), cal = calOf(plan, w.week), nextUp = nextLesson(plan.year);
+    const calNo = Number(/Week (\d+)/.exec(cal.label || "")?.[1] || w.week);
+    const shareLink = `${location.origin}/map/${plan.year}-${plan.term}-${calNo}`;
+    // Proposal B: the page follows the teaching order — 1 pick the week, 2 teach, 3 play, 4 wrap up.
+    // Terms + About Term live in the side menu (renderYearNav).
     root.innerHTML = `
-      <div class="lc-terms">${[1, 2, 3].map((t) => { const p = planFor(plan.year, t); return p ? `<button class="lc-term ${t === plan.term ? "on" : ""}" data-term="${t}"><b>Term ${t}</b><span>${esc(p.title)}</span></button>` : ""; }).join("")}</div>
-      ${termDetails(plan)}
-      <div class="lc-weekbox ${weeksOpen ? "open" : ""}">
-      <button class="lc-weektoggle" data-weeks aria-expanded="${weeksOpen}"><span class="e">🗓️</span><span class="t"><b>${plan.weeks.length} weekly lessons</b><small>Now: ${esc(cal.label)} · ${esc(fp.text)}</small></span><i>${weeksOpen ? "Hide ▲" : "Choose a week ▼"}</i></button>
-      <div class="lc-weeks">${schedule(plan).map((r) => {
-        if (!r.weeks.length) return `<div class="lc-week off"><span class="e">${/break/i.test(r.note) ? "🏖️" : "🚫"}</span><small>${esc(r.cal || "Break")}</small><b>${esc(r.note || "No class")}</b></div>`;
-        const parts = r.weeks.map((n) => focusParts(weekOf(plan, n).focus, plan, n));
-        const next = nextUp?.planId === plan.id && r.weeks.includes(nextUp.week);
-        return `<button class="lc-week ${r.weeks.includes(w.week) ? "on" : ""} ${next ? "next" : ""}" data-week="${r.weeks.includes(w.week) ? w.week : r.weeks[0]}"><span class="e">${parts[0].emoji}</span><small>${esc(r.cal)}${r.date ? ` · ${esc(r.date.replace(/^\w+ /, "").replace(/\.\d{4}$/, ""))}` : ""}</small><b>${parts.map((x) => esc(x.text)).join(" + ")}</b>${next ? `<i class="lc-next">📍 Next lesson</i>` : ""}</button>`;
-      }).join("")}</div></div>
-      <div class="card lc-home">
-        <div class="lc-home-head">
-          <div class="lc-big-emoji">${fp.emoji}</div>
-          <div>
-            <div class="muted small">Year ${plan.year} · Term ${plan.term} · ${esc(cal.label)}${cal.date ? ` · 📅 ${esc(cal.date)}${cal.time ? ` ${esc(cal.time)}` : ""}` : ""} · ${esc(plan.title)}</div>
-            ${cal.with.length ? `<div class="lc-also">Taught together with: ${cal.with.map((n) => `<button class="lc-chip" data-week="${n}">${esc(focusParts(weekOf(plan, n).focus, plan, n).text)}</button>`).join(" ")}</div>` : ""}
-            <h2 class="lc-title">${esc(fp.text)}</h2>
-            <div class="lc-badges">${(plan.competencies || []).map((c) => `<span class="lc-badge">🧠 ${esc(c)}</span>`).join("")}${(plan.values || []).map((v) => `<span class="lc-badge v">💎 ${esc(v)}</span>`).join("")}</div>
+      ${aboutOpen ? termDetails(plan) : ""}
+      <ol class="lc-steps">
+        <li class="lc-step"><span class="lc-n">1</span><div class="lc-sbody">
+          <div class="lc-shead"><h3>Pick the week</h3><small>Term ${plan.term} · ${esc(plan.title)} · ${plan.weeks.length} weekly lessons</small></div>
+          <div class="lc-weekbox ${weeksOpen ? "open" : ""}">
+            <button class="lc-weekpick" data-weeks aria-expanded="${weeksOpen}"><span class="e">${fp.emoji}</span><span class="t"><b>${esc(cal.label)}${cal.date ? ` · ${esc(cal.date.replace(/\.\d{4}$/, ""))}` : ""}</b><small>${esc(fp.text)}${nextUp?.planId === plan.id && nextUp.week === w.week ? " · 📍 next lesson" : ""}</small></span><i>${weeksOpen ? "Close ▲" : "Change ▾"}</i></button>
+            <div class="lc-weeks">${schedule(plan).map((r) => {
+              if (!r.weeks.length) return `<div class="lc-week off"><span class="e">${/break/i.test(r.note) ? "🏖️" : "🚫"}</span><small>${esc(r.cal || "Break")}</small><b>${esc(r.note || "No class")}</b></div>`;
+              const parts = r.weeks.map((n) => focusParts(weekOf(plan, n).focus, plan, n));
+              const next = nextUp?.planId === plan.id && r.weeks.includes(nextUp.week);
+              return `<button class="lc-week ${r.weeks.includes(w.week) ? "on" : ""} ${next ? "next" : ""}" data-week="${r.weeks.includes(w.week) ? w.week : r.weeks[0]}"><span class="e">${parts[0].emoji}</span><small>${esc(r.cal)}${r.date ? ` · ${esc(r.date.replace(/^\w+ /, "").replace(/\.\d{4}$/, ""))}` : ""}</small><b>${parts.map((x) => esc(x.text)).join(" + ")}</b>${next ? `<i class="lc-next">📍 Next lesson</i>` : ""}</button>`;
+            }).join("")}</div>
           </div>
-          <button class="lc-teachbtn" data-go="teach" title="Interactive mind map that grows as you teach, with questions inside"><span>▶️</span><b>Teach the lesson</b><small>Mind map with questions inside</small></button>
-        </div>
-        ${w.objectives ? `<p class="lc-obj"><b>🎯 Today:</b> ${esc(w.objectives)}</p>` : ""}
-        <div class="lc-actbox ${actsOpen ? "open" : ""}">
-        <button class="lc-weektoggle lc-acttoggle" data-acts aria-expanded="${actsOpen}"><span class="e">🚀</span><span class="t"><b>Teach & play</b><small>Live game, quiz, puzzles, games & my activities</small></span><i>${actsOpen ? "Hide ▲" : "Open ▼"}</i></button>
-        <div class="lc-actions">
-          <a class="lc-act student" href="${LC_APP}/play" target="_blank" rel="noopener"><span>🎮</span><b>I'm a student</b><small>Choose your name and play the game!</small><i class="go">Play ▶</i></a>
-          <a class="lc-act teacher" href="${LC_APP}/?go=live" target="_blank" rel="noopener"><span>👩‍🏫</span><b>I'm the teacher</b><small>Set up the game and open the board.</small><i class="go">Teacher 🔒</i></a>
-          <button class="lc-act" data-go="quiz"><span>⚔️</span><b>Team Quiz</b><small>Groups race on multiple-choice questions</small></button>
-          <button class="lc-act" data-go="games"><span>🧩</span><b>Jigsaw Puzzles</b><small>30+ questions: drag the answer pieces onto the questions to build pictures</small></button>
-          <button class="lc-act" data-go="board"><span>🎲</span><b>${esc(LC.gameFor(plan.id, w.week).name)}</b><small>The week's board game — its own questions</small></button>
-          <button class="lc-act" data-go="run"><span>🏃</span><b>${esc(LC.runThemeFor(plan.id, w.week).name)}</b><small>Platform game with question blocks</small></button>
-          <button class="lc-act mine" data-go="mine"><span>📄</span><b>My activities</b><small>Upload your worksheet — it becomes an interactive activity</small></button>
-        </div></div>
-      </div>
+        </div></li>
+        <li class="lc-step"><span class="lc-n">2</span><div class="lc-sbody">
+          <div class="lc-shead"><h3>Teach</h3><small>Mind map · warm-up · questions</small></div>
+          <div class="card lc-home"><div class="lc-home-head">
+            <div class="lc-big-emoji">${fp.emoji}</div>
+            <div>
+              <div class="muted small">Year ${plan.year} · Term ${plan.term} · ${esc(cal.label)}${cal.date ? ` · 📅 ${esc(cal.date)}${cal.time ? ` ${esc(cal.time)}` : ""}` : ""}</div>
+              ${cal.with.length ? `<div class="lc-also">Taught together with: ${cal.with.map((n) => `<button class="lc-chip" data-week="${n}">${esc(focusParts(weekOf(plan, n).focus, plan, n).text)}</button>`).join(" ")}</div>` : ""}
+              <h2 class="lc-title">${esc(fp.text)}</h2>
+              <div class="lc-badges">${(plan.competencies || []).map((c) => `<span class="lc-badge">🧠 ${esc(c)}</span>`).join("")}${(plan.values || []).map((v) => `<span class="lc-badge v">💎 ${esc(v)}</span>`).join("")}</div>
+            </div>
+            <button class="lc-teachbtn" data-go="teach" title="Interactive mind map that grows as you teach, with questions inside"><span>▶️</span><b>Teach the lesson</b><small>Mind map with questions inside</small></button>
+          </div>
+          ${w.objectives ? `<p class="lc-obj"><b>🎯 Today:</b> ${esc(w.objectives)}</p>` : ""}</div>
+        </div></li>
+        <li class="lc-step"><span class="lc-n">3</span><div class="lc-sbody">
+          <div class="lc-shead"><h3>Play</h3><small>Every game uses this week's questions</small></div>
+          <div class="lc-actions">
+            <div class="lc-act live"><span>🎮</span><b>Live game</b><small>Everyone plays on their own device</small>
+              <div class="lc-live2"><a href="${LC_APP}/play" target="_blank" rel="noopener">Student ▶</a><a href="${LC_APP}/?go=live" target="_blank" rel="noopener">Teacher 🔒</a></div></div>
+            <button class="lc-act" data-go="quiz"><span>⚔️</span><b>Team Quiz</b><small>Groups race on multiple-choice questions</small></button>
+            <button class="lc-act" data-go="games"><span>🧩</span><b>Jigsaw Puzzles</b><small>Drag answer pieces to build pictures</small></button>
+            <button class="lc-act" data-go="board"><span>🎲</span><b>${esc(LC.gameFor(plan.id, w.week).name)}</b><small>This week's board game</small></button>
+            <button class="lc-act" data-go="run"><span>🏃</span><b>${esc(LC.runThemeFor(plan.id, w.week).name)}</b><small>Platform game with question blocks</small></button>
+            <button class="lc-act" data-go="mine"><span>📄</span><b>My activities</b><small>Your own worksheets, made interactive</small></button>
+          </div>
+        </div></li>
+        <li class="lc-step"><span class="lc-n">4</span><div class="lc-sbody">
+          <div class="lc-shead"><h3>Wrap up</h3><small>Stars, worksheets and sharing</small></div>
+          <div class="lc-wrap">
+            <button class="lc-wrapbtn" data-wrap="stars"><span>⭐</span><b>Give stars</b><small>Award points to students</small></button>
+            <button class="lc-wrapbtn" data-go="mine"><span>🖨️</span><b>Print a worksheet</b><small>Open My activities → Print</small></button>
+            <button class="lc-wrapbtn ${shareOpen ? "on" : ""}" data-wrap="share"><span>🔗</span><b>Share with parents</b><small>A link to this lesson's mind map</small></button>
+          </div>
+          ${shareOpen ? `<div class="mm-sharebox lc-sharebox"><input readonly value="${esc(shareLink)}" aria-label="Share link"><button class="btn" data-copy>📋 Copy</button></div>` : ""}
+        </div></li>
+      </ol>
       ${syncBar()}`;
     wireSync(root);
     renderYearNav();
-    $$("[data-term]", root).forEach((b) => b.onclick = () => { pick.term = +b.dataset.term; pick.week = 1; renderLessons(); });
-    $$("[data-week]", root).forEach((b) => b.onclick = () => { pick.week = +b.dataset.week; weeksOpen = false; renderLessons(); });
-    $("[data-acts]", root).onclick = () => { actsOpen = !actsOpen; const box = $(".lc-actbox", root); box.classList.toggle("open", actsOpen); const b = $("[data-acts]", root); b.setAttribute("aria-expanded", actsOpen); $("i", b).textContent = actsOpen ? "Hide ▲" : "Open ▼"; };
-    $("[data-weeks]", root).onclick = () => { weeksOpen = !weeksOpen; renderLessons(); }; // the week strip stays hidden until the button is tapped
+    $$("[data-week]", root).forEach((b) => b.onclick = () => { pick.week = +b.dataset.week; weeksOpen = false; shareOpen = false; renderLessons(); });
+    $("[data-weeks]", root).onclick = () => { weeksOpen = !weeksOpen; renderLessons(); };
     $$("[data-go]", root).forEach((b) => b.onclick = () => open(b.dataset.go, plan, w));
+    $("[data-wrap=stars]", root).onclick = () => document.querySelector('[data-ytab="students"]')?.click();
+    $("[data-wrap=share]", root).onclick = () => { shareOpen = !shareOpen; renderLessons(); };
+    const cp = $("[data-copy]", root);
+    if (cp) { const inp = cp.previousElementSibling; inp.onfocus = () => inp.select(); cp.onclick = () => navigator.clipboard?.writeText(shareLink).then(() => { cp.textContent = "✅ Copied!"; }, () => inp.select()); }
     if (weeksOpen) { const on = $(".lc-week.on", root), strip = $(".lc-weeks", root); if (on) strip.scrollLeft = on.offsetLeft - strip.offsetLeft - (strip.clientWidth - on.offsetWidth) / 2; }
   }
 
@@ -1007,7 +1029,13 @@
     const on = !!pick.year && YEAR_TABS.some(([k]) => k === active);
     window.currentYear = on ? pick.year : null;
     let head = ""; try { head = yearHeader(pick.year); } catch { head = `<div class="year-head"><button class="btn ghost" data-home>‹ All years</button><h2>Year ${pick.year}</h2></div>`; }
-    nav.innerHTML = on ? `${head}<nav class="year-tabs">${YEAR_TABS.map(([k, e, t]) => `<button data-ytab="${k}" class="${k === active ? "on" : ""}"><span>${e}</span>${t}</button>`).join("")}</nav>` : "";
+    const terms = active === "lessons" && LC ? [1, 2, 3].map((t) => planFor(pick.year, t)).filter(Boolean) : [];
+    nav.innerHTML = on ? `${head}<aside class="ynav-side"><nav class="year-tabs">${YEAR_TABS.map(([k, e, t]) => `<button data-ytab="${k}" class="${k === active ? "on" : ""}"><span>${e}</span>${t}</button>`).join("")}</nav>
+      ${terms.length ? `<div class="ynav-terms"><small>Terms</small>${terms.map((p) => `<button data-sterm="${p.term}" class="${p.term === pick.term ? "on" : ""}"><b>Term ${p.term}</b><span>${esc(p.title)}</span></button>`).join("")}
+        <button data-sabout class="ynav-about ${aboutOpen ? "on" : ""}">ℹ️ About Term ${pick.term}</button></div>` : ""}</aside>` : "";
+    document.body.classList.toggle("ynav-on", on);
+    $$("[data-sterm]", nav).forEach((b) => b.onclick = () => { pick.term = +b.dataset.sterm; const n = nextLesson(pick.year); pick.week = n && n.term === pick.term ? n.week : 1; weeksOpen = false; shareOpen = false; renderLessons(); });
+    const ab = $("[data-sabout]", nav); if (ab) ab.onclick = () => { aboutOpen = !aboutOpen; renderLessons(); if (aboutOpen) $("[data-about]")?.scrollIntoView({ behavior: "smooth", block: "start" }); };
     const home = $("[data-home]", nav); if (home) home.onclick = () => document.querySelector('[data-tab="home"]').click();
   }
   document.addEventListener("click", (e) => {
