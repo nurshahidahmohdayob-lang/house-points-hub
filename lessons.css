@@ -703,11 +703,11 @@ body.share-view .lc-stage-top .lc-x, body.share-view .teacher-foot, body.share-v
   body.ynav-on .ynav-side { grid-column: 1; position: sticky; top: 84px; display: grid; gap: 14px; }
   body.ynav-on #app > .view.active { grid-column: 2; min-width: 0; }
   body.ynav-on .ynav-side .year-tabs { grid-template-columns: 1fr; gap: 6px; }
-  body.ynav-on .ynav-side .year-tabs button { justify-content: flex-start; padding: 10px 14px; font-size: .98rem; }
+  body.ynav-on .ynav-side .year-tabs > button { justify-content: flex-start; padding: 10px 14px; font-size: .98rem; }
 }
 .ynav-side { margin-bottom: 14px; }
-.ynav-side .year-tabs button { box-shadow: none; border: 2px solid var(--line); }
-.ynav-side .year-tabs button.on { border-color: transparent; box-shadow: 0 3px 0 #4a2fd6; }
+.ynav-side .year-tabs > button { box-shadow: none; border: 2px solid var(--line); }
+.ynav-side .year-tabs > button.on { border-color: transparent; box-shadow: 0 3px 0 #4a2fd6; }
 .ynav-terms { display: grid; gap: 6px; background: var(--surface); border: 2px solid var(--line); border-radius: 18px; padding: 10px; }
 .ynav-terms > small { font-weight: 900; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 0 4px; }
 .ynav-terms button { border: 0; background: transparent; border-radius: 12px; padding: 7px 10px; cursor: pointer; font: inherit; text-align: left; color: var(--ink); display: grid; }
@@ -719,7 +719,7 @@ body.share-view .lc-stage-top .lc-x, body.share-view .teacher-foot, body.share-v
 @media (max-width: 899px) {
   .ynav-side { display: grid; gap: 10px; }
   .ynav-side .year-tabs { display: flex; overflow-x: auto; gap: 8px; padding-bottom: 4px; }
-  .ynav-side .year-tabs button { flex: 0 0 auto; padding: 8px 14px; }
+  .ynav-side .year-tabs > button { flex: 0 0 auto; padding: 8px 14px; }
   .ynav-terms { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
   .ynav-terms > small { grid-column: 1 / -1; }
 }
@@ -765,13 +765,13 @@ body.ynav-on #view-lessons > .section-head { display: none; }
 .lc-steps + .lc-syncbar { margin: 26px 0 8px; padding-top: 14px; border-top: 2px dashed var(--line); justify-content: center; }
 
 /* ---- Colourful version of the side menu + steps (teacher: "not white, all colourful") ---- */
-.ynav-side .year-tabs button { --c: #6b4dff; --d: #a855f7; color: #fff; border: 0; background: linear-gradient(120deg, var(--c), var(--d)); box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 70%, #000); text-shadow: 0 1px 2px rgba(0,0,0,.18); opacity: .82; }
-.ynav-side .year-tabs button:nth-child(2) { --c: #f59e0b; --d: #f97316; }
-.ynav-side .year-tabs button:nth-child(3) { --c: #ec4899; --d: #f472b6; }
-.ynav-side .year-tabs button:nth-child(4) { --c: #0ea5e9; --d: #22d3ee; }
-.ynav-side .year-tabs button:nth-child(5) { --c: #10b981; --d: #84cc16; }
-.ynav-side .year-tabs button:hover { opacity: 1; }
-.ynav-side .year-tabs button.on { opacity: 1; outline: 3px solid color-mix(in srgb, var(--c) 45%, #fff); outline-offset: 2px; box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 70%, #000), 0 8px 18px color-mix(in srgb, var(--c) 40%, transparent); }
+.ynav-side .year-tabs > button { --c: #6b4dff; --d: #a855f7; color: #fff; border: 0; background: linear-gradient(120deg, var(--c), var(--d)); box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 70%, #000); text-shadow: 0 1px 2px rgba(0,0,0,.18); opacity: .82; }
+.ynav-side .year-tabs > button[data-ytab="board"] { --c: #f59e0b; --d: #f97316; }
+.ynav-side .year-tabs > button[data-ytab="students"] { --c: #ec4899; --d: #f472b6; }
+.ynav-side .year-tabs > button[data-ytab="activities"] { --c: #0ea5e9; --d: #22d3ee; }
+.ynav-side .year-tabs > button[data-ytab="rewards"] { --c: #10b981; --d: #84cc16; }
+.ynav-side .year-tabs > button:hover { opacity: 1; }
+.ynav-side .year-tabs > button.on { opacity: 1; outline: 3px solid color-mix(in srgb, var(--c) 45%, #fff); outline-offset: 2px; box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 70%, #000), 0 8px 18px color-mix(in srgb, var(--c) 40%, transparent); }
 .ynav-terms { background: linear-gradient(160deg, color-mix(in srgb, #8b5cf6 14%, var(--surface)), color-mix(in srgb, #ec4899 12%, var(--surface))); border-color: color-mix(in srgb, #8b5cf6 30%, var(--line)); }
 .ynav-terms button[data-sterm] { --c: #f97316; --d: #fb923c; color: #fff; background: linear-gradient(120deg, var(--c), var(--d)); opacity: .8; }
 .ynav-terms button[data-sterm="2"] { --c: #14b8a6; --d: #2dd4bf; }
@@ -844,3 +844,15 @@ body.ynav-on #view-lessons > .section-head { display: none; }
 .lc-note-goal b { color: #d97706; font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; }
 .lc-note-goal p { margin: 2px 0 0; font-weight: 700; font-size: 1.05rem; color: var(--ink); }
 @media (max-width: 640px) { .lc-note-btn { width: 100%; } .lc-note-e { width: 58px; height: 58px; font-size: 2rem; } }
+
+/* Terms as a sub-menu under "Lessons" */
+.year-tabs .ynav-terms { margin: -2px 0 4px 18px; padding: 4px 0 4px 12px; gap: 5px; background: none; border: 0; border-left: 3px solid color-mix(in srgb, #6b4dff 35%, var(--line)); border-radius: 0; }
+.year-tabs .ynav-terms button { padding: 6px 10px; border-radius: 12px; }
+.year-tabs .ynav-terms button b { font-size: .92rem; }
+.year-tabs .ynav-terms button span { font-size: .76rem; }
+.year-tabs .ynav-terms .ynav-about { margin-top: 2px; padding: 6px 10px; font-size: .88rem; }
+@media (max-width: 899px) {
+  .ynav-side .year-tabs { flex-wrap: wrap; overflow: visible; }
+  .year-tabs .ynav-terms { order: 99; flex: 1 1 100%; margin: 4px 0 0; padding: 0; border: 0; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+}
+.year-tabs .ynav-terms button[data-sterm] { display: grid; justify-items: start; justify-content: stretch; text-align: left; }
