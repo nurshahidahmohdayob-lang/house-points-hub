@@ -51,6 +51,7 @@ Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) a
   and answers (Answer: lines, Answer key heading, ✓ or bold option). Teacher confirms answers, then Play (iframe with
   self-checking page from `buildHtml()`), Live play (MCQ/TF only), or Download a standalone student HTML. Saved in
   localStorage `class-points-activities-v1`.
+- 📚 Ready-made worksheets (top of My activities): `worksheetsFor(plan, week)` in lessons.js makes 4 sheets for every LC week (234 weeks): 🔤 Quick check (MCQ from buildLesson choice + quizTen + first/last step), ✅ True or false? (truefalse + quiz yes/no + key-word meanings right/wrong + sort cards "is an example of"), 🔗 Words & meanings (matching key words + fill in the blanks with word bank), ✍️ Think & write (open, teacher-marked). Fixed seeded shuffle, ids `ws-<plan>-<week>-<n>` (not saved; "Copy & edit" saves a copy). Passed to activity.js as `ctx.ready` {plans, make, label}; Year/Term/Topic selects (`readyPick`).
 - 🖨️ Print worksheet (activity.js `printHtml`/`printSheet`): on each My activities card and in the Play header; builds a plain black-and-white A4 sheet (Name/Class/Date/Score lines, ○ options, ☐ True/False, blank lines, empty writing lines, matching with empty letter boxes, no answers) in a hidden iframe and opens the print dialog (Save as PDF = download).
 - ▶️ Teach the lesson = `teachMap` (lessons.js): a two-sided mind map / graphical notes that grows one branch per
   Next (→/Space, O = whole map, drag + wheel to pan/zoom). `mapBranches` builds branches from the same LC data as the

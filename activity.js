@@ -610,13 +610,40 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
   const EMOJIS = ["✏️", "📚", "🧠", "🌟", "🚀", "🌈", "🔍", "🎯", "🧩", "🌍"];
 
   /* ================= Teacher screens ================= */
-  let ctx = null;
-  function open(c) { ctx = c; library(); }
+  let ctx = null, readyPick = null;
+  function open(c) { ctx = c; readyPick = c.plan && c.w ? { id: c.plan.id, week: c.w.week } : readyPick; library(); }
+  const rowHtml = (a) => `<div class="am-item${a.ready ? " ready" : ""}" data-id="${a.id}">
+          <div class="am-emo">${esc(a.emoji || "✏️")}</div>
+          <div class="am-meta"><b>${esc(a.title)}</b><small>${questions(a).length} questions · ${[...new Set(questions(a).map((q) => KINDS[q.type]))].join(" · ")}${a.ready ? "" : `${a.where ? ` · ${esc(a.where)}` : ""} · ${new Date(a.created).toLocaleDateString()}`}${unkeyed(a) ? ` · <span class="am-warn">${unkeyed(a)} ${a.ready ? "for you to mark" : "without an answer"}</span>` : ""}</small></div>
+          <div class="am-btns"><button class="btn" data-a="play">▶ Play</button><button class="btn" data-a="assign" title="Students do it on their own devices and submit each answer — names and marks appear on your board">📲 Students' devices</button><button class="btn ghost" data-a="live" title="A quiz game: everyone answers the same question together">📱 Live game</button><button class="btn ghost" data-a="print" title="Print a paper worksheet (or save it as a PDF) — every answer box is left empty">🖨️ Print worksheet</button><button class="btn ghost" data-a="dl" title="Download the interactive page for students' devices">⬇️ Download</button>${a.ready ? `<button class="btn ghost" data-a="copy" title="Save your own copy in My activities and change it">✏️ Copy &amp; edit</button>` : `<button class="btn ghost" data-a="edit">✏️ Edit</button><button class="btn ghost am-del" data-a="del" title="Delete">🗑</button>`}</div>
+        </div>`;
+
+  // Ready-made worksheets for any year / term / week (made by lessons.js worksheetsFor from the LC lesson)
+  function readyHtml() {
+    const R = ctx.ready; if (!R) return { html: "", list: [] };
+    const plans = R.plans();
+    let plan = plans.find((p) => p.id === readyPick?.id) || plans[0];
+    if (!readyPick || !plan.weeks.some((w) => w.week === readyPick.week)) readyPick = { id: plan.id, week: plan.weeks[0].week };
+    const list = R.make(plan, readyPick.week);
+    const years = [...new Set(plans.map((p) => p.year))].sort((a, b) => a - b);
+    const terms = plans.filter((p) => p.year === plan.year).sort((a, b) => a.term - b.term);
+    return { list, html: `<section class="am-ready">
+      <h3 class="lc-sub">📚 Ready-made worksheets <small class="muted">for every year and topic — ${list.length} for this week</small></h3>
+      <div class="am-rpick">
+        <label>Year <select data-r="year">${years.map((y) => `<option value="${y}" ${y === plan.year ? "selected" : ""}>Year ${y}</option>`).join("")}</select></label>
+        <label>Term <select data-r="term">${terms.map((p) => `<option value="${p.id}" ${p.id === plan.id ? "selected" : ""}>Term ${p.term}</option>`).join("")}</select></label>
+        <label class="wide">Topic <select data-r="week">${plan.weeks.map((w) => `<option value="${w.week}" ${w.week === readyPick.week ? "selected" : ""}>${esc(R.label(plan, w.week))}</option>`).join("")}</select></label>
+      </div>
+      <div class="am-list">${list.map(rowHtml).join("")}</div>
+    </section>`, plan };
+  }
 
   function library() {
     const el = ctx.stage("📄 My activities", { jars: false }), body = $(".lc-stage-body", el);
     const list = load().sort((a, b) => b.created - a.created);
-    body.innerHTML = `<div class="am">
+    const ready = readyHtml();
+    body.innerHTML = `<div class="am">${ready.html}
+      <h3 class="lc-sub">⬆️ Make your own</h3>
       <label class="am-drop" tabindex="0">
         <input type="file" accept=".html,.htm,.txt,text/html,text/plain" hidden>
         <div class="am-drop-ico"><span>📄</span><span class="am-arrow">➜</span><span>🎮</span></div>
@@ -637,11 +664,7 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
           <li>Questions with no options become a box to write in.</li>
         </ul></details>
       <h3 class="lc-sub">📚 My activities${list.length ? ` (${list.length})` : ""}</h3>
-      <div class="am-list">${list.length ? list.map((a) => `<div class="am-item" data-id="${a.id}">
-          <div class="am-emo">${esc(a.emoji || "✏️")}</div>
-          <div class="am-meta"><b>${esc(a.title)}</b><small>${questions(a).length} questions${a.where ? ` · ${esc(a.where)}` : ""} · ${new Date(a.created).toLocaleDateString()}${unkeyed(a) ? ` · <span class="am-warn">${unkeyed(a)} without an answer</span>` : ""}</small></div>
-          <div class="am-btns"><button class="btn" data-a="play">▶ Play</button><button class="btn" data-a="assign" title="Students do it on their own devices and submit each answer — names and marks appear on your board">📲 Students' devices</button><button class="btn ghost" data-a="live" title="A quiz game: everyone answers the same question together">📱 Live game</button><button class="btn ghost" data-a="print" title="Print a paper worksheet (or save it as a PDF) — every answer box is left empty">🖨️ Print worksheet</button><button class="btn ghost" data-a="dl" title="Download the interactive page for students' devices">⬇️ Download</button><button class="btn ghost" data-a="edit">✏️ Edit</button><button class="btn ghost am-del" data-a="del" title="Delete">🗑</button></div>
-        </div>`).join("") : `<p class="muted am-none">Nothing here yet — upload your first worksheet above ⬆️</p>`}</div>
+      <div class="am-list">${list.length ? list.map(rowHtml).join("") : `<p class="muted am-none">Nothing here yet — upload your first worksheet above ⬆️</p>`}</div>
     </div>`;
 
     const drop = $(".am-drop", body), file = $("input[type=file]", drop);
@@ -657,11 +680,19 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
     drop.addEventListener("drop", (e) => { e.preventDefault(); take(e.dataTransfer.files[0]); });
     $(".am-go", body).onclick = () => { const t = $(".am-paste", body).value.trim(); if (t) fromSource(t, "My activity"); else CP().toast("Paste some questions first"); };
 
+    if (ready.plan) {
+      const plans = ctx.ready.plans(), R = (k) => $(`[data-r="${k}"]`, body);
+      R("year").onchange = () => { const p = plans.filter((x) => x.year === +R("year").value).sort((a, b) => a.term - b.term)[0]; readyPick = { id: p.id, week: p.weeks[0].week }; library(); };
+      R("term").onchange = () => { const p = plans.find((x) => x.id === R("term").value); readyPick = { id: p.id, week: p.weeks[0].week }; library(); };
+      R("week").onchange = () => { readyPick = { ...readyPick, week: +R("week").value }; library(); };
+    }
     $$(".am-item", body).forEach((row) => {
-      const a = list.find((x) => x.id === row.dataset.id);
+      const a = list.find((x) => x.id === row.dataset.id) || ready.list.find((x) => x.id === row.dataset.id);
       $$("[data-a]", row).forEach((b) => b.onclick = () => {
         const go = b.dataset.a;
+        if (a.ready && ready.plan) { ctx.plan = ready.plan; ctx.w = ready.plan.weeks.find((w) => w.week === readyPick.week); }
         if (go === "play") play(a);
+        else if (go === "copy") { const c = JSON.parse(JSON.stringify(a)); delete c.ready; c.id = "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); c.created = Date.now(); edit(c, true); }
         else if (go === "edit") edit(a, false);
         else if (go === "dl") download(a);
         else if (go === "print") printSheet(a);

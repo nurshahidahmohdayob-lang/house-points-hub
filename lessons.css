@@ -857,3 +857,19 @@ body.ynav-on #view-lessons > .section-head { display: none; }
 }
 .year-tabs .ynav-terms button[data-sterm] { display: grid; justify-items: start; justify-content: stretch; text-align: left; }
 .year-tabs .ycaret { font-style: normal; margin-left: auto; font-size: .9rem; opacity: .9; }
+
+/* Ready-made worksheets (My activities) */
+.am-ready { background: linear-gradient(135deg, #fff4e0, #ffe3f1 55%, #e6f0ff); border: 2px solid #ffc9e2; border-radius: 22px; padding: 14px 16px 16px; margin-bottom: 18px; }
+.am-ready .lc-sub { margin-top: 2px; }
+.am-ready .lc-sub small { font-size: .78rem; font-weight: 600; }
+.am-rpick { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 12px; }
+.am-rpick label { display: flex; flex-direction: column; gap: 3px; font-weight: 800; font-size: .8rem; color: #8a3d6b; min-width: 110px; }
+.am-rpick label.wide { flex: 1 1 260px; }
+.am-rpick select { font: inherit; font-weight: 700; font-size: .95rem; padding: 8px 10px; border-radius: 12px; border: 2px solid #f3a6cb; background: #fff; color: #241c3d; max-width: 100%; }
+.am-item.ready { background: #fff; border-color: #ffd0e6; }
+.am-item.ready:nth-child(4n+1) { border-left: 8px solid #6b4dff; }
+.am-item.ready:nth-child(4n+2) { border-left: 8px solid #22c55e; }
+.am-item.ready:nth-child(4n+3) { border-left: 8px solid #f97316; }
+.am-item.ready:nth-child(4n+4) { border-left: 8px solid #ec4899; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .am-ready { background: linear-gradient(135deg, #3a2a1a, #3a1f33 55%, #1f2a44); border-color: #6b3a58; } :root:not([data-theme="light"]) .am-item.ready { background: var(--surface); } }
+.am-rpick label { min-width: 0; } .am-rpick label.wide select { width: 100%; }

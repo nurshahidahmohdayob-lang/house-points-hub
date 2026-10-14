@@ -890,6 +890,87 @@
     }
     return items.slice(0, 36);
   }
+  /* ---------------- Ready-made worksheets (📄 My activities): four a week, each a different kind ---------------- */
+  // Made from the week's LC lesson (its questions, key words, notes, steps and examples) with a fixed shuffle, so the
+  // same week always gives the same sheets — a printed copy matches the one on students' devices.
+  function worksheetsFor(plan, week) {
+    const w = weekOf(plan, week), fp = focusParts(w.focus, plan, week), topic = fp.text;
+    const norm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const cap = (s) => { s = String(s || "").trim(); return s.charAt(0).toUpperCase() + s.slice(1); };
+    let seed = [...plan.id + week].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    const mix = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    let L = null; try { L = LC.buildLesson(plan, week); } catch { /* quiz only */ }
+    let quiz = []; try { quiz = LC.quizTen(plan.id, week); } catch { /* lesson only */ }
+    const n = L?.notes || {}, qs = L?.questions || [];
+    const seen = new Set(), fresh = (q) => { const k = norm(q); if (!k || seen.has(k)) return false; seen.add(k); return true; };
+    const info = (text, kind = "p") => ({ type: "info", kind, text });
+
+    // 1 · Quick check: multiple choice (lesson questions, the quiz ten, the order of the steps)
+    const mcq = [];
+    const addMcq = (q, a, options) => {
+      a = cap(a); if (/^(true|false|yes|no)$/i.test(a) || !fresh(q)) return;
+      const opts = [a, ...(options || []).map(cap)].filter((o, i, all) => o && all.findIndex((x) => norm(x) === norm(o)) === i).slice(0, 4);
+      if (opts.length < 3) return seen.delete(norm(q));
+      const o = mix(opts); mcq.push({ type: "mcq", text: q, options: o, answer: o.indexOf(a) });
+    };
+    qs.filter((q) => q.kind === "choice" && q.answer).forEach((q) => addMcq(q.q, q.answer, q.options));
+    quiz.forEach((it) => { let o = []; try { o = LC.optionsForItem(plan.id, it, quiz) || []; } catch { /* no options */ } addMcq(it.q, o.find((x) => norm(x) === norm(it.a)) || it.a, o); });
+    const order = qs.find((q) => q.kind === "order")?.order || n.steps || [];
+    if (order.length >= 3) { addMcq(`${topic}: which step comes first?`, order[0], order); addMcq(`${topic}: which step comes last?`, order[order.length - 1], order); }
+
+    // 2 · True or false (lesson + quiz statements, key-word meanings right and wrong, examples that fit or not)
+    const tf = [];
+    const addTf = (text, yes, labels = ["True", "False"]) => { text = cap(String(text).replace(/^true or false:\s*/i, "")); if (!fresh(text)) return; tf.push({ type: "tf", text, options: labels, answer: yes ? 0 : 1 }); };
+    qs.filter((q) => q.kind === "truefalse" && q.answer).forEach((q) => addTf(q.q, norm(q.answer) === norm(q.options[0]), q.options));
+    quiz.filter((it) => /^(true|false|yes|no)$/i.test(it.a)).forEach((it) => addTf(it.q, /^(true|yes)$/i.test(it.a), /^(yes|no)$/i.test(it.a) ? ["Yes", "No"] : ["True", "False"]));
+    const keys = (n.keywords || []).filter(([k, m]) => k && m);
+    keys.forEach(([k, m], i) => { const other = keys[(i + 2) % keys.length]; i % 2 && other[1] !== m ? addTf(`“${cap(k)}” means ${other[1]}.`, false) : addTf(`“${cap(k)}” means ${m}.`, true); });
+    (qs.find((q) => q.kind === "sort")?.cards || []).forEach((c) => addTf(`“${c.text.replace(/\.$/, "")}” is an example of ${topic}.`, c.group === 0));
+    const tfMix = mix(tf).slice(0, 12);
+
+    // 3 · Words & meanings: matching + fill in the blank with a word bank
+    const words = keys.slice(0, 6).map(([k, m]) => [cap(k), cap(m)]);
+    const blanks = [], used = new Set();
+    qs.filter((q) => q.kind === "gap" && q.answer && /_{3,}/.test(q.q)).forEach((q) => {
+      const [a, b] = q.q.split(/_{3,}/); blanks.push({ type: "blank", segs: [a, { g: 0, choices: mix([q.answer, ...q.options.filter((o) => o !== q.answer)].slice(0, 4)) }, b].filter((s) => s !== ""), answers: [q.answer] }); used.add(norm(q.answer));
+    });
+    // a key word in each sentence (new words first, then any key word, then the sentence's longest word)
+    const reEsc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), done = new Set();
+    const gapIn = (sentence, pass) => {
+      const s = String(sentence || "").trim(); if (blanks.length >= 7 || done.has(norm(s)) || s.split(/\s+/).length < 5) return;
+      let m = null;
+      for (const [k] of keys) { if (pass === 0 && used.has(norm(k))) continue; m = s.match(new RegExp(`\\b${reEsc(k)}(s|es)?\\b`, "i")); if (m) break; }
+      if (!m && pass === 2) { const word = (s.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g) || []).filter((x) => x.length >= 5 && !JG_STOP.has(x.toLowerCase())).sort((p, q) => q.length - p.length)[0]; if (word) m = s.match(new RegExp(`\\b${reEsc(word)}\\b`)); }
+      if (!m) return;
+      done.add(norm(s)); used.add(norm(m[0]));
+      blanks.push({ type: "blank", segs: [s.slice(0, m.index), { g: 0, choices: null }, s.slice(m.index + m[0].length)].filter((x) => x !== ""), answers: [m[0].toLowerCase()] });
+    };
+    const sentences = (t) => String(t || "").split(/(?<=[.!?])\s+/).filter(Boolean);
+    const lines = [...sentences(n.intro), ...(n.branches || []).flatMap((b) => [b.explain, ...sentences(b.detail)]), ...sentences(n.why), L?.idea, ...(L?.points || []), ...(n.steps || []), ...(L?.examples || [])];
+    [0, 1, 2].forEach((pass) => lines.forEach((t) => gapIn(t, pass)));
+    const bank = blanks.filter((b) => !b.segs.some((s) => s.choices)).map((b) => b.answers[0]);
+
+    // 4 · Think & write: written answers the teacher reads (not marked automatically)
+    const open = (text, model) => ({ type: "open", text, model: model || "", mark: false });
+    const writes = [open(`In your own words, what is “${topic}” about?`, L?.idea || n.intro)];
+    if (n.why) writes.push(open("Why does this matter in real life?", n.why));
+    (n.branches || []).slice(0, 2).forEach((b) => writes.push(open(`“${b.title}.” Give your own example.`, b.example)));
+    if (order.length >= 2) writes.push(open(`Write the steps for “${topic}” in the right order.`, order.join(" → ")));
+    writes.push(open(L?.reflect?.kind === "write" && L.reflect.prompt ? L.reflect.prompt : "What did you learn today, and how will you use it?", ""));
+
+    const where = `Year ${plan.year} · T${plan.term} ${calOf(plan, week).label}`;
+    const sheet = (k, emoji, name, items) => ({ id: `ws-${plan.id}-${week}-${k}`, ready: true, created: 0, emoji, title: `${topic} · ${name}`, where, items });
+    return [
+      sheet(1, "🔤", "Quick check", [info("Choose the best answer for each question."), ...mcq.slice(0, 10)]),
+      sheet(2, "✅", "True or false?", [info("Read each sentence. Is it true or false?"), ...tfMix]),
+      sheet(3, "🔗", "Words & meanings", [
+        ...(words.length >= 3 ? [info("Part A · Match the words", "h"), { type: "match", text: "Match each word with its meaning.", pairs: words }] : []),
+        ...(blanks.length ? [info("Part B · Fill in the blanks", "h"), ...(bank.length ? [{ type: "info", kind: "bank", words: mix([...new Set(bank)]) }] : []), ...blanks] : []),
+      ]),
+      sheet(4, "✍️", "Think & write", [info("Write your answers in full sentences."), ...writes]),
+    ].filter((s) => s.items.some((i) => i.type !== "info"));
+  }
   const JG_LOOKS = [["#6b4dff", "#ff6fb5"], ["#0ea5e9", "#22c55e"], ["#f97316", "#facc15"], ["#db2777", "#8b5cf6"], ["#0d9488", "#84cc16"], ["#2563eb", "#06b6d4"], ["#ef4444", "#f59e0b"]];
   const JG_EXTRA = ["🌈", "🚀", "🦋", "🐢", "🌻", "🎨", "🐬", "🏆", "🦁", "🌍"];
   function jigsawPicture(emoji, title, cols, rows, look) {
@@ -989,7 +1070,7 @@
     else if (go === "quiz") teamQuiz(plan, w);
     else if (go === "games") jigsaw(plan, w);
     else if (go === "board") { const g = LC.gameFor(plan.id, w.week); frameGame(plan, w, LC.buildGameHtml(g, gameInput(plan, w)), `🎲 ${esc(g.name)}`); }
-    else if (go === "mine") window.ActivityMaker.open({ stage, starPicker, plan, w, where: `Year ${plan.year} · T${plan.term} ${calOf(plan, w.week).label}`, onClose: (f) => stageCleanup.push(f) });
+    else if (go === "mine") window.ActivityMaker.open({ stage, starPicker, plan, w, where: `Year ${plan.year} · T${plan.term} ${calOf(plan, w.week).label}`, ready: { plans: () => LC.LESSON_PLANS, make: worksheetsFor, label: (p, wk) => `${calOf(p, wk).label} · ${focusParts(weekOf(p, wk).focus, p, wk).text}` }, onClose: (f) => stageCleanup.push(f) });
     else if (go === "run") { const t = LC.runThemeFor(plan.id, w.week); frameGame(plan, w, LC.buildPlatformerHtml(gameInput(plan, w), t, LC.runLevels(plan.id, w.week, w.focus)), `🏃 ${esc(t.name)}`); }
   }
 
