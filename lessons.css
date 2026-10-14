@@ -763,3 +763,51 @@ body.ynav-on #view-lessons > .section-head { display: none; }
 .lc-sharebox { margin-top: 10px; }
 @media (max-width: 520px) { .lc-step { grid-template-columns: 30px minmax(0, 1fr); gap: 10px; } .lc-n { width: 30px; height: 30px; font-size: 1rem; } .lc-step:not(:last-child)::before { left: 14px; top: 34px; } }
 .lc-steps + .lc-syncbar { margin: 26px 0 8px; padding-top: 14px; border-top: 2px dashed var(--line); justify-content: center; }
+
+/* ---- Colourful version of the side menu + steps (teacher: "not white, all colourful") ---- */
+.ynav-side .year-tabs button { --c: #6b4dff; --d: #a855f7; color: #fff; border: 0; background: linear-gradient(120deg, var(--c), var(--d)); box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 70%, #000); text-shadow: 0 1px 2px rgba(0,0,0,.18); opacity: .82; }
+.ynav-side .year-tabs button:nth-child(2) { --c: #f59e0b; --d: #f97316; }
+.ynav-side .year-tabs button:nth-child(3) { --c: #ec4899; --d: #f472b6; }
+.ynav-side .year-tabs button:nth-child(4) { --c: #0ea5e9; --d: #22d3ee; }
+.ynav-side .year-tabs button:nth-child(5) { --c: #10b981; --d: #84cc16; }
+.ynav-side .year-tabs button:hover { opacity: 1; }
+.ynav-side .year-tabs button.on { opacity: 1; outline: 3px solid color-mix(in srgb, var(--c) 45%, #fff); outline-offset: 2px; box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 70%, #000), 0 8px 18px color-mix(in srgb, var(--c) 40%, transparent); }
+.ynav-terms { background: linear-gradient(160deg, color-mix(in srgb, #8b5cf6 14%, var(--surface)), color-mix(in srgb, #ec4899 12%, var(--surface))); border-color: color-mix(in srgb, #8b5cf6 30%, var(--line)); }
+.ynav-terms button[data-sterm] { --c: #f97316; --d: #fb923c; color: #fff; background: linear-gradient(120deg, var(--c), var(--d)); opacity: .8; }
+.ynav-terms button[data-sterm="2"] { --c: #14b8a6; --d: #2dd4bf; }
+.ynav-terms button[data-sterm="3"] { --c: #8b5cf6; --d: #c084fc; }
+.ynav-terms button[data-sterm] span { color: rgba(255,255,255,.92); }
+.ynav-terms button[data-sterm]:hover { background: linear-gradient(120deg, var(--c), var(--d)); opacity: 1; }
+.ynav-terms button[data-sterm].on { opacity: 1; color: #fff; background: linear-gradient(120deg, var(--c), var(--d)); outline: 3px solid color-mix(in srgb, var(--c) 45%, #fff); outline-offset: 2px; }
+.ynav-terms button[data-sterm].on b::after { content: " ✓"; }
+.ynav-terms .ynav-about { color: #fff; border: 0; background: linear-gradient(120deg, #ec4899, #f43f5e); }
+.ynav-terms .ynav-about:hover { background: linear-gradient(120deg, #db2777, #e11d48); }
+.ynav-terms .ynav-about.on { outline: 3px solid #fbcfe8; outline-offset: 2px; }
+
+.lc-step { --c: #f97316; --d: #fb923c; }
+.lc-step:nth-child(2) { --c: #7c3aed; --d: #a855f7; }
+.lc-step:nth-child(3) { --c: #0ea5e9; --d: #6366f1; }
+.lc-step:nth-child(4) { --c: #10b981; --d: #22c55e; }
+.lc-n { background: linear-gradient(135deg, var(--c), var(--d)); box-shadow: 0 3px 0 color-mix(in srgb, var(--c) 65%, #000); }
+.lc-shead h3 { color: var(--c); }
+.lc-weekpick { border: 0; color: #fff; background: linear-gradient(120deg, var(--c), var(--d)); box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 65%, #000); }
+.lc-weekpick small { color: rgba(255,255,255,.92); }
+.lc-weekpick i { color: #fff; background: rgba(255,255,255,.25); }
+.lc-weekpick:hover { filter: brightness(1.05); }
+.lc-steps .lc-home { border: 2px solid color-mix(in srgb, var(--c) 35%, var(--line)); background: linear-gradient(140deg, color-mix(in srgb, var(--c) 14%, var(--surface)), color-mix(in srgb, #ec4899 10%, var(--surface))); }
+.lc-steps .lc-obj { background: color-mix(in srgb, var(--c) 12%, var(--surface)); }
+.lc-steps .lc-act { --t: #ef4444; --u: #f97316; border: 0; color: #fff; background: linear-gradient(135deg, var(--t), var(--u)); box-shadow: 0 4px 0 color-mix(in srgb, var(--t) 65%, #000); text-shadow: 0 1px 2px rgba(0,0,0,.18); }
+.lc-steps .lc-act:nth-child(2) { --t: #7c3aed; --u: #c084fc; }
+.lc-steps .lc-act:nth-child(3) { --t: #16a34a; --u: #4ade80; }
+.lc-steps .lc-act:nth-child(4) { --t: #0284c7; --u: #38bdf8; }
+.lc-steps .lc-act:nth-child(5) { --t: #d97706; --u: #fbbf24; }
+.lc-steps .lc-act:nth-child(6) { --t: #db2777; --u: #f472b6; }
+.lc-steps .lc-act small { color: rgba(255,255,255,.93); }
+.lc-steps .lc-act:hover { border: 0; filter: brightness(1.06); }
+.lc-live2 a { background: #fff; color: #16a34a; text-shadow: none; }
+.lc-live2 a + a { background: rgba(255,255,255,.28); color: #fff; }
+.lc-wrapbtn { --t: #f59e0b; --u: #facc15; border: 0; color: #fff; background: linear-gradient(120deg, var(--t), var(--u)); box-shadow: 0 4px 0 color-mix(in srgb, var(--t) 65%, #000); text-shadow: 0 1px 2px rgba(0,0,0,.18); }
+.lc-wrapbtn:nth-child(2) { --t: #0ea5e9; --u: #6366f1; }
+.lc-wrapbtn:nth-child(3) { --t: #ec4899; --u: #a855f7; }
+.lc-wrapbtn small { color: rgba(255,255,255,.93); }
+.lc-wrapbtn:hover, .lc-wrapbtn.on { filter: brightness(1.06); outline: 3px solid color-mix(in srgb, var(--t) 40%, #fff); outline-offset: 2px; }
