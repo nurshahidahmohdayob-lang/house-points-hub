@@ -811,3 +811,36 @@ body.ynav-on #view-lessons > .section-head { display: none; }
 .lc-wrapbtn:nth-child(3) { --t: #ec4899; --u: #a855f7; }
 .lc-wrapbtn small { color: rgba(255,255,255,.93); }
 .lc-wrapbtn:hover, .lc-wrapbtn.on { filter: brightness(1.06); outline: 3px solid color-mix(in srgb, var(--t) 40%, #fff); outline-offset: 2px; }
+
+/* Teacher-only pages (Leaderboard, Award, Rewards): password box */
+.tlock { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: rgba(30, 20, 60, .45); backdrop-filter: blur(3px); }
+.tlock-card { width: min(380px, 100%); background: var(--surface); color: var(--ink); border-radius: 22px; padding: 22px; display: grid; gap: 10px; text-align: center; box-shadow: 0 20px 50px rgba(30, 20, 60, .35); }
+.tlock-e { font-size: 2.4rem; }
+.tlock-card h2 { margin: 0; font-family: "Baloo 2", sans-serif; }
+.tlock-card p { margin: 0; }
+.tlock-card input { font: inherit; font-size: 1.2rem; text-align: center; letter-spacing: .2em; padding: 10px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg); color: var(--ink); }
+.tlock-btns { display: flex; gap: 8px; justify-content: center; }
+.year-tabs .ylock { font-style: normal; margin-left: auto; font-size: .85rem; opacity: .9; }
+
+/* Step 2 "Note" card: colourful header + today's goal */
+.lc-note { border-radius: 22px; overflow: hidden; background: var(--surface); box-shadow: 0 6px 0 color-mix(in srgb, #7c3aed 55%, #000), 0 14px 30px rgba(124, 58, 237, .25); }
+.lc-note-top { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 20px 22px; color: #fff; background: linear-gradient(120deg, #7c3aed, #c026d3 55%, #ec4899); position: relative; }
+.lc-note-top::after { content: ""; position: absolute; right: -40px; top: -60px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,.09); pointer-events: none; }
+.lc-note-e { flex: none; width: 74px; height: 74px; border-radius: 22px; display: grid; place-items: center; font-size: 2.6rem; background: rgba(255,255,255,.22); box-shadow: inset 0 0 0 2px rgba(255,255,255,.35); }
+.lc-note-txt { flex: 1 1 300px; min-width: 0; display: grid; gap: 6px; }
+.lc-note-txt small { font-weight: 800; opacity: .92; }
+.lc-note-txt h2 { margin: 0; font-family: "Baloo 2", sans-serif; font-size: clamp(1.5rem, 2.6vw, 2.1rem); line-height: 1.1; text-wrap: balance; text-shadow: 0 2px 4px rgba(0,0,0,.18); }
+.lc-note-txt .lc-also { color: #fff; }
+.lc-note-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lc-note-chips span { font-weight: 800; font-size: .85rem; padding: 4px 11px; border-radius: 999px; background: rgba(255,255,255,.2); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.35); }
+.lc-note-btn { position: relative; z-index: 1; flex: none; border: 0; cursor: pointer; font: inherit; display: grid; justify-items: center; gap: 2px; padding: 14px 26px; border-radius: 20px; background: #fff; color: #7c3aed; box-shadow: 0 5px 0 rgba(60, 10, 110, .35); transition: transform .12s; }
+.lc-note-btn span { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-size: 1.3rem; color: #fff; background: linear-gradient(135deg, #7c3aed, #ec4899); }
+.lc-note-btn b { font-size: 1.15rem; }
+.lc-note-btn small { color: #8b5cf6; font-weight: 700; }
+.lc-note-btn:hover { transform: translateY(-2px); }
+.lc-note-btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.lc-note-goal { display: flex; gap: 12px; align-items: flex-start; padding: 14px 22px; background: linear-gradient(120deg, color-mix(in srgb, #f59e0b 16%, var(--surface)), color-mix(in srgb, #ec4899 10%, var(--surface))); }
+.lc-note-goal > span { font-size: 1.6rem; line-height: 1; }
+.lc-note-goal b { color: #d97706; font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; }
+.lc-note-goal p { margin: 2px 0 0; font-weight: 700; font-size: 1.05rem; color: var(--ink); }
+@media (max-width: 640px) { .lc-note-btn { width: 100%; } .lc-note-e { width: 58px; height: 58px; font-size: 2rem; } }

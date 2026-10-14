@@ -283,17 +283,19 @@
         </div></li>
         <li class="lc-step"><span class="lc-n">2</span><div class="lc-sbody">
           <div class="lc-shead"><h3>Note</h3><small>Mind map · warm-up · questions</small></div>
-          <div class="card lc-home"><div class="lc-home-head">
-            <div class="lc-big-emoji">${fp.emoji}</div>
-            <div>
-              <div class="muted small">Year ${plan.year} · Term ${plan.term} · ${esc(cal.label)}${cal.date ? ` · 📅 ${esc(cal.date)}${cal.time ? ` ${esc(cal.time)}` : ""}` : ""}</div>
-              ${cal.with.length ? `<div class="lc-also">Taught together with: ${cal.with.map((n) => `<button class="lc-chip" data-week="${n}">${esc(focusParts(weekOf(plan, n).focus, plan, n).text)}</button>`).join(" ")}</div>` : ""}
-              <h2 class="lc-title">${esc(fp.text)}</h2>
-              <div class="lc-badges">${(plan.competencies || []).map((c) => `<span class="lc-badge">🧠 ${esc(c)}</span>`).join("")}${(plan.values || []).map((v) => `<span class="lc-badge v">💎 ${esc(v)}</span>`).join("")}</div>
+          <div class="lc-note">
+            <div class="lc-note-top">
+              <span class="lc-note-e">${fp.emoji}</span>
+              <div class="lc-note-txt">
+                <small>Year ${plan.year} · Term ${plan.term} · ${esc(cal.label)}${cal.date ? ` · ${esc(cal.date)}${cal.time ? ` · ${esc(cal.time)}` : ""}` : ""}</small>
+                <h2>${esc(fp.text)}</h2>
+                ${cal.with.length ? `<div class="lc-also">Taught together with: ${cal.with.map((n) => `<button class="lc-chip" data-week="${n}">${esc(focusParts(weekOf(plan, n).focus, plan, n).text)}</button>`).join(" ")}</div>` : ""}
+                <div class="lc-note-chips">${(plan.competencies || []).map((c) => `<span>🧠 ${esc(c)}</span>`).join("")}${(plan.values || []).map((v) => `<span>💎 ${esc(v)}</span>`).join("")}</div>
+              </div>
+              <button class="lc-note-btn" data-go="teach" title="Interactive mind map that grows as you teach, with questions inside"><span>▶</span><b>Open the note</b><small>Mind map with questions inside</small></button>
             </div>
-            <button class="lc-teachbtn" data-go="teach" title="Interactive mind map that grows as you teach, with questions inside"><span>▶️</span><b>Open the note</b><small>Mind map with questions inside</small></button>
+            ${w.objectives ? `<div class="lc-note-goal"><span>🎯</span><div><b>Today's goal</b><p>${esc(w.objectives)}</p></div></div>` : ""}
           </div>
-          ${w.objectives ? `<p class="lc-obj"><b>🎯 Today:</b> ${esc(w.objectives)}</p>` : ""}</div>
         </div></li>
         <li class="lc-step"><span class="lc-n">3</span><div class="lc-sbody">
           <div class="lc-shead"><h3>Play</h3><small>Every game uses this week's questions</small></div>
@@ -996,6 +998,7 @@
   let footAsk = false;
   function renderFoot() {
     const f = $("#teacherFoot"); if (!f) return;
+    if (typeof renderYearNav === "function" && $("#yearNav")) setTimeout(renderYearNav, 0);
     f.innerHTML = syncOpen()
       ? `<button class="btn ghost" data-foot="history">📜 History</button><button class="btn ghost" data-foot="settings">⚙️ Setup</button><button class="btn ghost" data-footlock>🔒 Lock</button>`
       : footAsk
@@ -1019,6 +1022,38 @@
   });
   renderFoot();
 
+  // Leaderboard, Award and Rewards are teacher-only: same teacher password as Sync/Setup (unlocked per tab).
+  const TEACHER_TABS = new Set(["board", "students", "rewards"]);
+  function askTeacher(then) {
+    $(".tlock")?.remove();
+    const box = document.createElement("div");
+    box.className = "tlock";
+    box.innerHTML = `<form class="tlock-card" data-tlock><div class="tlock-e">🔒</div><h2>Teacher only</h2><p class="muted">Leaderboard, Award and Rewards need the teacher password.</p>
+      <input type="password" inputmode="numeric" autocomplete="off" required placeholder="Teacher password" aria-label="Teacher password" data-tlockpw>
+      <span class="lc-syncerr" hidden>❌ Wrong password</span>
+      <div class="tlock-btns"><button type="button" class="btn ghost" data-tlockno>Cancel</button><button class="btn">Unlock</button></div></form>`;
+    document.body.appendChild(box);
+    const form = $("[data-tlock]", box), pw = $("[data-tlockpw]", box);
+    pw.focus();
+    $("[data-tlockno]", box).onclick = () => box.remove();
+    box.addEventListener("click", (e) => { if (e.target === box) box.remove(); });
+    box.addEventListener("keydown", (e) => { if (e.key === "Escape") box.remove(); });
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      if (await sha256(pw.value.trim()) === SYNC_PASS_SHA) {
+        try { sessionStorage.setItem("lc-sync-ok", "1"); sessionStorage.setItem("lc-teacher-pw", pw.value.trim()); } catch {}
+        box.remove(); renderFoot(); then();
+      } else { $(".lc-syncerr", box).hidden = false; pw.value = ""; pw.focus(); }
+    };
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-ytab], [data-tab]"); if (!b) return;
+    const k = b.dataset.ytab || b.dataset.tab;
+    if (!TEACHER_TABS.has(k) || syncOpen()) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    askTeacher(() => b.click());
+  }, true);
+
   // Each year group has its own menu (Lessons, Leaderboard, Award, Activities, Rewards) under its banner, instead of
   // those tabs sitting in the top bar. The other pages open filtered to the year (window.currentYear, read by app.js).
   const YEAR_TABS = [["lessons", "📚", "Lessons"], ["board", "🏆", "Leaderboard"], ["students", "⭐", "Award"], ["activities", "🎲", "Activities"], ["rewards", "🎁", "Rewards"]];
@@ -1030,7 +1065,7 @@
     window.currentYear = on ? pick.year : null;
     let head = ""; try { head = yearHeader(pick.year); } catch { head = `<div class="year-head"><button class="btn ghost" data-home>‹ All years</button><h2>Year ${pick.year}</h2></div>`; }
     const terms = active === "lessons" && LC ? [1, 2, 3].map((t) => planFor(pick.year, t)).filter(Boolean) : [];
-    nav.innerHTML = on ? `${head}<aside class="ynav-side"><nav class="year-tabs">${YEAR_TABS.map(([k, e, t]) => `<button data-ytab="${k}" class="${k === active ? "on" : ""}"><span>${e}</span>${t}</button>`).join("")}</nav>
+    nav.innerHTML = on ? `${head}<aside class="ynav-side"><nav class="year-tabs">${YEAR_TABS.map(([k, e, t]) => `<button data-ytab="${k}" class="${k === active ? "on" : ""}"><span>${e}</span>${t}${TEACHER_TABS.has(k) && !syncOpen() ? `<i class="ylock" title="Teacher only">🔒</i>` : ""}</button>`).join("")}</nav>
       ${terms.length ? `<div class="ynav-terms"><small>Terms</small>${terms.map((p) => `<button data-sterm="${p.term}" class="${p.term === pick.term ? "on" : ""}"><b>Term ${p.term}</b><span>${esc(p.title)}</span></button>`).join("")}
         <button data-sabout class="ynav-about ${aboutOpen ? "on" : ""}">ℹ️ About Term ${pick.term}</button></div>` : ""}</aside>` : "";
     document.body.classList.toggle("ynav-on", on);
