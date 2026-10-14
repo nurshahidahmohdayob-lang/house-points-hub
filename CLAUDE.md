@@ -46,7 +46,7 @@ Group colours are applied in CSS by tinting the white lid render (`.lid-tint`) a
   needs the school's teacher key (typed by the teacher, kept only in sessionStorage). Right answers give the
   matching Class Points student +1 (matched by name), so their group jar fills too.
 - Old address house-points-hub.vercel.app now forwards to lifecomp.vercel.app via move.js (carries localStorage in the URL hash; new side imports, asks before overwriting different data).
-- 📄 My activities (`activity.js`, card on each lesson week): teacher uploads a worksheet (.html/.txt or pasted text);
+- 📄 My activities (`activity.js`, card on each lesson week): upload / paste / tips section removed on request (parse() still used by tests); list shows saved copies. Originally: teacher uploads a worksheet (.html/.txt or pasted text);
   `parse()` finds numbered questions, a)/b) options, ____ blanks, (True/False), 2-column tables (matching), form controls,
   and answers (Answer: lines, Answer key heading, ✓ or bold option). Teacher confirms answers, then Play (iframe with
   self-checking page from `buildHtml()`), Live play (MCQ/TF only), or Download a standalone student HTML. Saved in

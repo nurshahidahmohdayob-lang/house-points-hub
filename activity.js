@@ -643,42 +643,9 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
     const list = load().sort((a, b) => b.created - a.created);
     const ready = readyHtml();
     body.innerHTML = `<div class="am">${ready.html}
-      <h3 class="lc-sub">⬆️ Make your own</h3>
-      <label class="am-drop" tabindex="0">
-        <input type="file" accept=".html,.htm,.txt,text/html,text/plain" hidden>
-        <div class="am-drop-ico"><span>📄</span><span class="am-arrow">➜</span><span>🎮</span></div>
-        <b>Upload your activity document</b>
-        <small>Drop an HTML file here, or tap to choose one (.html, .htm or .txt)</small>
-      </label>
-      <details class="am-more"><summary>✍️ …or paste your questions as text</summary>
-        <textarea class="am-paste" rows="7" placeholder="1. What is the capital of Malaysia?&#10;a) Penang  b) Kuala Lumpur  c) Ipoh&#10;Answer: b&#10;&#10;2. The sun is a star. (True/False)&#10;Answer: True&#10;&#10;3. A baby cat is called a ______.&#10;Answer: kitten"></textarea>
-        <button class="btn am-go">✨ Make it interactive</button></details>
-      <details class="am-more"><summary>💡 How to write questions so they turn out best</summary>
-        <ul class="am-tips">
-          <li><b>Number each question</b> — <code>1.</code> <code>2.</code> or <code>Q1:</code></li>
-          <li><b>Multiple choice:</b> options on new lines as <code>a)</code> <code>b)</code> <code>c)</code>, or all on one line</li>
-          <li><b>Fill in the blank:</b> use <code>_____</code> where the answer goes</li>
-          <li><b>True / False:</b> add <code>(True/False)</code> after the sentence</li>
-          <li><b>Matching:</b> a table with two columns</li>
-          <li><b>Answers:</b> a line <code>Answer: b</code> under the question, an <b>Answer key</b> heading at the end, a ✓ next to the right option, or the right option in <b>bold</b>. You can also tap the right answers after uploading.</li>
-          <li>Questions with no options become a box to write in.</li>
-        </ul></details>
       <h3 class="lc-sub">📚 My activities${list.length ? ` (${list.length})` : ""}</h3>
-      <div class="am-list">${list.length ? list.map(rowHtml).join("") : `<p class="muted am-none">Nothing here yet — upload your first worksheet above ⬆️</p>`}</div>
+      <div class="am-list">${list.length ? list.map(rowHtml).join("") : `<p class="muted am-none">Nothing here yet — tap ✏️ Copy &amp; edit on a worksheet above to keep your own version</p>`}</div>
     </div>`;
-
-    const drop = $(".am-drop", body), file = $("input[type=file]", drop);
-    const take = async (f) => {
-      if (!f) return;
-      if (/\.(docx?|pdf|pptx?)$/i.test(f.name)) return CP().toast("📄 Please save it as a Web Page (.html) first: File › Save As › Web Page");
-      try { const text = await f.text(); fromSource(text, f.name); } catch { CP().toast("⚠️ Couldn't read that file"); }
-    };
-    file.onchange = () => take(file.files[0]);
-    drop.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); file.click(); } };
-    ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
-    ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, () => drop.classList.remove("over")));
-    drop.addEventListener("drop", (e) => { e.preventDefault(); take(e.dataTransfer.files[0]); });
-    $(".am-go", body).onclick = () => { const t = $(".am-paste", body).value.trim(); if (t) fromSource(t, "My activity"); else CP().toast("Paste some questions first"); };
 
     if (ready.plan) {
       const plans = ctx.ready.plans(), R = (k) => $(`[data-r="${k}"]`, body);
@@ -704,15 +671,6 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
         }
       });
     });
-  }
-
-  function fromSource(text, name) {
-    const act = parse(text, name);
-    act.id = "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    act.created = Date.now();
-    act.emoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-    act.where = ctx.where || "";
-    edit(act, true);
   }
 
   function edit(src, isNew, after) {
