@@ -854,7 +854,7 @@
   }
 
   /* ---------------- Jigsaw puzzles: drag each answer piece onto its question; right pieces build a picture ---------------- */
-  // At least 30 questions a week, 6 per puzzle, none shared with Team Quiz or the board game: the jigsaw's third of
+  // 50 questions a week (was 30; +20 on request), 6 per puzzle, none shared with Team Quiz or the board game: the jigsaw's third of
   // questionSets, then questions made from the lesson itself (word ↔ meaning, fill-the-gap on its ideas, steps, examples
   // and success criteria, true/false on the sort cards, the lesson's own gap and match questions), then — only if a week
   // is still short — revision from the term's other weeks (marked 🔁).
@@ -890,16 +890,17 @@
     (n.steps || []).forEach(gap); (n.criteria || []).forEach((c) => gap(String(c).replace(/^I can /, "I can "))); sentences(n.why).forEach(gap); sentences(n.intro).forEach(gap);
     return out;
   }
+  const JG_N = 50;
   function jigsawItems(plan, w) {
     const items = jigsawOwn(plan, w.week);
     const seen = new Set(items.map((x) => x.q));
     const others = plan.weeks.map((x) => x.week).filter((n) => n !== w.week).sort((p, q) => (p < w.week ? w.week - p : 100 + p) - (q < w.week ? w.week - q : 100 + q));
     for (const n of others) {
-      if (items.length >= 30) break;
+      if (items.length >= JG_N) break;
       const label = calOf(plan, n).label || `Week ${n}`;
-      for (const x of jigsawOwn(plan, n)) { if (items.length >= 30) break; if (seen.has(x.q)) continue; seen.add(x.q); items.push({ q: `🔁 ${label}: ${x.q}`, a: x.a }); }
+      for (const x of jigsawOwn(plan, n)) { if (items.length >= JG_N) break; if (seen.has(x.q)) continue; seen.add(x.q); items.push({ q: `🔁 ${label}: ${x.q}`, a: x.a }); }
     }
-    return items.slice(0, 36);
+    return items.slice(0, JG_N);
   }
   /* ---------------- Ready-made worksheets (📄 My activities): four a week, each a different kind ---------------- */
   // Made from the week's LC lesson (its questions, key words, notes, steps and examples) with a fixed shuffle, so the
