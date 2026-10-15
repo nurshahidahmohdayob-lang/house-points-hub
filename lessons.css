@@ -873,3 +873,21 @@ body.ynav-on #view-lessons > .section-head { display: none; }
 .am-item.ready:nth-child(4n+4) { border-left: 8px solid #ec4899; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .am-ready { background: linear-gradient(135deg, #3a2a1a, #3a1f33 55%, #1f2a44); border-color: #6b3a58; } :root:not([data-theme="light"]) .am-item.ready { background: var(--surface); } }
 .am-rpick label { min-width: 0; } .am-rpick label.wide select { width: 100%; }
+
+/* Students' answers: handed-out links + who still has to hand in */
+.am-sent { background: linear-gradient(135deg, #e6fff3, #e6f0ff); border: 2px solid #9fe3c4; border-radius: 22px; padding: 14px 16px 16px; margin-bottom: 18px; }
+.am-sent .lc-sub small { font-size: .78rem; font-weight: 600; }
+.am-sentlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.am-sentrow { display: flex; align-items: center; gap: 10px; text-align: left; font: inherit; cursor: pointer; background: #fff; color: #241c3d; border: 2px solid #b9ebd3; border-left: 8px solid #22c55e; border-radius: 16px; padding: 8px 10px; }
+.am-sentrow:hover { transform: translateY(-1px); border-color: #22c55e; }
+.am-sentrow span:nth-child(2) { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.am-sentrow b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.am-sentrow small { color: #5b6b63; font-weight: 700; }
+.am-sentrow .am-emo { font-size: 1.5rem; }
+.am-res { background: linear-gradient(135deg, #22c55e, #0ea5e9) !important; color: #fff !important; }
+.as-pick { display: grid; gap: 8px; margin: 10px 0; }
+.as-todo { width: 100%; text-align: left; margin-top: 4px; }
+.as-todo b { display: block; font-size: .9rem; margin-bottom: 4px; }
+.as-todo div { display: flex; flex-wrap: wrap; gap: 4px; max-height: 180px; overflow: auto; }
+.as-todo span { background: #fff4e0; border: 1px solid #ffd59a; color: #8a4b00; border-radius: 999px; padding: 2px 9px; font-size: .78rem; font-weight: 700; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .am-sent { background: linear-gradient(135deg, #12352a, #1f2a44); border-color: #2f6b52; } :root:not([data-theme="light"]) .am-sentrow { background: var(--surface); color: inherit; } }

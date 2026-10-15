@@ -615,7 +615,7 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
   const rowHtml = (a) => `<div class="am-item${a.ready ? " ready" : ""}" data-id="${a.id}">
           <div class="am-emo">${esc(a.emoji || "✏️")}</div>
           <div class="am-meta"><b>${esc(a.title)}</b><small>${questions(a).length} questions · ${[...new Set(questions(a).map((q) => KINDS[q.type]))].join(" · ")}${a.ready ? "" : `${a.where ? ` · ${esc(a.where)}` : ""} · ${new Date(a.created).toLocaleDateString()}`}${unkeyed(a) ? ` · <span class="am-warn">${unkeyed(a)} ${a.ready ? "for you to mark" : "without an answer"}</span>` : ""}</small></div>
-          <div class="am-btns"><button class="btn" data-a="play">▶ Play</button><button class="btn" data-a="assign" title="Students do it on their own devices and submit each answer — names and marks appear on your board">📲 Students' devices</button><button class="btn ghost" data-a="live" title="A quiz game: everyone answers the same question together">📱 Live game</button><button class="btn ghost" data-a="print" title="Print a paper worksheet (or save it as a PDF) — every answer box is left empty">🖨️ Print worksheet</button><button class="btn ghost" data-a="dl" title="Download the interactive page for students' devices">⬇️ Download</button>${a.ready ? `<button class="btn ghost" data-a="copy" title="Save your own copy in My activities and change it">✏️ Copy &amp; edit</button>` : `<button class="btn ghost" data-a="edit">✏️ Edit</button><button class="btn ghost am-del" data-a="del" title="Delete">🗑</button>`}</div>
+          <div class="am-btns"><button class="btn" data-a="play">▶ Play</button><button class="btn" data-a="assign" title="Students do it on their own devices and submit each answer — names and marks appear on your board">📲 Students' devices</button>${sentFor(a.id).length ? `<button class="btn am-res" data-a="results" title="Who has handed in, and every answer — right or wrong">📊 Answers</button>` : ""}<button class="btn ghost" data-a="live" title="A quiz game: everyone answers the same question together">📱 Live game</button><button class="btn ghost" data-a="print" title="Print a paper worksheet (or save it as a PDF) — every answer box is left empty">🖨️ Print worksheet</button><button class="btn ghost" data-a="dl" title="Download the interactive page for students' devices">⬇️ Download</button>${a.ready ? `<button class="btn ghost" data-a="copy" title="Save your own copy in My activities and change it">✏️ Copy &amp; edit</button>` : `<button class="btn ghost" data-a="edit">✏️ Edit</button><button class="btn ghost am-del" data-a="del" title="Delete">🗑</button>`}</div>
         </div>`;
 
   // Ready-made worksheets for any year / term / week (made by lessons.js worksheetsFor from the LC lesson)
@@ -641,12 +641,14 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
   function library() {
     const el = ctx.stage("📄 My activities", { jars: false }), body = $(".lc-stage-body", el);
     const list = load().sort((a, b) => b.created - a.created);
-    const ready = readyHtml();
-    body.innerHTML = `<div class="am">${ready.html}
+    const ready = readyHtml(), sent = sentAll().sort((a, b) => b.at - a.at);
+    body.innerHTML = `<div class="am">${sent.length ? `<section class="am-sent"><h3 class="lc-sub">📊 Students' answers <small class="muted">— tap one to see who has handed in and what they answered</small></h3>
+      <div class="am-sentlist">${sent.slice(0, 30).map((x, k) => `<button class="am-sentrow" data-sent="${k}"><span class="am-emo">${esc(x.act.emoji || "📄")}</span><span><b>${esc(x.act.title)}</b><small>👥 ${esc(x.cls)} · ${new Date(x.at).toLocaleDateString()}</small></span><i>📊</i></button>`).join("")}</div></section>` : ""}${ready.html}
       <h3 class="lc-sub">📚 My activities${list.length ? ` (${list.length})` : ""}</h3>
       <div class="am-list">${list.length ? list.map(rowHtml).join("") : `<p class="muted am-none">Nothing here yet — tap ✏️ Copy &amp; edit on a worksheet above to keep your own version</p>`}</div>
     </div>`;
 
+    $$("[data-sent]", body).forEach((b) => b.onclick = () => reopen(sent[+b.dataset.sent]));
     if (ready.plan) {
       const plans = ctx.ready.plans(), R = (k) => $(`[data-r="${k}"]`, body);
       R("year").onchange = () => { const p = plans.filter((x) => x.year === +R("year").value).sort((a, b) => a.term - b.term)[0]; readyPick = { id: p.id, week: p.weeks[0].week }; library(); };
@@ -659,6 +661,7 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
         const go = b.dataset.a;
         if (a.ready && ready.plan) { ctx.plan = ready.plan; ctx.w = ready.plan.weeks.find((w) => w.week === readyPick.week); }
         if (go === "play") play(a);
+        else if (go === "results") pickResults(a);
         else if (go === "copy") { const c = JSON.parse(JSON.stringify(a)); delete c.ready; c.id = "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); c.created = Date.now(); edit(c, true); }
         else if (go === "edit") edit(a, false);
         else if (go === "dl") download(a);
@@ -809,6 +812,46 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
   }
 
   const KEY_STORE = "class-points-live-key";
+  // Every link handed out on this device (any activity, ready-made too), so the teacher can come back to the answers
+  const SENT = "class-points-assign-links-v1";
+  const sentAll = () => { try { return JSON.parse(localStorage.getItem(SENT) || "[]"); } catch { return []; } };
+  const sentFor = (id) => sentAll().filter((x) => x.id === id);
+  function remember(act, g) {
+    const items = act.items.map((i) => (i.type === "info" && i.kind === "img" && /^data:/.test(i.src) ? { type: "info", kind: "skip" } : i));
+    const list = sentAll().filter((x) => x.token !== g.token);
+    list.push({ id: act.id, cls: g.cls, year: g.year || null, token: g.token, at: Date.now(), act: { id: act.id, title: act.title, emoji: act.emoji, where: act.where, ready: act.ready, items } });
+    try { localStorage.setItem(SENT, JSON.stringify(list.slice(-80))); } catch { /* full: still works this visit */ }
+  }
+  // Open a handed-out link's answers again (asks for the teacher key if this tab doesn't have it yet)
+  function reopen(x) {
+    let key = ""; try { key = sessionStorage.getItem(KEY_STORE) || ""; } catch { /* private mode */ }
+    const go = (k) => results(x.act, { key: k, token: x.token, cls: x.cls, year: x.year });
+    if (key) return go(key);
+    CP().modal(`<h2>📊 ${esc(x.act.title)} · ${esc(x.cls)}</h2>
+      <label class="edit-label">Teacher key <input data-key type="password" autocomplete="current-password" placeholder="The school's teacher key (same as Live play)" /></label>
+      <p class="lv-err" hidden></p>
+      <div class="opts"><button class="btn ghost" data-no>Cancel</button><button class="btn" data-go>📊 See answers</button></div>`, (d) => {
+      $("[data-no]", d).onclick = () => d.close();
+      $("[data-go]", d).onclick = async () => {
+        const k = $("[data-key]", d).value.trim(), err = $(".lv-err", d);
+        if (!k) { err.hidden = false; err.textContent = "Type the teacher key first."; return; }
+        try { await window.Live.rpc("lesson_submissions_for", { p_key: k, p_token: x.token }); }
+        catch (e) { err.hidden = false; err.textContent = "⚠️ " + (/teacher key/i.test(e.message) ? "That teacher key is not right" : e.message); return; }
+        try { sessionStorage.setItem(KEY_STORE, k); } catch { /* private mode */ }
+        d.close(); go(k);
+      };
+    });
+  }
+  function pickResults(act) {
+    const list = sentFor(act.id).sort((a, b) => b.at - a.at);
+    if (list.length === 1) return reopen(list[0]);
+    CP().modal(`<h2>📊 ${esc(act.title)}</h2><p class="muted">Which class?</p>
+      <div class="as-pick">${list.map((x, k) => `<button class="btn ghost" data-k="${k}">👥 ${esc(x.cls)} <small>· ${new Date(x.at).toLocaleDateString()}</small></button>`).join("")}</div>
+      <div class="opts"><button class="btn ghost" data-no>Cancel</button></div>`, (d) => {
+      $("[data-no]", d).onclick = () => d.close();
+      $$("[data-k]", d).forEach((b) => b.onclick = () => { d.close(); reopen(list[+b.dataset.k]); });
+    });
+  }
   function assign(act) {
     let key = ""; try { key = sessionStorage.getItem(KEY_STORE) || ""; } catch { /* private mode */ }
     const year = ctx.plan?.year;
@@ -830,12 +873,15 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
         if (!k) { err.hidden = false; err.textContent = "Type the teacher key first."; return; }
         btn.disabled = true; btn.textContent = "Opening…"; err.hidden = true;
         try {
+          const old = sentFor(act.id).filter((x) => x.cls === cls).pop();
+          if (old) { await window.Live.rpc("lesson_submissions_for", { p_key: k, p_token: old.token }); try { sessionStorage.setItem(KEY_STORE, k); } catch {} remember(act, { ...old, year }); d.close(); return results(act, { key: k, token: old.token, cls, year }); }
           const token = await window.Live.rpc("mint_lesson", { p_key: k, p_academic_year: String(new Date().getFullYear()), p_class_id: `cp-${cls}`, p_class_label: cls, p_plan_id: `cp-act-${act.id}`, p_week: 1, p_title: act.title });
           try { sessionStorage.setItem(KEY_STORE, k); } catch { /* private mode */ }
           const list = load(), me = list.find((x) => x.id === act.id);
           if (me) { me.links = { ...(me.links || {}), [cls]: token }; save(list); }
+          remember(act, { token, cls, year });
           d.close();
-          results(act, { key: k, token, cls });
+          results(act, { key: k, token, cls, year });
         } catch (e) { err.hidden = false; err.textContent = "⚠️ " + (/teacher key/i.test(e.message) ? "That teacher key is not right" : e.message); btn.disabled = false; btn.textContent = "🚀 Open for students"; }
       };
     });
@@ -852,7 +898,8 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
       <div class="as-join card"><h3>📲 Join on your device</h3><div class="as-qr"></div>
         <p class="muted small">Scan the code, or open the link your teacher shares</p>
         <div class="as-btns"><button class="btn" data-copy>📋 Copy link</button><a class="btn ghost" href="${esc(link)}" target="_blank" rel="noopener">🔗 Open</a></div>
-        <div class="as-stats"><div><b data-n="in">0</b><small>handed in</small></div><div><b data-n="done">0</b><small>finished</small></div><div><b data-n="avg">–</b><small>class average</small></div></div></div>
+        <div class="as-stats"><div><b data-n="in">0</b><small>handed in</small></div><div><b data-n="done">0</b><small>finished</small></div><div><b data-n="avg">–</b><small>class average</small></div></div>
+        <div class="as-todo"></div></div>
       <div class="as-board card"><div class="as-head"><h2>🏆 Live results</h2><span class="as-live">● live</span></div>
         ${noKey.length ? `<div class="am-note as-warn">⚠️ <b>Question${noKey.length > 1 ? "s" : ""} ${noKey.join(", ")} ${noKey.length > 1 ? "have" : "has"} no right answer</b>, so ${noKey.length > 1 ? "they" : "it"} can't be marked automatically (✍️).
           <button class="btn" data-fix>✏️ Set the right answers</button><small>Everything already handed in is marked again straight away. Or tap any ✍️ below to mark it yourself.</small></div>` : ""}
@@ -883,7 +930,16 @@ h1,h2,.qn,.big{font-family:"Baloo 2",system-ui,sans-serif}
       if (v === undefined) delete marks[k]; else marks[k] = v;
       MARKS.set(marks); draw(); stars();
     }
+    // the class list (by class name, else the year) minus everyone who has handed something in
+    const yr = g.year || +(/\d+/.exec(g.cls) || [])[0] || ctx.plan?.year || null;
+    const roster = () => { const all = CP().students(), inCls = all.filter((s) => s.cls && s.cls === g.cls); return inCls.length ? inCls : yr ? all.filter((s) => s.year === yr) : []; };
+    function todo() {
+      const list = roster(); if (!list.length) return;
+      const done = new Set(rows.map((r) => window.LiveBoard?.matchStudent(r.student, list)?.id).filter(Boolean)), left = list.filter((s) => !done.has(s.id));
+      $(".as-todo", body).innerHTML = left.length ? `<b>⏳ Not handed in yet (${left.length})</b><div>${left.map((s) => `<span>${esc(s.name)}</span>`).join("")}</div>` : `<b>🎉 Everyone has handed in</b>`;
+    }
     function draw() {
+      todo();
       const T = new Map(rows.map((r) => [r, tally(r)]));
       const sorted = [...rows].sort((a, b) => T.get(b).right - T.get(a).right || T.get(b).n - T.get(a).n || Date.parse(a.submitted_at) - Date.parse(b.submitted_at));
       const box = $(".as-rows", body);
