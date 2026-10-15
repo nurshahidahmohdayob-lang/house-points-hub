@@ -282,7 +282,7 @@
           <div class="lc-actions">
             <div class="lc-act live"><span>🎮</span><b>Live game</b><small>Everyone plays on their own device</small>
               <div class="lc-live2"><a href="${LC_APP}/play" target="_blank" rel="noopener">Student ▶</a><a href="${LC_APP}/?go=live" target="_blank" rel="noopener">Teacher 🔒</a></div></div>
-            <button class="lc-act" data-go="quiz"><span>⚔️</span><b>Team Quiz</b><small>Groups race on multiple-choice questions</small></button>
+            <button class="lc-act" data-go="quiz"><span>⚔️</span><b>Team Quiz</b><small>Groups race on 20 multiple-choice questions</small></button>
             <button class="lc-act" data-go="games"><span>🧩</span><b>Jigsaw Puzzles</b><small>Drag answer pieces to build pictures</small></button>
             <button class="lc-act" data-go="board"><span>🎲</span><b>${esc(LC.gameFor(plan.id, w.week).name)}</b><small>This week's board game</small></button>
             <button class="lc-act" data-go="run"><span>🏃</span><b>${esc(LC.runThemeFor(plan.id, w.week).name)}</b><small>Platform game with question blocks</small></button>
@@ -797,9 +797,42 @@
     return sets;
   }
 
+  // Team Quiz = 20 questions: its third of questionSets, then multiple choice made from the lesson (what a key word
+  // means, which card fits the topic, an example of each idea, first / last step), then 🔁 revision from the term's
+  // other weeks (their quiz third), nearest weeks first.
+  const QUIZ_N = 20;
+  function quizOwn(plan, week) {
+    const w = weekOf(plan, week), sets = questionSets(plan, w), topic = focusParts(w.focus, plan, week).text;
+    const norm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const out = [...sets.quiz], seen = new Set(out.map((x) => norm(x.q)));
+    const cap = (t) => { t = String(t || "").trim(); return t.charAt(0).toUpperCase() + t.slice(1); };
+    const add = (q, a, wrong) => { const opts = [cap(a), ...wrong.map(cap)].filter((o, i, all) => o && all.findIndex((x) => norm(x) === norm(o)) === i).slice(0, 4); if (opts.length < 3 || seen.has(norm(q))) return; seen.add(norm(q)); out.push({ q, a: opts[0], options: opts }); };
+    let L = null; try { L = LC.buildLesson(plan, week); } catch { /* quiz third only */ }
+    const n = L?.notes || {}, qs = L?.questions || [];
+    const keys = (n.keywords || []).filter(([k, m]) => k && m);
+    keys.forEach(([k, m], i) => add(`What does “${k}” mean?`, m, keys.filter((_, j) => j !== i).map((x) => x[1]).slice(i % 2, (i % 2) + 3)));
+    const cards = qs.find((q) => q.kind === "sort")?.cards || [], fit = cards.filter((c) => c.group === 0), off = cards.filter((c) => c.group !== 0);
+    fit.forEach((c, i) => add([`Which one is an example of “${topic}”?`, `Which of these fits the lesson “${topic}”?`, `Which one shows “${topic}” in real life?`, `Pick the one that matches “${topic}”.`][i % 4] + (i >= 4 ? " " : ""), c.text, [...off.slice(i), ...off.slice(0, i)].map((x) => x.text)));
+    const br = (n.branches || []).filter((b) => b.example);
+    br.forEach((b, i) => add(`Which is an example of: “${b.title}”?`, b.example, [...br.filter((_, j) => j !== i).map((x) => x.example), ...off.map((x) => x.text)]));
+    const order = qs.find((q) => q.kind === "order")?.order || n.steps || [];
+    if (order.length >= 3) { add(`${topic}: which step comes first?`, order[0], order.slice(1)); add(`${topic}: which step comes last?`, order[order.length - 1], order.slice(0, -1)); }
+    return out;
+  }
+  function quizItems(plan, w) {
+    const items = quizOwn(plan, w.week), seen = new Set(items.map((x) => x.q));
+    const others = plan.weeks.map((x) => x.week).filter((n) => n !== w.week).sort((p, q) => Math.abs(p - w.week) - Math.abs(q - w.week) || p - q);
+    for (const n of others) {
+      if (items.length >= QUIZ_N) break;
+      const label = calOf(plan, n).label || `Week ${n}`;
+      for (const x of questionSets(plan, weekOf(plan, n)).quiz) { if (items.length >= QUIZ_N) break; if (seen.has(x.q)) continue; seen.add(x.q); items.push({ ...x, q: `🔁 ${label}: ${x.q}` }); }
+    }
+    return items.slice(0, QUIZ_N);
+  }
+
   function teamQuiz(plan, w) {
     const shuffle = (a) => a.map((x) => [Math.random(), x]).sort((p, q) => p[0] - q[0]).map((x) => x[1]);
-    const items = questionSets(plan, w).quiz.map((it) => ({ q: it.q, options: shuffle(it.options), answer: it.a }));
+    const items = quizItems(plan, w).map((it) => ({ q: it.q, options: shuffle(it.options), answer: it.a }));
     const el = stage(`⚔️ Team Quiz · ${esc(focusParts(w.focus).text)}`);
     const body = $(".lc-stage-body", el);
     let i = 0;
