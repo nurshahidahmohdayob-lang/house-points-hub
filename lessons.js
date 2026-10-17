@@ -1058,8 +1058,29 @@
   }
 
   /* ---------------- Board game + Block Run (built by the Life Competencies app) ---------------- */
-  function gameInput(plan, w) {
-    const set = questionSets(plan, w).board, qs = set.map((x) => ({ q: x.q, a: x.a }));
+  // Board game = its third of questionSets + 20 more (on request): true/false from the lesson (key-word meanings right
+  // and wrong, which cards fit the topic), then 🔁 revision from the term's other weeks (their board third).
+  const BOARD_EXTRA = 20;
+  function boardItems(plan, w) {
+    const base = questionSets(plan, w).board, want = base.length + BOARD_EXTRA, topic = focusParts(w.focus, plan, w.week).text;
+    const norm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const items = [...base], seen = new Set(items.map((x) => norm(x.q)));
+    const add = (q, a, options) => { if (items.length >= want || seen.has(norm(q))) return; seen.add(norm(q)); items.push({ q, a, options }); };
+    const tf = (q, yes) => add(`True or false: ${q}`, yes ? "True" : "False", ["True", "False"]);
+    let L = null; try { L = LC.buildLesson(plan, w.week); } catch { /* revision only */ }
+    const keys = (L?.notes?.keywords || []).filter(([k, m]) => k && m);
+    keys.forEach(([k, m], i) => { const other = keys[(i + 1) % keys.length][1]; i % 2 && other !== m ? tf(`“${k}” means ${other}.`, false) : tf(`“${k}” means ${m}.`, true); });
+    ((L?.questions || []).find((q) => q.kind === "sort")?.cards || []).forEach((c) => tf(`“${c.text.replace(/\.$/, "")}” is an example of ${topic}.`, c.group === 0));
+    const others = plan.weeks.map((x) => x.week).filter((n) => n !== w.week).sort((p, q) => Math.abs(p - w.week) - Math.abs(q - w.week) || p - q);
+    for (const n of others) {
+      if (items.length >= want) break;
+      const label = calOf(plan, n).label || `Week ${n}`;
+      questionSets(plan, weekOf(plan, n)).board.forEach((x) => add(`🔁 ${label}: ${x.q}`, x.a, x.options));
+    }
+    return items;
+  }
+  function gameInput(plan, w, set = questionSets(plan, w).board) {
+    const qs = set.map((x) => ({ q: x.q, a: x.a }));
     return { year: plan.year, term: plan.term, week: calOf(plan, w.week).label, topic: w.focus, subject: LC.LESSON_SUBJECT, objectives: w.objectives,
       questions: qs, gameQuestions: qs, options: set.map((x) => x.options) }; // the board game's own third of the questions
   }
@@ -1081,7 +1102,7 @@
     }
     else if (go === "quiz") teamQuiz(plan, w);
     else if (go === "games") jigsaw(plan, w);
-    else if (go === "board") { const g = LC.gameFor(plan.id, w.week); frameGame(plan, w, LC.buildGameHtml(g, gameInput(plan, w)), `🎲 ${esc(g.name)}`); }
+    else if (go === "board") { const g = LC.gameFor(plan.id, w.week); frameGame(plan, w, LC.buildGameHtml(g, gameInput(plan, w, boardItems(plan, w))), `🎲 ${esc(g.name)}`); }
     else if (go === "mine") window.ActivityMaker.open({ stage, starPicker, plan, w, where: `Year ${plan.year} · T${plan.term} ${calOf(plan, w.week).label}`, ready: { plans: () => LC.LESSON_PLANS, make: worksheetsFor, label: (p, wk) => `${calOf(p, wk).label} · ${focusParts(weekOf(p, wk).focus, p, wk).text}` }, onClose: (f) => stageCleanup.push(f) });
     else if (go === "run") { const t = LC.runThemeFor(plan.id, w.week); frameGame(plan, w, LC.buildPlatformerHtml(gameInput(plan, w), t, LC.runLevels(plan.id, w.week, w.focus)), `🏃 ${esc(t.name)}`); }
   }
