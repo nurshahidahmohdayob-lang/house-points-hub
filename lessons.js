@@ -905,13 +905,27 @@
   // A meaning as it reads after "means": no full stop of its own, and a small first letter unless it is "I" or an
   // acronym ("Keeping safe." → "keeping safe"; "AI tools" stays).
   const clause = (t) => { t = String(t || "").trim().replace(/[.!]+$/, ""); return /^[A-Z][a-z]/.test(t) && !/^I\b/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t; };
-  // The card as its own sentence, then the question — reads correctly whatever the card's wording, with the topic in
-  // quotation marks as a title: “Asking before sharing a picture of a friend.” Is this an example of ‘Think Before You Share’?
-  // A card that is itself a quotation ('Yes, and…') keeps its own quotation marks rather than gaining a second pair.
-  const exampleQ = (card, topic) => {
-    let c = String(card || "").trim().replace(/(^|[\s(])'/g, "$1‘").replace(/'/g, "’");
-    if (!/[.!?’…]$/.test(c)) c += ".";
-    return `${/^‘/.test(c) ? c : `“${c}”`} Is this an example of ‘${topic}’${/[?!]$/.test(topic) ? "" : "?"}`; // not ‘What Can We Do Better?’?
+  // "… is an example of ‘Topic’." as a statement, true or false, worded so it is correct English whatever the card is.
+  // A card that is a phrase leads the sentence: "Asking someone who will be honest is an example of ‘Caring for Public
+  // Places’." A card that is already a sentence or a quotation stays whole, and the statement follows it:
+  // "‘Aiman collects materials by Tuesday.’ This is an example of ‘Plan Our Innovation’."
+  const EX_FINITE = /^(is|are|was|were|has|have|had|takes|took|goes|went|leans|does|did|asks|means|makes|made|gets|got|stops|keeps|says|said|shows|needs|helps|works|uses|lives|grows|tells|looks|seems|feels|becomes|changes|can|will|would|should|must|turns|falls|comes|gives|brings|moves|eats|runs|sounds|matters|happens|costs|lasts|saves|wins|loses|sits|stands|spreads|breaks|fails|cannot|can’t|treats|carry|carries|reach|reaches|keep|make|give|need|want|like|use|help)$/i;
+  const EX_LINK = /^(that|which|who|whose|where|when|so|because|if|until|even|though|while|before|after|as|than|to|and|or|but)$/i;
+  const isPhrase = (c) => {
+    if (/^[‘“"]|;| — | – |: |→/.test(c) || /[.!?] [A-Z]/.test(c)) return false;
+    const w = c.replace(/[.!?]$/, "").split(/\s+/);
+    if (/^(Something|Nothing|Everything|Anything|Thing|Morning|Evening|Spring|King)$/.test(w[0])) return false;
+    if (/ing$/.test(w[0]) || (/^(Never|Not|Always|Only|Still)$/.test(w[0]) && /ing$/.test(w[1] || ""))) return !/\b(tells|shows you|makes you|helps you)\b/.test(c);
+    if (!/^(A|An)$/.test(w[0]) || /,/.test(c)) return false;
+    for (const x of w.slice(1)) { const y = x.replace(/[^A-Za-z’']/g, ""); if (EX_LINK.test(y)) return true; if (EX_FINITE.test(y)) return false; }
+    return true;
+  };
+  const exampleTf = (card, topic) => {
+    const c = String(card || "").trim().replace(/(^|[\s(])'/g, "$1‘").replace(/'/g, "’");
+    const end = /[?!]$/.test(topic) ? "" : ".", what = `an example of ‘${topic}’${end}`;
+    if (isPhrase(c)) { const p = c.replace(/\.$/, ""); return `${p}${/, not [^,]+$/.test(p) ? "," : ""} is ${what}`; } // "by talking, not typing, is …"
+    const whole = /[.!?’…]$/.test(c) ? c : c + ".";
+    return `${/^‘/.test(whole) ? whole : `“${whole}”`} This is ${what}`;
   };
   /* ---------------- Ready-made worksheets (📄 My activities): four a week, each a different kind ---------------- */
   // Made from the week's LC lesson (its questions, key words, notes, steps and examples) with a fixed shuffle, so the
@@ -949,7 +963,7 @@
     quiz.filter((it) => /^(true|false|yes|no)$/i.test(it.a)).forEach((it) => addTf(it.q, /^(true|yes)$/i.test(it.a), /^(yes|no)$/i.test(it.a) ? ["Yes", "No"] : ["True", "False"]));
     const keys = (n.keywords || []).filter(([k, m]) => k && m);
     keys.forEach(([k, m], i) => { const other = keys[(i + 2) % keys.length]; i % 2 && other[1] !== m ? addTf(`“${cap(k)}” means ${clause(other[1])}.`, false) : addTf(`“${cap(k)}” means ${clause(m)}.`, true); });
-    (qs.find((q) => q.kind === "sort")?.cards || []).forEach((c) => addTf(exampleQ(c.text, topic), c.group === 0, ["Yes", "No"]));
+    (qs.find((q) => q.kind === "sort")?.cards || []).forEach((c) => addTf(exampleTf(c.text, topic), c.group === 0));
     const tfMix = mix(tf).slice(0, 12);
 
     // 3 · Words & meanings: matching + fill in the blank with a word bank
@@ -1081,7 +1095,7 @@
     let L = null; try { L = LC.buildLesson(plan, w.week); } catch { /* revision only */ }
     const keys = (L?.notes?.keywords || []).filter(([k, m]) => k && m);
     keys.forEach(([k, m], i) => { const other = keys[(i + 1) % keys.length][1]; i % 2 && other !== m ? tf(`“${k}” means ${clause(other)}.`, false) : tf(`“${k}” means ${clause(m)}.`, true); });
-    ((L?.questions || []).find((q) => q.kind === "sort")?.cards || []).forEach((c) => add(exampleQ(c.text, topic), c.group === 0 ? "Yes" : "No", ["Yes", "No"]));
+    ((L?.questions || []).find((q) => q.kind === "sort")?.cards || []).forEach((c) => tf(exampleTf(c.text, topic), c.group === 0));
     const others = plan.weeks.map((x) => x.week).filter((n) => n !== w.week).sort((p, q) => Math.abs(p - w.week) - Math.abs(q - w.week) || p - q);
     for (const n of others) {
       if (items.length >= want) break;
