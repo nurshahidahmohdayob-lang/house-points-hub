@@ -779,7 +779,8 @@
   // Every question of a term belongs to exactly one game, so Team Quiz, the Jigsaw, the board game and Block Run never
   // ask the same thing, and no game asks anything twice. termPools deals the questions out week by week with one
   // "seen" list for the whole term (a question that turns up in two weeks still goes to one game only):
-  //   • the LC quiz ten + the lesson's choice / true-false questions: long answers → quiz; short ones are dealt
+  //   • the questions the 🎮 Live game asks (the lesson's choice / true-false / gap questions) go to none of them
+  //   • the LC quiz ten (those the Live game doesn't ask): long answers → quiz; short ones are dealt
   //     jigsaw → board → run → quiz in turn
   //   • key words: "Which word means …?" → jigsaw, "What does … mean?" → run, in turn (a word that is already the answer
   //     of another game's question is left out, so the same fact isn't asked twice)
@@ -806,6 +807,9 @@
       const topic = focusParts(w.focus, plan, w.week).text;
       let L = null; try { L = LC.buildLesson(plan, w.week); } catch { /* quiz only */ }
       const n = L?.notes || {}, qs = L?.questions || [];
+      // 🎮 Live game (in the LC app) asks the lesson's own choice, true-false and gap questions — those are kept for it,
+      // so none of these four games asks the same question as the Live game
+      qs.filter((q) => q.kind === "choice" || q.kind === "truefalse" || q.kind === "gap").forEach((q) => seen.add(qNorm(q.q)));
 
       // the week's own questions, dealt out
       const core = [], cseen = new Set();
@@ -868,11 +872,13 @@
   // A game's questions for a week: its own share, then 🔁 its share of the term's other weeks (nearest first)
   function gameItems(plan, w, game, n) {
     const P = termPools(plan), items = [...(P.get(w.week)?.[game] || [])];
+    // nor, from another week, a question this week's 🎮 Live game asks (a key word taught in both weeks)
+    let live = new Set(); try { live = new Set(LC.buildLesson(plan, w.week).questions.filter((q) => q.kind === "choice" || q.kind === "truefalse" || q.kind === "gap").map((q) => qNorm(q.q))); } catch { /* none */ }
     const others = plan.weeks.map((x) => x.week).filter((k) => k !== w.week).sort((p, q) => Math.abs(p - w.week) - Math.abs(q - w.week) || p - q);
     for (const k of others) {
       if (items.length >= n) break;
       const label = calOf(plan, k).label || `Week ${k}`;
-      for (const x of P.get(k)?.[game] || []) { if (items.length >= n) break; items.push({ ...x, q: `🔁 ${label}: ${x.q}` }); }
+      for (const x of P.get(k)?.[game] || []) { if (items.length >= n) break; if (!live.has(qNorm(x.q))) items.push({ ...x, q: `🔁 ${label}: ${x.q}` }); }
     }
     return items.slice(0, n);
   }
