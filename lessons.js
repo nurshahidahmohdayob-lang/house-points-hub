@@ -775,60 +775,111 @@
     document.fonts?.ready.then(() => $("#lcStage") === el && layout());
   }
 
-  /* ---------------- Team Quiz ---------------- */
-  // One week's questions split three ways so Team Quiz, the Jigsaw and the board game never ask the same thing:
-  // the LC quiz ten plus the lesson's own choice / true-false questions, de-duplicated; long answers (sentences) go to
-  // the quiz (they read badly on a jigsaw piece or a game card), short ones are dealt jigsaw → board → quiz in turn.
-  function questionSets(plan, w) {
-    const norm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    const seen = new Set(), pool = [];
-    const add = (q, a, options) => {
-      const k = norm(q); if (!k || !a || seen.has(k)) return; seen.add(k);
-      const rest = (options || []).filter((o) => norm(o) !== norm(a));
-      pool.push({ q, a: String(a), options: [String(a), ...rest].slice(0, 4) });
-    };
-    const quiz = LC.quizTen(plan.id, w.week);
-    quiz.forEach((it) => { const o = LC.optionsForItem(plan.id, it, quiz) || []; add(it.q, o.find((x) => norm(x) === norm(it.a)) || it.a, o); });
-    try { (LC.buildLesson(plan, w.week).questions || []).filter((q) => (q.kind === "choice" || q.kind === "truefalse") && q.answer).forEach((q) => add(q.q, q.answer, q.options)); } catch { /* quiz only */ }
-    const sets = { quiz: [], jigsaw: [], board: [] };
-    const short = pool.filter((x) => x.a.length <= 26);
-    pool.filter((x) => x.a.length > 26).forEach((x) => sets.quiz.push(x));
-    short.forEach((x, i) => [sets.jigsaw, sets.board, sets.quiz][i % 3].push(x));
-    return sets;
+  /* ---------------- One question, one game ---------------- */
+  // Every question of a term belongs to exactly one game, so Team Quiz, the Jigsaw, the board game and Block Run never
+  // ask the same thing, and no game asks anything twice. termPools deals the questions out week by week with one
+  // "seen" list for the whole term (a question that turns up in two weeks still goes to one game only):
+  //   • the LC quiz ten + the lesson's choice / true-false questions: long answers → quiz; short ones are dealt
+  //     jigsaw → board → run → quiz in turn
+  //   • key words: "Which word means …?" → jigsaw, "What does … mean?" → run, in turn (a word that is already the answer
+  //     of another game's question is left out, so the same fact isn't asked twice)
+  //   • the lesson's gap and match questions, fill-the-gap on its notes → jigsaw
+  //   • sort cards ("… is an example of …", true or false) → board
+  //   • an example of each idea, first / last step → quiz;  "what comes after …?" and the lesson's main points → run
+  // A game that needs more takes 🔁 revision from its own share of the term's other weeks, nearest weeks first.
+  const qNorm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const capFirst = (t) => { t = String(t || "").trim(); return t.charAt(0).toUpperCase() + t.slice(1); };
+  let poolsLC = null; const poolCache = new Map();
+  function termPools(plan) {
+    if (poolsLC !== LC) { poolCache.clear(); poolsLC = LC; }
+    if (poolCache.has(plan.id)) return poolCache.get(plan.id);
+    const seen = new Set(), byWeek = new Map();
+    plan.weeks.forEach((w, wi) => {
+      const out = { quiz: [], jigsaw: [], board: [], run: [] };
+      const put = (game, q, a, options) => {
+        a = String(a ?? "").trim(); const k = qNorm(q);
+        if (!k || !a || seen.has(k) || (game === "jigsaw" && a.length > 32)) return false;
+        seen.add(k); out[game].push(game === "jigsaw" ? { q, a } : { q, a, options: options || [a] }); return true;
+      };
+      const mc = (game, q, a, wrong) => { const o = [capFirst(a), ...wrong.map(capFirst)].filter((x, i, all) => x && all.findIndex((y) => qNorm(y) === qNorm(x)) === i).slice(0, 4); if (o.length >= 3) put(game, q, o[0], o); };
+      const tf = (game, q, yes) => put(game, /^true or false/i.test(q) ? q : `True or false: ${q}`, yes ? "True" : "False", ["True", "False"]);
+      const topic = focusParts(w.focus, plan, w.week).text;
+      let L = null; try { L = LC.buildLesson(plan, w.week); } catch { /* quiz only */ }
+      const n = L?.notes || {}, qs = L?.questions || [];
+
+      // the week's own questions, dealt out
+      const core = [], cseen = new Set();
+      const addCore = (q, a, options) => { const k = qNorm(q); if (!k || !a || cseen.has(k)) return; cseen.add(k); core.push({ q, a: String(a), options: [String(a), ...(options || []).map(String).filter((o) => qNorm(o) !== qNorm(a))].slice(0, 4) }); };
+      let quiz = []; try { quiz = LC.quizTen(plan.id, w.week); } catch { /* lesson only */ }
+      quiz.forEach((it) => { let o = []; try { o = LC.optionsForItem(plan.id, it, quiz) || []; } catch { /* no options */ } addCore(it.q, o.find((x) => qNorm(x) === qNorm(it.a)) || it.a, o); });
+      qs.filter((q) => (q.kind === "choice" || q.kind === "truefalse") && q.answer).forEach((q) => addCore(q.q, q.answer, q.options));
+      const deal = ["jigsaw", "board", "run", "quiz"]; let d = 0;
+      core.forEach((x) => put(x.a.length > 26 ? "quiz" : deal[d++ % 4], x.q, x.a, x.options));
+
+      // key words
+      const answered = new Set([...out.quiz, ...out.jigsaw, ...out.board, ...out.run].map((x) => qNorm(x.a)));
+      const keys = [...(n.keywords || []), ...(n.words || []).map((x) => [x.word, x.meaning])].filter(([k, m], i, all) => k && m && all.findIndex((y) => qNorm(y[0]) === qNorm(k)) === i);
+      let kn = 0;
+      keys.forEach(([k, m], i) => {
+        if (answered.has(qNorm(k))) return;
+        if (kn++ % 2 === 0) put("jigsaw", `Which word means “${clause(m)}”?`, k);
+        else mc("run", `What does “${k}” mean?`, clause(m), keys.filter((_, j) => j !== i).map((x) => clause(x[1])));
+      });
+
+      // jigsaw: the lesson's gap + match questions, then fill-the-gap on the notes
+      qs.forEach((q) => {
+        if (q.kind === "gap" && q.answer) put("jigsaw", q.q, q.answer);
+        if (q.kind === "match") (q.pairs || []).forEach(([l, r]) => { if (/\?$/.test(l)) put("jigsaw", l, r); });
+      });
+      const keyWords = keys.map(([k]) => String(k).toLowerCase());
+      // a sentence another question already asks about (same idea in other words) is not asked again
+      const asked = (t) => { const k = qNorm(t), all = [...out.quiz, ...out.jigsaw, ...out.board, ...out.run].map((x) => qNorm(x.q)); return k.length > 3 && all.some((q) => q.includes(k)); };
+      const gap = (sentence) => {
+        const sx = String(sentence || "").trim(), words = sx.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g) || [];
+        if (words.length < 4) return;
+        const pick = words.find((x) => keyWords.includes(x.toLowerCase())) || [...words].filter((x) => x.length >= 5 && !JG_STOP.has(x.toLowerCase())).sort((p, q) => q.length - p.length)[0];
+        if (pick && !asked(sx)) put("jigsaw", `Fill the gap: ${sx.replace(pick, "______")}`, pick.toLowerCase());
+      };
+      const sentences = (t) => String(t || "").split(/(?<=[.!?])\s+/).filter(Boolean);
+      (n.branches || []).forEach((b) => { gap(b.explain || b.title); sentences(b.detail).forEach(gap); });
+      (n.criteria || []).forEach(gap); sentences(n.why).forEach(gap); sentences(n.intro).forEach(gap);
+
+      // board: which cards fit the topic
+      const cards = qs.find((q) => q.kind === "sort")?.cards || [];
+      cards.forEach((c) => tf("board", exampleTf(c.text, topic), c.group === 0));
+
+      // quiz: an example of each idea, first / last step
+      const off = cards.filter((c) => c.group !== 0).map((c) => c.text);
+      const br = (n.branches || []).filter((b) => b.example);
+      br.forEach((b, i) => mc("quiz", `Which is an example of: “${b.title}”?`, b.example, [...br.filter((_, j) => j !== i).map((x) => x.example), ...off]));
+      const order = qs.find((q) => q.kind === "order")?.order || n.steps || [];
+      if (order.length >= 3) { mc("quiz", `${topic}: which step comes first?`, order[0], order.slice(1)); mc("quiz", `${topic}: which step comes last?`, order[order.length - 1], order.slice(0, -1)); }
+
+      // run: what comes after each step, the lesson's main points (and the next week's, which are not)
+      if (order.length >= 4) order.slice(0, -1).forEach((s, i) => mc("run", `${topic}: what comes after “${s.replace(/\.$/, "")}”?`, order[i + 1], order.filter((_, j) => j !== i + 1 && j !== i)));
+      let nextPts = []; try { const nw = plan.weeks[(wi + 1) % plan.weeks.length]; if (nw !== w) nextPts = LC.buildLesson(plan, nw.week).points || []; } catch { /* true ones only */ }
+      (L?.points || []).forEach((p, i) => { if (!asked(p)) tf("run", `In ‘${topic}’ we learned: ${clause(p)}.`, true); if (nextPts[i]) tf("run", `In ‘${topic}’ we learned: ${clause(nextPts[i])}.`, false); });
+
+      byWeek.set(w.week, out);
+    });
+    poolCache.set(plan.id, byWeek);
+    return byWeek;
+  }
+  // A game's questions for a week: its own share, then 🔁 its share of the term's other weeks (nearest first)
+  function gameItems(plan, w, game, n) {
+    const P = termPools(plan), items = [...(P.get(w.week)?.[game] || [])];
+    const others = plan.weeks.map((x) => x.week).filter((k) => k !== w.week).sort((p, q) => Math.abs(p - w.week) - Math.abs(q - w.week) || p - q);
+    for (const k of others) {
+      if (items.length >= n) break;
+      const label = calOf(plan, k).label || `Week ${k}`;
+      for (const x of P.get(k)?.[game] || []) { if (items.length >= n) break; items.push({ ...x, q: `🔁 ${label}: ${x.q}` }); }
+    }
+    return items.slice(0, n);
   }
 
-  // Team Quiz = 20 questions: its third of questionSets, then multiple choice made from the lesson (what a key word
-  // means, which card fits the topic, an example of each idea, first / last step), then 🔁 revision from the term's
-  // other weeks (their quiz third), nearest weeks first.
+  /* ---------------- Team Quiz ---------------- */
   const QUIZ_N = 20;
-  function quizOwn(plan, week) {
-    const w = weekOf(plan, week), sets = questionSets(plan, w), topic = focusParts(w.focus, plan, week).text;
-    const norm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    const out = [...sets.quiz], seen = new Set(out.map((x) => norm(x.q)));
-    const cap = (t) => { t = String(t || "").trim(); return t.charAt(0).toUpperCase() + t.slice(1); };
-    const add = (q, a, wrong) => { const opts = [cap(a), ...wrong.map(cap)].filter((o, i, all) => o && all.findIndex((x) => norm(x) === norm(o)) === i).slice(0, 4); if (opts.length < 3 || seen.has(norm(q))) return; seen.add(norm(q)); out.push({ q, a: opts[0], options: opts }); };
-    let L = null; try { L = LC.buildLesson(plan, week); } catch { /* quiz third only */ }
-    const n = L?.notes || {}, qs = L?.questions || [];
-    const keys = (n.keywords || []).filter(([k, m]) => k && m);
-    keys.forEach(([k, m], i) => add(`What does “${k}” mean?`, m, keys.filter((_, j) => j !== i).map((x) => x[1]).slice(i % 2, (i % 2) + 3)));
-    const cards = qs.find((q) => q.kind === "sort")?.cards || [], fit = cards.filter((c) => c.group === 0), off = cards.filter((c) => c.group !== 0);
-    fit.forEach((c, i) => add([`Which one is an example of “${topic}”?`, `Which of these fits the lesson “${topic}”?`, `Which one shows “${topic}” in real life?`, `Pick the one that matches “${topic}”.`][i % 4] + (i >= 4 ? " " : ""), c.text, [...off.slice(i), ...off.slice(0, i)].map((x) => x.text)));
-    const br = (n.branches || []).filter((b) => b.example);
-    br.forEach((b, i) => add(`Which is an example of: “${b.title}”?`, b.example, [...br.filter((_, j) => j !== i).map((x) => x.example), ...off.map((x) => x.text)]));
-    const order = qs.find((q) => q.kind === "order")?.order || n.steps || [];
-    if (order.length >= 3) { add(`${topic}: which step comes first?`, order[0], order.slice(1)); add(`${topic}: which step comes last?`, order[order.length - 1], order.slice(0, -1)); }
-    return out;
-  }
-  function quizItems(plan, w) {
-    const items = quizOwn(plan, w.week), seen = new Set(items.map((x) => x.q));
-    const others = plan.weeks.map((x) => x.week).filter((n) => n !== w.week).sort((p, q) => Math.abs(p - w.week) - Math.abs(q - w.week) || p - q);
-    for (const n of others) {
-      if (items.length >= QUIZ_N) break;
-      const label = calOf(plan, n).label || `Week ${n}`;
-      for (const x of questionSets(plan, weekOf(plan, n)).quiz) { if (items.length >= QUIZ_N) break; if (seen.has(x.q)) continue; seen.add(x.q); items.push({ ...x, q: `🔁 ${label}: ${x.q}` }); }
-    }
-    return items.slice(0, QUIZ_N);
-  }
+  const quizItems = (plan, w) => gameItems(plan, w, "quiz", QUIZ_N);
 
   function teamQuiz(plan, w) {
     const shuffle = (a) => a.map((x) => [Math.random(), x]).sort((p, q) => p[0] - q[0]).map((x) => x[1]);
@@ -854,54 +905,11 @@
   }
 
   /* ---------------- Jigsaw puzzles: drag each answer piece onto its question; right pieces build a picture ---------------- */
-  // 50 questions a week (was 30; +20 on request), 6 per puzzle, none shared with Team Quiz or the board game: the jigsaw's third of
-  // questionSets, then questions made from the lesson itself (word ↔ meaning, fill-the-gap on its ideas, steps, examples
-  // and success criteria, true/false on the sort cards, the lesson's own gap and match questions), then — only if a week
-  // is still short — revision from the term's other weeks (marked 🔁).
+  // 50 questions a week, 6 per puzzle — the jigsaw's own share from termPools (word ↔ meaning, fill-the-gap, the lesson's
+  // gap and match questions), then 🔁 revision from the term's other weeks.
   const JG_STOP = new Set("about above after again against because before being below between could doing during every from have having into just more most much must other over same should some such than that their them then there these they this those through under until very what when where which while with would your yours".split(" "));
-  function jigsawOwn(plan, week) {
-    const w = weekOf(plan, week), sets = questionSets(plan, w);
-    const norm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    const taken = new Set([...sets.quiz, ...sets.board].map((x) => norm(x.q)));
-    const quizText = [...sets.quiz, ...sets.board].map((x) => norm(x.q + " " + x.a)).join(" ");
-    const out = [], seen = new Set();
-    const add = (q, a) => { a = String(a || "").trim(); const k = norm(q); if (!k || !a || a.length > 32 || seen.has(k) || taken.has(k)) return; seen.add(k); out.push({ q, a }); };
-    sets.jigsaw.forEach((x) => add(x.q, x.a));
-    let L = null; try { L = LC.buildLesson(plan, week); } catch { /* questions only */ }
-    const n = L?.notes || {}, topic = focusParts(w.focus, plan, week).text;
-    const keys = [...(n.keywords || []), ...(n.words || []).map((x) => [x.word, x.meaning])];
-    const keyWords = keys.map(([k]) => String(k).toLowerCase());
-    const asked = new Set();
-    keys.forEach(([k, m]) => { const kk = norm(k); if (asked.has(kk) || quizText.includes(`${kk} mean`) || out.some((x) => norm(x.a) === kk)) return; asked.add(kk); add(`Which word means “${m}”?`, k); });
-    (L?.questions || []).forEach((q) => {
-      if (q.kind === "gap" && q.answer) add(q.q, q.answer);
-      if (q.kind === "match") (q.pairs || []).forEach(([l, r]) => { if (/\?$/.test(l)) add(l, r); });
-      if (q.kind === "sort") (q.cards || []).forEach((c) => add(`True or false: “${c.text}” is about ${topic}.`, c.group === 0 ? "True" : "False"));
-    });
-    const gap = (sentence) => {
-      const sx = String(sentence || "").trim(); const words = sx.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g) || [];
-      if (words.length < 4) return;
-      const pick = words.find((x) => keyWords.includes(x.toLowerCase())) || [...words].filter((x) => x.length >= 5 && !JG_STOP.has(x.toLowerCase())).sort((p, q) => q.length - p.length)[0];
-      if (!pick) return;
-      add(`Fill the gap: ${sx.replace(pick, "______")}`, pick.toLowerCase());
-    };
-    const sentences = (t) => String(t || "").split(/(?<=[.!?])\s+/).filter(Boolean);
-    (n.branches || []).forEach((b) => { gap(b.explain || b.title); sentences(b.detail).forEach(gap); gap(b.example); });
-    (n.steps || []).forEach(gap); (n.criteria || []).forEach((c) => gap(String(c).replace(/^I can /, "I can "))); sentences(n.why).forEach(gap); sentences(n.intro).forEach(gap);
-    return out;
-  }
   const JG_N = 50;
-  function jigsawItems(plan, w) {
-    const items = jigsawOwn(plan, w.week);
-    const seen = new Set(items.map((x) => x.q));
-    const others = plan.weeks.map((x) => x.week).filter((n) => n !== w.week).sort((p, q) => (p < w.week ? w.week - p : 100 + p) - (q < w.week ? w.week - q : 100 + q));
-    for (const n of others) {
-      if (items.length >= JG_N) break;
-      const label = calOf(plan, n).label || `Week ${n}`;
-      for (const x of jigsawOwn(plan, n)) { if (items.length >= JG_N) break; if (seen.has(x.q)) continue; seen.add(x.q); items.push({ q: `🔁 ${label}: ${x.q}`, a: x.a }); }
-    }
-    return items.slice(0, JG_N);
-  }
+  const jigsawItems = (plan, w) => gameItems(plan, w, "jigsaw", JG_N);
   // A meaning as it reads after "means": no full stop of its own, and a small first letter unless it is "I" or an
   // acronym ("Keeping safe." → "keeping safe"; "AI tools" stays).
   const clause = (t) => { t = String(t || "").trim().replace(/[.!]+$/, ""); return /^[A-Z][a-z]/.test(t) && !/^I\b/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t; };
@@ -1083,31 +1091,20 @@
   }
 
   /* ---------------- Board game + Block Run (built by the Life Competencies app) ---------------- */
-  // Board game = its third of questionSets + 20 more (on request): true/false from the lesson (key-word meanings right
-  // and wrong, which cards fit the topic), then 🔁 revision from the term's other weeks (their board third).
-  const BOARD_EXTRA = 20;
-  function boardItems(plan, w) {
-    const base = questionSets(plan, w).board, want = base.length + BOARD_EXTRA, topic = focusParts(w.focus, plan, w.week).text;
-    const norm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    const items = [...base], seen = new Set(items.map((x) => norm(x.q)));
-    const add = (q, a, options) => { if (items.length >= want || seen.has(norm(q))) return; seen.add(norm(q)); items.push({ q, a, options }); };
-    const tf = (q, yes) => add(`True or false: ${q}`, yes ? "True" : "False", ["True", "False"]);
-    let L = null; try { L = LC.buildLesson(plan, w.week); } catch { /* revision only */ }
-    const keys = (L?.notes?.keywords || []).filter(([k, m]) => k && m);
-    keys.forEach(([k, m], i) => { const other = keys[(i + 1) % keys.length][1]; i % 2 && other !== m ? tf(`“${k}” means ${clause(other)}.`, false) : tf(`“${k}” means ${clause(m)}.`, true); });
-    ((L?.questions || []).find((q) => q.kind === "sort")?.cards || []).forEach((c) => tf(exampleTf(c.text, topic), c.group === 0));
-    const others = plan.weeks.map((x) => x.week).filter((n) => n !== w.week).sort((p, q) => Math.abs(p - w.week) - Math.abs(q - w.week) || p - q);
-    for (const n of others) {
-      if (items.length >= want) break;
-      const label = calOf(plan, n).label || `Week ${n}`;
-      questionSets(plan, weekOf(plan, n)).board.forEach((x) => add(`🔁 ${label}: ${x.q}`, x.a, x.options));
-    }
-    return items;
+  // Board game = its own share + 20 more (on request); Block Run = 50 questions in levels of 10. Both from gameItems.
+  const BOARD_EXTRA = 20, RUN_N = 50, RUN_LEVEL = 10;
+  const boardItems = (plan, w) => gameItems(plan, w, "board", (termPools(plan).get(w.week)?.board.length || 0) + BOARD_EXTRA);
+  function runLevelsFor(plan, w) {
+    const items = gameItems(plan, w, "run", RUN_N), levels = [];
+    for (let i = 0; i < items.length; i += RUN_LEVEL) levels.push(items.slice(i, i + RUN_LEVEL));
+    if (levels.length > 1 && levels[levels.length - 1].length < 4) levels[levels.length - 2].push(...levels.pop());
+    return levels.map((l, k) => ({ n: k + 1, from: l.some((x) => /^🔁/.test(x.q)) ? "revision from other weeks" : "this week's questions",
+      questions: l.map((x) => ({ q: x.q, a: x.a })), options: l.map((x, j) => { const o = x.options, r = (k + j) % o.length; return [...o.slice(r), ...o.slice(0, r)]; }) }));
   }
-  function gameInput(plan, w, set = questionSets(plan, w).board) {
+  function gameInput(plan, w, set) {
     const qs = set.map((x) => ({ q: x.q, a: x.a }));
     return { year: plan.year, term: plan.term, week: calOf(plan, w.week).label, topic: w.focus, subject: LC.LESSON_SUBJECT, objectives: w.objectives,
-      questions: qs, gameQuestions: qs, options: set.map((x) => x.options) }; // the board game's own third of the questions
+      questions: qs, gameQuestions: qs, options: set.map((x) => x.options) };
   }
   function frameGame(plan, w, html, title) {
     const el = stage(title);
@@ -1129,7 +1126,7 @@
     else if (go === "games") jigsaw(plan, w);
     else if (go === "board") { const g = LC.gameFor(plan.id, w.week); frameGame(plan, w, LC.buildGameHtml(g, gameInput(plan, w, boardItems(plan, w))), `🎲 ${esc(g.name)}`); }
     else if (go === "mine") window.ActivityMaker.open({ stage, starPicker, plan, w, where: `Year ${plan.year} · T${plan.term} ${calOf(plan, w.week).label}`, ready: { plans: () => LC.LESSON_PLANS, make: worksheetsFor, label: (p, wk) => `${calOf(p, wk).label} · ${focusParts(weekOf(p, wk).focus, p, wk).text}` }, onClose: (f) => stageCleanup.push(f) });
-    else if (go === "run") { const t = LC.runThemeFor(plan.id, w.week); frameGame(plan, w, LC.buildPlatformerHtml(gameInput(plan, w), t, LC.runLevels(plan.id, w.week, w.focus)), `🏃 ${esc(t.name)}`); }
+    else if (go === "run") { const t = LC.runThemeFor(plan.id, w.week); frameGame(plan, w, LC.buildPlatformerHtml(gameInput(plan, w, gameItems(plan, w, "run", RUN_LEVEL)), t, runLevelsFor(plan, w)), `🏃 ${esc(t.name)}`); }
   }
 
   // Teacher settings at the bottom of every page: History and Setup (no longer in the top bar), behind the same
