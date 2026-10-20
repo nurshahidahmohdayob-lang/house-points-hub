@@ -790,9 +790,26 @@
   // A game that needs more takes 🔁 revision from its own share of the term's other weeks, nearest weeks first.
   const qNorm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const capFirst = (t) => { t = String(t || "").trim(); return t.charAt(0).toUpperCase() + t.slice(1); };
-  let poolsLC = null; const poolCache = new Map();
+  let poolsLC = null; const poolCache = new Map(), farCache = new Map();
+  // Examples from the other year groups' lessons, for wrong answers that are clearly wrong.
+  // Each keeps the words of its own lesson, so a lesson on a related topic (Year 1's "people at school" for Year 2's
+  // community helpers) can be left out as a whole.
+  const EX_STOP = new Set("that,this,with,your,when,they,them,what,from,have,there,their,about,some,every,each,other,more,only,than,then,were,will,would,could,does,into,make,made,just,like,also,very,much,many,even,before,after,because,while,where,which,people,someone,something,things,thing,good,better,well,know,need,want,help,same,different".split(","));
+  "the,and,you,are,for,not,but,can,all,our,one,two,own,out,get,too,its,who,how,why,use,way,new,day,now,yes,see,say,put,let,any,has,had,was,his,her,may,did,got,off,set,ten,six,big,lot".split(",").forEach((x) => EX_STOP.add(x));
+  const exStems = (t) => String(t || "").toLowerCase().split(/[^a-z]+/).filter((x) => x.length > 2 && !EX_STOP.has(x)).map((x) => x.slice(0, 4));
+  function farExamples(plan) {
+    if (farCache.has(plan.id)) return farCache.get(plan.id);
+    const yr = plan.id.slice(0, 2), out = [];
+    for (const p of LC.LESSON_PLANS) if (p.id.slice(0, 2) !== yr) for (const w of p.weeks) {
+      let note = null; try { note = LC.noteFor(p.id, w.week); } catch { /* none */ }
+      if (!note) continue;
+      const lesson = new Set([w.focus, note.idea, ...(note.points || []), ...(note.examples || [])].flatMap(exStems));
+      (note.examples || []).forEach((x) => { if (x.length <= 80) out.push({ text: x, lesson, gap: Math.abs(p.year - plan.year) }); });
+    }
+    farCache.set(plan.id, out); return out;
+  }
   function termPools(plan) {
-    if (poolsLC !== LC) { poolCache.clear(); poolsLC = LC; }
+    if (poolsLC !== LC) { poolCache.clear(); farCache.clear(); poolsLC = LC; }
     if (poolCache.has(plan.id)) return poolCache.get(plan.id);
     const seen = new Set(), byWeek = new Map();
     plan.weeks.forEach((w, wi) => {
@@ -855,9 +872,24 @@
       // quiz: an example of each idea, first / last step
       const off = cards.filter((c) => c.group !== 0).map((c) => c.text);
       const br = (n.branches || []).filter((b) => b.example);
-      br.forEach((b, i) => mc("quiz", `Which is an example of: “${b.title}”?`, b.example, [...br.filter((_, j) => j !== i).map((x) => x.example), ...off]));
+      // The right answer is one of this week's examples; the wrong ones come from other year groups' topics that share
+      // no key word with this week's, so only one answer can be right (another of this week's examples never is a wrong one)
+      const near = new Set([w.focus, L?.idea, n.why, ...(L?.points || []), ...br.flatMap((b) => [b.title, b.explain, b.example]), ...(qs.find((q) => q.kind === "sort")?.cards || []).filter((c) => c.group === 0).map((c) => c.text)].flatMap(exStems));
+      const farAll = farExamples(plan).filter((f) => ![...f.lesson].some((x) => near.has(x)) && !exStems(f.text).some((x) => near.has(x)));
+      // nearest year groups first, so a Year 1 child is not reading Year 6 wording
+      const farNear = farAll.filter((f) => f.gap <= 2), farEx = (farNear.length >= 12 ? farNear : farAll).map((f) => f.text);
+      const EX_ASK = [`Which of these is an example of ‘${topic}’?`, `Which one shows ‘${topic}’ in real life?`, `Which of these belongs in the lesson ‘${topic}’?`, `Which one would you talk about in ‘${topic}’?`].map((q) => q.replace(/([?!])’\?$/, "$1’")); // not ‘Who Are Community Helpers?’?
+      // wrong answers written the same way as the right one — a quotation among quotations, a "… — …" among its kind —
+      // so the odd one out is never a giveaway
+      const shape = (t) => (/^['‘"“]/.test(t) ? "quote" : / — | – |: /.test(t) ? "dash" : "plain");
+      br.slice(0, EX_ASK.length).forEach((b, i) => {
+        const want = shape(b.example), like = farEx.filter((x) => shape(x) === want), wider = farAll.map((f) => f.text).filter((x) => shape(x) === want);
+        const from = like.length >= 3 ? like : wider.length >= 3 ? wider : farEx.filter((x) => shape(x) === "plain");
+        const at = (wi * 7 + i * 3) % Math.max(1, from.length);
+        mc("quiz", EX_ASK[i], b.example, [...from.slice(at), ...from.slice(0, at)].slice(0, 3));
+      });
       const order = qs.find((q) => q.kind === "order")?.order || n.steps || [];
-      if (order.length >= 3) { mc("quiz", `${topic}: which step comes first?`, order[0], order.slice(1)); mc("quiz", `${topic}: which step comes last?`, order[order.length - 1], order.slice(0, -1)); }
+      if (order.length >= 3) { mc("quiz", `In ‘${topic}’, which step comes first?`, order[0], order.slice(1)); mc("quiz", `In ‘${topic}’, which step comes last?`, order[order.length - 1], order.slice(0, -1)); }
 
       // run: what comes after each step, the lesson's main points (and the next week's, which are not)
       if (order.length >= 4) order.slice(0, -1).forEach((s, i) => mc("run", `${topic}: what comes after “${s.replace(/\.$/, "")}”?`, order[i + 1], order.filter((_, j) => j !== i + 1 && j !== i)));
