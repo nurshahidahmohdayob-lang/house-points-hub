@@ -35,7 +35,7 @@
   const LIVE_DATA = window.LC_SYNC_URL || "https://zera-life-competencies.vercel.app/class-points/lc-data.js";
   // Live Class runs in the Life Competencies app itself (its /play page for students, its Live Class screen + board for the teacher)
   const LC_APP = "https://zera-life-competencies.vercel.app";
-  const LOCAL_DATA = "assets/lc-data.js?v=426662";
+  const LOCAL_DATA = "assets/lc-data.js?v=426666";
   const SYNC_CACHE = "class-points-lessons", SYNC_KEY = "/synced-lc-data.js";
   const NEEDS = ["LESSON_PLANS", "noteFor", "deepFor", "visualFor", "quizTen", "optionsForItem", "buildLesson", "expandActivity", "gameFor", "buildGameHtml", "runThemeFor", "buildPlatformerHtml", "runLevels"];
   const usable = (x) => x && NEEDS.every((k) => k in x) && Array.isArray(x.LESSON_PLANS) && x.LESSON_PLANS.length > 0;
@@ -797,6 +797,10 @@
   const EX_STOP = new Set("that,this,with,your,when,they,them,what,from,have,there,their,about,some,every,each,other,more,only,than,then,were,will,would,could,does,into,make,made,just,like,also,very,much,many,even,before,after,because,while,where,which,people,someone,something,things,thing,good,better,well,know,need,want,help,same,different".split(","));
   "the,and,you,are,for,not,but,can,all,our,one,two,own,out,get,too,its,who,how,why,use,way,new,day,now,yes,see,say,put,let,any,has,had,was,his,her,may,did,got,off,set,ten,six,big,lot".split(",").forEach((x) => EX_STOP.add(x));
   const exStems = (t) => String(t || "").toLowerCase().split(/[^a-z]+/).filter((x) => x.length > 2 && !EX_STOP.has(x)).map((x) => x.slice(0, 4));
+  // A sentence that makes sense on its own, without the sentence before it ("They are not about being clever" does not)
+  const standsAlone = (t) => !/^(It|Its|They|Their|Them|These|Those|This|That|Then|There|Here|Each|Both|So|And|But|Or|Also|Even|Without them|Doing it|Check it|Where it|For example|For instance|Some of them|One of them)\b/.test(String(t).trim())
+    && !/^(Some|Many|Neither|Either|Others|Most|One|All)\s+(you|are|is|work|change|have|do|does|can|of|has|need)\b/.test(String(t).trim())
+    && !/\b(them|these|those|they|their)\b/i.test(t) && !/\bit\b(?! (is|was|takes|can be|helps to|matters))/i.test(t) && String(t).split(/\s+/).length >= 4;
   function farExamples(plan) {
     if (farCache.has(plan.id)) return farCache.get(plan.id);
     const yr = plan.id.slice(0, 2), out = [];
@@ -804,7 +808,8 @@
       let note = null; try { note = LC.noteFor(p.id, w.week); } catch { /* none */ }
       if (!note) continue;
       const lesson = new Set([w.focus, note.idea, ...(note.points || []), ...(note.examples || [])].flatMap(exStems));
-      (note.examples || []).forEach((x) => { if (x.length <= 80) out.push({ text: x, lesson, gap: Math.abs(p.year - plan.year) }); });
+      (note.examples || []).forEach((x) => { if (x.length <= 80) out.push({ text: x, lesson, gap: Math.abs(p.year - plan.year), kind: "example" }); });
+      (note.points || []).forEach((x) => { if (x.length <= 90 && standsAlone(x)) out.push({ text: x, lesson, gap: Math.abs(p.year - plan.year), kind: "point" }); });
     }
     farCache.set(plan.id, out); return out;
   }
@@ -815,7 +820,10 @@
     plan.weeks.forEach((w, wi) => {
       const out = { quiz: [], jigsaw: [], board: [], run: [] };
       const put = (game, q, a, options) => {
+        // "True or false: a face can …" → "True or false: A face can …"; answers start with a capital letter
+        q = String(q || "").trim().replace(/^(True or false:\s*)([a-z])/, (_, t, c) => t + c.toUpperCase());
         a = String(a ?? "").trim(); const k = qNorm(q);
+        if (game !== "jigsaw") { a = capFirst(a); options = options && options.map(capFirst); }
         if (!k || !a || seen.has(k) || (game === "jigsaw" && a.length > 32)) return false;
         seen.add(k); out[game].push(game === "jigsaw" ? { q, a } : { q, a, options: options || [a] }); return true;
       };
@@ -857,9 +865,13 @@
       const asked = (t) => { const k = qNorm(t), all = [...out.quiz, ...out.jigsaw, ...out.board, ...out.run].map((x) => qNorm(x.q)); return k.length > 3 && all.some((q) => q.includes(k)); };
       const gap = (sentence) => {
         const sx = String(sentence || "").trim(), words = sx.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g) || [];
-        if (words.length < 4) return;
-        const pick = words.find((x) => keyWords.includes(x.toLowerCase())) || [...words].filter((x) => x.length >= 5 && !JG_STOP.has(x.toLowerCase())).sort((p, q) => q.length - p.length)[0];
-        if (pick && !asked(sx)) put("jigsaw", `Fill the gap: ${sx.replace(pick, "______")}`, pick.toLowerCase());
+        if (words.length < 6 || !standsAlone(sx) || /^['‘"“]/.test(sx)) return;
+        // the gap is a word worth knowing: a key word, else the longest word that is not a filler ("completely", "things")
+        const weak = (x) => JG_STOP.has(x.toLowerCase()) || JG_WEAK.has(x.toLowerCase()) || /ly$/.test(x);
+        const pick = words.find((x) => keyWords.includes(x.toLowerCase())) || [...words].filter((x) => x.length >= 5 && !weak(x)).sort((p, q) => q.length - p.length)[0];
+        // a name keeps its capital letter ("August"); any other word is written small
+        const ans = pick && (/^[A-Z]/.test(pick) && !sx.startsWith(pick) ? pick : pick?.toLowerCase());
+        if (pick && !asked(sx)) put("jigsaw", `Fill the gap: ${sx.replace(pick, "______")}`, ans);
       };
       const sentences = (t) => String(t || "").split(/(?<=[.!?])\s+/).filter(Boolean);
       (n.branches || []).forEach((b) => { gap(b.explain || b.title); sentences(b.detail).forEach(gap); });
@@ -875,7 +887,7 @@
       // The right answer is one of this week's examples; the wrong ones come from other year groups' topics that share
       // no key word with this week's, so only one answer can be right (another of this week's examples never is a wrong one)
       const near = new Set([w.focus, L?.idea, n.why, ...(L?.points || []), ...br.flatMap((b) => [b.title, b.explain, b.example]), ...(qs.find((q) => q.kind === "sort")?.cards || []).filter((c) => c.group === 0).map((c) => c.text)].flatMap(exStems));
-      const farAll = farExamples(plan).filter((f) => ![...f.lesson].some((x) => near.has(x)) && !exStems(f.text).some((x) => near.has(x)));
+      const farAll = farExamples(plan).filter((f) => f.kind === "example" && ![...f.lesson].some((x) => near.has(x)) && !exStems(f.text).some((x) => near.has(x)));
       // nearest year groups first, so a Year 1 child is not reading Year 6 wording
       const farNear = farAll.filter((f) => f.gap <= 2), farEx = (farNear.length >= 12 ? farNear : farAll).map((f) => f.text);
       const EX_ASK = [`Which of these is an example of ‘${topic}’?`, `Which one shows ‘${topic}’ in real life?`, `Which of these belongs in the lesson ‘${topic}’?`, `Which one would you talk about in ‘${topic}’?`].map((q) => q.replace(/([?!])’\?$/, "$1’")); // not ‘Who Are Community Helpers?’?
@@ -892,9 +904,16 @@
       if (order.length >= 3) { mc("quiz", `In ‘${topic}’, which step comes first?`, order[0], order.slice(1)); mc("quiz", `In ‘${topic}’, which step comes last?`, order[order.length - 1], order.slice(0, -1)); }
 
       // run: what comes after each step, the lesson's main points (and the next week's, which are not)
-      if (order.length >= 4) order.slice(0, -1).forEach((s, i) => mc("run", `${topic}: what comes after “${s.replace(/\.$/, "")}”?`, order[i + 1], order.filter((_, j) => j !== i + 1 && j !== i)));
-      let nextPts = []; try { const nw = plan.weeks[(wi + 1) % plan.weeks.length]; if (nw !== w) nextPts = LC.buildLesson(plan, nw.week).points || []; } catch { /* true ones only */ }
-      (L?.points || []).forEach((p, i) => { if (!asked(p)) tf("run", `In ‘${topic}’ we learned: ${clause(p)}.`, true); if (nextPts[i]) tf("run", `In ‘${topic}’ we learned: ${clause(nextPts[i])}.`, false); });
+      if (order.length >= 4) order.slice(0, -1).forEach((s, i) => mc("run", `In ‘${topic}’, what comes after “${s.replace(/\.$/, "")}”?`, order[i + 1], order.filter((_, j) => j !== i + 1 && j !== i)));
+      // the lesson's main points: which one did we learn? (the others are points from unrelated lessons, so one answer is right)
+      const farPts = farExamples(plan).filter((f) => f.kind === "point" && ![...f.lesson].some((x) => near.has(x)));
+      const ptsFrom = (farPts.filter((f) => f.gap <= 2).length >= 12 ? farPts.filter((f) => f.gap <= 2) : farPts).map((f) => f.text);
+      const PT_ASK = [`Which of these did we learn in ‘${topic}’?`, `Which of these is a key idea from ‘${topic}’?`, `What did ‘${topic}’ teach us?`];
+      (L?.points || []).filter(standsAlone).forEach((p, i) => {
+        if (asked(p)) return;
+        const at = (wi * 5 + i * 4) % Math.max(1, ptsFrom.length);
+        mc("run", PT_ASK[i % PT_ASK.length].replace(/([?!])’\?$/, "$1’"), p, [...ptsFrom.slice(at), ...ptsFrom.slice(0, at)].slice(0, 3));
+      });
 
       byWeek.set(w.week, out);
     });
@@ -911,6 +930,17 @@
       if (items.length >= n) break;
       const label = calOf(plan, k).label || `Week ${k}`;
       for (const x of P.get(k)?.[game] || []) { if (items.length >= n) break; if (!live.has(qNorm(x.q))) items.push({ ...x, q: `🔁 ${label}: ${x.q}` }); }
+    }
+    // still short: the same year's other terms, earlier terms first
+    const had = new Set(items.map((x) => qNorm(x.q.replace(/^🔁[^:]*:\s*/, ""))));
+    for (const op of LC.LESSON_PLANS.filter((p) => p.year === plan.year && p.id !== plan.id).sort((a, b) => a.term - b.term)) {
+      if (items.length >= n) break;
+      const OP = termPools(op);
+      for (const ow of op.weeks) for (const x of OP.get(ow.week)?.[game] || []) {
+        if (items.length >= n) break;
+        if (live.has(qNorm(x.q)) || had.has(qNorm(x.q))) continue;
+        had.add(qNorm(x.q)); items.push({ ...x, q: `🔁 Term ${op.term} ${calOf(op, ow.week).label || `Week ${ow.week}`}: ${x.q}` });
+      }
     }
     return items.slice(0, n);
   }
@@ -946,6 +976,7 @@
   // 50 questions a week, 6 per puzzle — the jigsaw's own share from termPools (word ↔ meaning, fill-the-gap, the lesson's
   // gap and match questions), then 🔁 revision from the term's other weeks.
   const JG_STOP = new Set("about above after again against because before being below between could doing during every from have having into just more most much must other over same should some such than that their them then there these they this those through under until very what when where which while with would your yours".split(" "));
+  const JG_WEAK = new Set("something someone somewhere everything everyone everybody anything nothing things thing matters really completely exactly always usually actually another others people whatever different important".split(" "));
   const JG_N = 50;
   const jigsawItems = (plan, w) => gameItems(plan, w, "jigsaw", JG_N);
   // A meaning as it reads after "means": no full stop of its own, and a small first letter unless it is "I" or an
