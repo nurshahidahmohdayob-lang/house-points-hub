@@ -59,8 +59,16 @@
   function loadData() {
     if (LC) return Promise.resolve(LC);
     if (loading) return loading;
+    // A synced copy older than the built-in one (the app was updated since the teacher last synced) is dropped, so
+    // fixes that came with the app (e.g. reworded questions) show up without another sync.
+    const at = (x) => Date.parse(x?.BUILT?.at || "") || 0;
     loading = syncedText()
       .then((t) => (t ? fromText(t).then((x) => { source = "synced"; return x; }) : Promise.reject(new Error("none"))))
+      .then((x) => loadScript(LOCAL_DATA).then((y) => {
+        if (at(y) <= at(x)) return x;
+        caches.open(SYNC_CACHE).then((c) => c.delete(SYNC_KEY)).catch(() => {});
+        source = "copy"; return y;
+      }, () => x))
       .catch(() => loadScript(LOCAL_DATA).then((x) => { source = "copy"; return x; }))
       .then((x) => { LC = x; return x; })
       .catch(() => { loading = null; throw new Error("Could not load the lessons"); });
