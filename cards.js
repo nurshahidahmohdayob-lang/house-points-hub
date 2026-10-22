@@ -46,31 +46,20 @@
     new window.QRCode(box, { text, width: size, height: size, correctLevel: window.QRCode.CorrectLevel[level] });
     const c = box.querySelector("canvas"); return c ? c.toDataURL("image/png") : box.querySelector("img")?.src || "";
   }
-  function cardsHtml(count) {
-    const cards = Array.from({ length: count }, (_, i) => i + 1).map((n) => `<div class="page"><div class="card">
-      <span class="l top">A</span><span class="l left">B</span><span class="l bottom">C</span><span class="l right">D</span>
-      <img class="qr" src="${qrData(String(n))}" alt="Card ${n}"><div class="who">Student <b>${n}</b></div></div></div>`).join("");
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Answer Cards — 1 to ${count}</title><style>
-      *{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;color:#111827}
-      .page{display:flex;justify-content:center;align-items:center;height:277mm;break-after:page;page-break-after:always}
-      .page:last-child{break-after:auto;page-break-after:auto}
-      .card{position:relative;width:190mm;height:190mm;border:.4mm solid #9CA3AF;border-radius:4mm;padding:30mm;display:flex;flex-direction:column;align-items:center;justify-content:center}
-      .qr{width:118mm;height:118mm;image-rendering:pixelated}
-      .who{font-size:7mm;margin-top:5mm;color:#374151}.who b{font-size:13mm;color:#064E3B}
-      .l{position:absolute;font-size:20mm;font-weight:900;color:#064E3B;line-height:1}
-      .top{top:5mm;left:50%;transform:translateX(-50%)}.bottom{bottom:5mm;left:50%;transform:translateX(-50%) rotate(180deg)}
-      .left{left:5mm;top:50%;transform:translateY(-50%) rotate(-90deg)}.right{right:5mm;top:50%;transform:translateY(-50%) rotate(90deg)}
-      @page{size:A4 portrait;margin:10mm}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    </style></head><body>${cards}</body></html>`;
-  }
+  // The cards are the Life Competencies app's own printed set (assets/answer-cards.html = its "Answer Cards — 1 to 40"
+  // download), so the same cards work in both apps. 20 / 30 prints only the first pages.
+  const CARDS_FILE = "assets/answer-cards.html";
   function printCards(count) {
-    if (!window.QRCode) return CP().toast("⚠️ Still loading — try again in a moment");
-    CP().toast("🖨️ Making the cards…");
-    setTimeout(() => {
-      const f = document.createElement("iframe"); f.style.cssText = "position:fixed;width:0;height:0;border:0;right:0;bottom:0"; document.body.appendChild(f);
-      f.srcdoc = cardsHtml(count);
-      f.onload = () => { setTimeout(() => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch { CP().toast("⚠️ Couldn't open the print dialog"); } setTimeout(() => f.remove(), 60000); }, 300); };
-    }, 30);
+    CP().toast("🖨️ Opening the cards…");
+    const f = document.createElement("iframe"); f.style.cssText = "position:fixed;width:0;height:0;border:0;right:0;bottom:0"; document.body.appendChild(f);
+    f.onload = () => {
+      const d = f.contentDocument;
+      [...d.querySelectorAll(".page")].slice(count).forEach((p) => p.remove());
+      const h = d.querySelector("header h1"); if (h) h.innerHTML = `Answer Cards &mdash; Student 1 to ${count}`;
+      d.title = `Answer Cards — 1 to ${count}`;
+      setTimeout(() => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch { CP().toast("⚠️ Couldn't open the print dialog"); } setTimeout(() => f.remove(), 60000); }, 300);
+    };
+    f.src = CARDS_FILE;
   }
 
   /* ---------- The game ---------- */
@@ -165,7 +154,7 @@
             ${students.length ? `<ol class="ac-list">${students.map((s) => `<li><b>${s.number}</b> ${esc(s.name)}</li>`).join("")}</ol>` : `<p class="ac-small">No Year ${year} students yet — add them in ⚙️ Setup. Cards still work: the board shows “Card 1, Card 2…”.</p>`}</div>
           <div class="ac-box"><h3>🖨️ Print the cards <small>(once, for every class)</small></h3>
             <div class="ac-pills">${[20, 30, 40].map((n) => `<button class="${cardCount === n ? "on" : ""}" data-count="${n}">${n}</button>`).join("")}</div>
-            <button class="btn ac-print">🖨️ Print cards 1–${cardCount}</button>
+            <button class="btn ac-print">🖨️ Print cards 1–${cardCount}</button> <a class="btn ghost" href="${CARDS_FILE}" target="_blank" rel="noopener">👀 See the cards</a>
             <p class="ac-small">One card to a sheet of A4, so a phone can read it from across the room. Card stock lasts the year.</p>
             ${phoneBox(120)}</div>
         </div>
@@ -236,5 +225,5 @@
     if (!window.QRCode) { const t = setInterval(() => { if (window.QRCode || !alive) { clearInterval(t); if (alive && phase === "lobby") lobby(); } }, 300); }
   }
 
-  window.AnswerCards = { open, readFrame, letterForAngle, cardsHtml };
+  window.AnswerCards = { open, readFrame, letterForAngle, CARDS_FILE };
 })();
