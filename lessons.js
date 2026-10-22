@@ -294,6 +294,7 @@
             <button class="lc-act" data-go="games"><span>🧩</span><b>Jigsaw Puzzles</b><small>Drag answer pieces to build pictures</small></button>
             <button class="lc-act" data-go="board"><span>🎲</span><b>${esc(LC.gameFor(plan.id, w.week).name)}</b><small>This week's board game</small></button>
             <button class="lc-act" data-go="run"><span>🏃</span><b>${esc(LC.runThemeFor(plan.id, w.week).name)}</b><small>Platform game with question blocks</small></button>
+            <button class="lc-act" data-go="cards"><span>🃏</span><b>Answer cards</b><small>Everyone holds up a card · one camera reads the room</small></button>
             <button class="lc-act" data-go="mine"><span>📄</span><b>My activities</b><small>Your own worksheets, made interactive</small></button>
           </div>
         </div></li>
@@ -826,7 +827,7 @@
     if (poolCache.has(plan.id)) return poolCache.get(plan.id);
     const seen = new Set(), byWeek = new Map();
     plan.weeks.forEach((w, wi) => {
-      const out = { quiz: [], jigsaw: [], board: [], run: [] };
+      const out = { quiz: [], jigsaw: [], board: [], run: [], cards: [] };
       const put = (game, q, a, options) => {
         // "True or false: a face can …" → "True or false: A face can …"; answers start with a capital letter
         q = String(q || "").trim().replace(/^(True or false:\s*)([a-z])/, (_, t, c) => t + c.toUpperCase());
@@ -850,16 +851,19 @@
       let quiz = []; try { quiz = LC.quizTen(plan.id, w.week); } catch { /* lesson only */ }
       quiz.forEach((it) => { let o = []; try { o = LC.optionsForItem(plan.id, it, quiz) || []; } catch { /* no options */ } addCore(it.q, o.find((x) => qNorm(x) === qNorm(it.a)) || it.a, o); });
       qs.filter((q) => (q.kind === "choice" || q.kind === "truefalse") && q.answer).forEach((q) => addCore(q.q, q.answer, q.options));
-      const deal = ["jigsaw", "board", "run", "quiz"]; let d = 0;
-      core.forEach((x) => put(x.a.length > 26 ? "quiz" : deal[d++ % 4], x.q, x.a, x.options));
+      // 🃏 Answer cards get their own share too (long answers alternate quiz / cards)
+      const deal = ["cards", "jigsaw", "board", "run", "quiz"]; let d = 0, lg = 0;
+      core.filter((x) => !seen.has(qNorm(x.q))).forEach((x) => put(x.a.length > 26 ? (lg++ % 2 ? "cards" : "quiz") : deal[d++ % deal.length], x.q, x.a, x.options)); // only what is still free is dealt, so every game gets its turn
 
       // key words
-      const answered = new Set([...out.quiz, ...out.jigsaw, ...out.board, ...out.run].map((x) => qNorm(x.a)));
+      const answered = new Set([...out.quiz, ...out.jigsaw, ...out.board, ...out.run, ...out.cards].map((x) => qNorm(x.a)));
       const keys = [...(n.keywords || []), ...(n.words || []).map((x) => [x.word, x.meaning])].filter(([k, m], i, all) => k && m && all.findIndex((y) => qNorm(y[0]) === qNorm(k)) === i);
       let kn = 0;
       keys.forEach(([k, m], i) => {
         if (answered.has(qNorm(k))) return;
-        if (kn++ % 2 === 0) put("jigsaw", `Which word means “${clause(m)}”?`, k);
+        const turn = kn++ % 3;
+        if (turn === 0) put("jigsaw", `Which word means “${clause(m)}”?`, k);
+        else if (turn === 2) mc("cards", `Which word means “${clause(m)}”?`, k, keys.filter((_, j) => j !== i).map((x) => x[0]));
         else mc("run", `What does “${k}” mean?`, clause(m), keys.filter((_, j) => j !== i).map((x) => clause(x[1])));
       });
 
@@ -870,7 +874,7 @@
       });
       const keyWords = keys.map(([k]) => String(k).toLowerCase());
       // a sentence another question already asks about (same idea in other words) is not asked again
-      const asked = (t) => { const k = qNorm(t), all = [...out.quiz, ...out.jigsaw, ...out.board, ...out.run].map((x) => qNorm(x.q)); return k.length > 3 && all.some((q) => q.includes(k)); };
+      const asked = (t) => { const k = qNorm(t), all = [...out.quiz, ...out.jigsaw, ...out.board, ...out.run, ...out.cards].map((x) => qNorm(x.q)); return k.length > 3 && all.some((q) => q.includes(k)); };
       const gap = (sentence) => {
         const sx = String(sentence || "").trim(), words = sx.match(/[A-Za-z]+(?:['’-][A-Za-z]+)*/g) || [];
         if (words.length < 6 || !standsAlone(sx) || /^['‘"“]/.test(sx)) return;
@@ -920,7 +924,7 @@
       (L?.points || []).filter(standsAlone).forEach((p, i) => {
         if (asked(p)) return;
         const at = (wi * 5 + i * 4) % Math.max(1, ptsFrom.length);
-        mc("run", PT_ASK[i % PT_ASK.length].replace(/([?!])’\?$/, "$1’"), p, [...ptsFrom.slice(at), ...ptsFrom.slice(0, at)].slice(0, 3));
+        mc(i % 2 ? "cards" : "run", PT_ASK[i % PT_ASK.length].replace(/([?!])’\?$/, "$1’"), p, [...ptsFrom.slice(at), ...ptsFrom.slice(0, at)].slice(0, 3));
       });
 
       byWeek.set(w.week, out);
@@ -1203,6 +1207,7 @@
     else if (go === "games") jigsaw(plan, w);
     else if (go === "board") { const g = LC.gameFor(plan.id, w.week); frameGame(plan, w, LC.buildGameHtml(g, gameInput(plan, w, boardItems(plan, w))), `🎲 ${esc(g.name)}`); }
     else if (go === "mine") window.ActivityMaker.open({ stage, starPicker, plan, w, where: `Year ${plan.year} · T${plan.term} ${calOf(plan, w.week).label}`, ready: { plans: () => LC.LESSON_PLANS, make: worksheetsFor, label: (p, wk) => `${calOf(p, wk).label} · ${focusParts(weekOf(p, wk).focus, p, wk).text}` }, onClose: (f) => stageCleanup.push(f) });
+    else if (go === "cards") window.AnswerCards.open({ stage, plan, w, title: focusParts(w.focus, plan, w.week).text, items: gameItems(plan, w, "cards", 10), onClose: (f) => stageCleanup.push(f) });
     else if (go === "run") { const t = LC.runThemeFor(plan.id, w.week); frameGame(plan, w, LC.buildPlatformerHtml(gameInput(plan, w, gameItems(plan, w, "run", RUN_LEVEL)), t, runLevelsFor(plan, w)), `🏃 ${esc(t.name)}`); }
   }
 
