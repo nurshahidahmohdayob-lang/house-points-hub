@@ -272,7 +272,7 @@
           </div>
         </div></li>
         <li class="lc-step"><span class="lc-n">2</span><div class="lc-sbody">
-          <div class="lc-shead"><h3>Note</h3><small>Mind map · warm-up · questions · study notes</small></div>
+          <div class="lc-shead"><h3>Note</h3><small>Mind map · slides · study notes</small></div>
           <div class="lc-note">
             <div class="lc-note-top">
               <span class="lc-note-e">${fp.emoji}</span>
@@ -287,6 +287,7 @@
             ${w.objectives ? `<div class="lc-note-goal"><span>🎯</span><div><b>Today's goal</b><p>${esc(w.objectives)}</p></div></div>` : ""}
           </div>
           <div class="lc-study">
+            <button class="lc-studybtn deck" data-go="deck"><span>🎞️</span><b>Slides</b><small>This week's presentation · PowerPoint &amp; PDF</small></button>
             <button class="lc-studybtn" data-go="study"><span>📘</span><b>Study note</b><small>This week's revision page for students</small></button>
             <button class="lc-studybtn all" data-go="studyall"><span>📚</span><b>All study notes</b><small>Every week in one page · download &amp; share</small></button>
           </div>
@@ -1341,6 +1342,197 @@
     draw();
   }
 
+  /* ---------------- Slides: a presentation for each week's topic ---------------- */
+  // Same lesson data as the study note, laid out as 16:9 slides. One model (deckFor) feeds three outputs:
+  // the full-screen presenter here, 🖨️ PDF (one slide per page) and ⬇️ PowerPoint (PptxGenJS, loaded on demand).
+  const SD_THEMES = { title: ["#7c3aed", "#ec4899"], goal: ["#f59e0b", "#f97316"], warm: ["#0ea5e9", "#6366f1"], idea: ["#7c3aed", "#c026d3"], words: ["#0ea5e9", "#0d9488"],
+    point: ["#10b981", "#0d9488"], ex: ["#ec4899", "#f43f5e"], why: ["#f97316", "#ef4444"], steps: ["#3b82f6", "#6366f1"], talk: ["#14b8a6", "#22c55e"], quiz: ["#8b5cf6", "#6366f1"], sum: ["#7c3aed", "#ec4899"], exit: ["#f59e0b", "#ec4899"] };
+  function deckFor(plan, w) {
+    const id = plan.id, wk = w.week, fp = focusParts(w.focus, plan, wk), cal = calOf(plan, wk);
+    const note = LC.noteFor(id, wk) || { idea: fp.text, points: [], examples: [] };
+    const deep = LC.deepFor(id, wk) || { why: "", words: [], steps: [] };
+    const det = (LC.detailFor && LC.detailFor(id, wk)) || {};
+    const vis = LC.visualFor(id, wk, note) || {};
+    const quiz = LC.quizTen(id, wk) || [];
+    const doNow = w.doNow || LC.doNowFor(id, wk) || "";
+    const criteria = LC.weekCriteria(w.objectives, deep.steps, 3, w.assessment) || [];
+    const words = [], seenW = new Set();
+    [...(deep.words || []).map((x) => [x.word, x.meaning]), ...(det.keywords || [])].forEach(([k, m]) => { const n = String(k || "").toLowerCase(); if (k && m && !seenW.has(n)) { seenW.add(n); words.push([k, cap(m)]); } });
+    const explain = det.explain?.length ? det.explain : (note.points || []);
+    const big = vis.definition || note.idea || fp.text;
+    const S = [];
+    S.push({ th: "title", lay: "title", emoji: fp.emoji, title: fp.text, lead: `Year ${plan.year} · Term ${plan.term} · ${cal.label}${cal.date ? ` · ${cal.date}` : ""}`, chips: [...(plan.competencies || []).map((c) => `🧠 ${c}`), ...(plan.values || []).map((v) => `💎 ${v}`)] });
+    if (w.objectives) S.push({ th: "goal", lay: "list", kicker: "Today's goal", emoji: "🎯", title: w.objectives, items: criteria.filter((c) => norm(c.replace(/^I can\s*/i, "")) !== norm(w.objectives)).map((c) => `✅ I can ${c.replace(/^I can\s*/i, "")}`) });
+    if (doNow) S.push({ th: "warm", lay: "big", kicker: "Warm-up", emoji: "⏱️", title: warmText(id, wk, doNow), lead: "Think on your own, then share with a partner." });
+    S.push({ th: "idea", lay: "big", kicker: "The big idea", emoji: vis.emoji || fp.emoji, title: big, lead: det.intro && norm(det.intro) !== norm(big) ? det.intro : "" });
+    if (words.length) S.push({ th: "words", lay: "cards", kicker: "Key words", emoji: "📖", title: "Words we need", cards: words.slice(0, 6) });
+    const cards = vis.cards || [];
+    explain.slice(0, 4).forEach((t, i) => S.push({ th: "point", lay: "big", kicker: `Main point ${i + 1} of ${Math.min(explain.length, 4)}`, emoji: cards[i]?.emoji || "🧠", title: t, lead: cards[i]?.line ? `💡 Example: ${cards[i].line}` : "" }));
+    if (note.examples?.length) S.push({ th: "ex", lay: "list", kicker: "What it looks like", emoji: "👀", title: "Examples", items: note.examples.map((e) => `💡 ${e}`), foot: note.watchOut ? `⚠️ Watch out: ${note.watchOut}` : "" });
+    if (deep.why) S.push({ th: "why", lay: "big", kicker: "Why it matters", emoji: "🤔", title: deep.why });
+    if (deep.steps?.length) S.push({ th: "steps", lay: "list", kicker: "How to do it", emoji: "🪜", title: "Steps to remember", items: deep.steps, ordered: true });
+    if (vis.partner?.length) S.push({ th: "talk", lay: "list", kicker: "Talk it over", emoji: "🗣️", title: "Discuss with a partner", items: vis.partner.slice(0, 3).map((p) => `💬 ${p}`) });
+    quiz.slice(0, 5).forEach((it, i) => S.push({ th: "quiz", lay: "quiz", kicker: `Quick check ${i + 1} of ${Math.min(quiz.length, 5)}`, emoji: "❓", title: it.q, options: LC.optionsForItem(id, it, quiz) || [], answer: cap(it.a) }));
+    S.push({ th: "sum", lay: "list", kicker: "Remember", emoji: "⭐", title: "What we learned", items: [big, ...(explain.length ? explain : note.points || []).slice(0, 3).map((t) => t.split(/(?<=[.!?])\s/)[0])].slice(0, 4).map((t) => `⭐ ${t}`) });
+    S.push({ th: "exit", lay: "list", kicker: "Exit ticket", emoji: "🎟️", title: "Before you go…", items: ["📝 Today I learned…", "🚀 One thing I will do is…", "🤔 I'm still wondering…"] });
+    return { title: fp.text, file: `Year ${plan.year} T${plan.term} ${cal.label} - ${fp.text}`, slides: S };
+  }
+
+  const SD_CSS = `
+.sd-s { --a: #7c3aed; --b: #ec4899; width: 1280px; height: 720px; position: relative; overflow: hidden; border-radius: 0; font-family: Nunito, system-ui, sans-serif; color: #1f1640; background: #fff; display: flex; flex-direction: column; box-sizing: border-box; }
+.sd-s * { box-sizing: border-box; }
+.sd-s::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 14px; background: linear-gradient(90deg, var(--a), var(--b)); }
+.sd-s::after { content: ""; position: absolute; right: -120px; bottom: -160px; width: 420px; height: 420px; border-radius: 50%; background: color-mix(in srgb, var(--b) 10%, transparent); }
+.sd-kick { margin: 50px 70px 0; display: flex; align-items: center; gap: 14px; font-weight: 800; font-size: 22px; letter-spacing: .08em; text-transform: uppercase; color: var(--a); position: relative; z-index: 1; }
+.sd-kick i { font-style: normal; font-size: 38px; width: 64px; height: 64px; border-radius: 18px; display: grid; place-items: center; background: color-mix(in srgb, var(--a) 12%, #fff); letter-spacing: 0; }
+.sd-in { flex: 1; padding: 22px 70px 56px; display: flex; flex-direction: column; justify-content: center; gap: 22px; position: relative; z-index: 1; }
+.sd-s h1, .sd-s h2 { font-family: "Baloo 2", Nunito, sans-serif; margin: 0; line-height: 1.15; text-wrap: balance; }
+.sd-s h2 { font-size: 48px; }
+.sd-s h2.long { font-size: 38px; }
+.sd-lead { font-size: 28px; line-height: 1.45; margin: 0; color: #4a4466; }
+.sd-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; }
+.sd-list li { font-size: 28px; line-height: 1.35; padding: 14px 22px; border-radius: 18px; background: color-mix(in srgb, var(--a) 8%, #fff); border-left: 8px solid var(--a); }
+.sd-list.ol { counter-reset: n; }
+.sd-list.ol li { counter-increment: n; display: flex; gap: 16px; align-items: center; }
+.sd-list.ol li::before { content: counter(n); flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; background: linear-gradient(135deg, var(--a), var(--b)); }
+.sd-foot { font-size: 24px; font-weight: 700; color: #b45309; margin: 0; }
+.sd-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.sd-cards div { border-radius: 20px; padding: 18px 22px; background: color-mix(in srgb, var(--a) 8%, #fff); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--a) 22%, #fff); }
+.sd-cards b { display: block; font-family: "Baloo 2", Nunito, sans-serif; font-size: 32px; color: var(--a); line-height: 1.1; }
+.sd-cards span { font-size: 21px; color: #4a4466; line-height: 1.35; }
+.sd-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.sd-opts div { font-size: 28px; font-weight: 700; padding: 18px 24px; border-radius: 18px; background: color-mix(in srgb, var(--a) 8%, #fff); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--a) 20%, #fff); display: flex; gap: 14px; align-items: center; }
+.sd-opts div b { flex: none; width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; color: #fff; background: var(--a); }
+.sd-s.shown .sd-opts div.ok { background: #d1fae5; box-shadow: inset 0 0 0 3px #10b981; }
+.sd-s.shown .sd-opts div:not(.ok) { opacity: .45; }
+.sd-ans { font-size: 28px; font-weight: 800; color: #059669; margin: 0; visibility: hidden; }
+.sd-s.shown .sd-ans { visibility: visible; }
+.sd-s.title { color: #fff; background: linear-gradient(130deg, var(--a), var(--b)); justify-content: center; align-items: center; text-align: center; gap: 22px; padding: 60px; }
+.sd-s.title::before { display: none; }
+.sd-s.title::after { background: rgba(255,255,255,.1); }
+.sd-s.title .e { font-size: 120px; line-height: 1; position: relative; z-index: 1; }
+.sd-s.title h1 { font-size: 84px; position: relative; z-index: 1; text-shadow: 0 4px 10px rgba(0,0,0,.18); }
+.sd-s.title p { font-size: 28px; font-weight: 800; margin: 0; opacity: .95; position: relative; z-index: 1; }
+.sd-chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; position: relative; z-index: 1; }
+.sd-chips span { font-size: 22px; font-weight: 800; padding: 6px 18px; border-radius: 999px; background: rgba(255,255,255,.2); box-shadow: inset 0 0 0 2px rgba(255,255,255,.4); }
+.sd-num { position: absolute; right: 30px; bottom: 20px; font-size: 18px; font-weight: 800; color: #a29bbd; z-index: 1; }
+.sd-s.title .sd-num { color: rgba(255,255,255,.7); }`;
+  if (!document.getElementById("sdCss")) { const st = document.createElement("style"); st.id = "sdCss"; st.textContent = SD_CSS; document.head.appendChild(st); }
+
+  function slideHtml(s, i, n) {
+    const [a, b] = SD_THEMES[s.th] || SD_THEMES.title, num = `<span class="sd-num">${i + 1} / ${n}</span>`, st = `style="--a:${a};--b:${b}"`;
+    if (s.lay === "title") return `<section class="sd-s title" ${st}><div class="e">${s.emoji}</div><h1>${esc(s.title)}</h1><p>${esc(s.lead)}</p>${s.chips.length ? `<div class="sd-chips">${s.chips.map((c) => `<span>${esc(c)}</span>`).join("")}</div>` : ""}${num}</section>`;
+    const h = `<h2 class="${s.title.length > 90 ? "long" : ""}">${esc(s.title)}</h2>`;
+    let inner = "";
+    if (s.lay === "big") inner = `${h}${s.lead ? `<p class="sd-lead">${esc(s.lead)}</p>` : ""}`;
+    else if (s.lay === "list") inner = `${h}${s.items.length ? `<ul class="sd-list ${s.ordered ? "ol" : ""}">${s.items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}${s.foot ? `<p class="sd-foot">${esc(s.foot)}</p>` : ""}`;
+    else if (s.lay === "cards") inner = `${h}<div class="sd-cards">${s.cards.map(([k, m]) => `<div><b>${esc(k)}</b><span>${esc(m)}</span></div>`).join("")}</div>`;
+    else if (s.lay === "quiz") inner = `${h}${s.options.length ? `<div class="sd-opts">${s.options.map((o, k) => `<div class="${norm(o) === norm(s.answer) ? "ok" : ""}"><b>${"ABCD"[k]}</b>${esc(o)}</div>`).join("")}</div>` : ""}<p class="sd-ans">✅ Answer: ${esc(s.answer)}</p>`;
+    return `<section class="sd-s ${s.lay}" ${st}><div class="sd-kick"><i>${s.emoji}</i>${esc(s.kicker)}</div><div class="sd-in">${inner}</div>${num}</section>`;
+  }
+
+  // 🖨️ PDF: every slide on its own landscape page (quiz answers shown)
+  function printDeck(deck) {
+    const n = deck.slides.length;
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(deck.file)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+<style>@page { size: 1280px 720px; margin: 0; } body { margin: 0; } .sd-s { break-after: page; -webkit-print-color-adjust: exact; print-color-adjust: exact; }${SD_CSS}</style></head>
+<body>${deck.slides.map((s, i) => slideHtml(s, i, n).replace('class="sd-s quiz"', 'class="sd-s quiz shown"')).join("")}</body></html>`;
+    const f = document.createElement("iframe");
+    f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(f);
+    f.onload = () => setTimeout(() => { f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 60000); }, 800);
+    f.srcdoc = html;
+  }
+
+  // ⬇️ PowerPoint (.pptx), drawn with PptxGenJS; quiz answers go on the slide after each question
+  let pptxLib = null;
+  const loadPptx = () => pptxLib || (pptxLib = new Promise((ok, no) => {
+    if (window.PptxGenJS) return ok(window.PptxGenJS);
+    const s = document.createElement("script"); s.src = "https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js";
+    s.onload = () => ok(window.PptxGenJS); s.onerror = () => { pptxLib = null; no(new Error("Could not load PowerPoint maker")); }; document.head.appendChild(s);
+  }));
+  async function pptxDeck(deck) {
+    const P = await loadPptx(), pp = new P();
+    pp.layout = "LAYOUT_WIDE"; pp.title = deck.file;
+    const H = (c) => c.replace("#", ""), FONT = "Arial", INK = "1F1640", SOFT = "4A4466";
+    const add = (s, shown) => {
+      const [a, b] = SD_THEMES[s.th] || SD_THEMES.title, sl = pp.addSlide();
+      if (s.lay === "title") {
+        sl.background = { color: H(a) };
+        sl.addShape(pp.ShapeType.ellipse, { x: 9.6, y: 3.9, w: 5.2, h: 5.2, fill: { color: H(b) } });
+        sl.addText(s.emoji, { x: 0, y: 0.9, w: 13.33, h: 1.5, align: "center", fontSize: 80 });
+        sl.addText(s.title, { x: 0.8, y: 2.5, w: 11.73, h: 1.5, align: "center", fontSize: 54, bold: true, color: "FFFFFF", fontFace: FONT, fit: "shrink" });
+        sl.addText(s.lead, { x: 0.8, y: 4.0, w: 11.73, h: 0.6, align: "center", fontSize: 22, bold: true, color: "FFFFFF", fontFace: FONT });
+        if (s.chips.length) sl.addText(s.chips.join("     "), { x: 0.8, y: 4.8, w: 11.73, h: 0.8, align: "center", fontSize: 18, bold: true, color: "FFFFFF", fontFace: FONT, fit: "shrink" });
+        return;
+      }
+      sl.background = { color: "FFFFFF" };
+      sl.addShape(pp.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 0.14, fill: { color: H(a) } });
+      sl.addShape(pp.ShapeType.ellipse, { x: 10.6, y: 4.6, w: 4.4, h: 4.4, fill: { color: H(b), transparency: 90 } });
+      sl.addText(`${s.emoji}  ${s.kicker.toUpperCase()}`, { x: 0.7, y: 0.45, w: 11, h: 0.6, fontSize: 18, bold: true, color: H(a), fontFace: FONT, charSpacing: 2 });
+      const tH = s.lay === "big" ? 2.6 : 1.4;
+      sl.addText(s.title, { x: 0.7, y: s.lay === "big" ? 1.6 : 1.2, w: 11.9, h: tH, fontSize: s.title.length > 90 ? 28 : 36, bold: true, color: INK, fontFace: FONT, valign: s.lay === "big" ? "middle" : "top", fit: "shrink" });
+      if (s.lay === "big" && s.lead) sl.addText(s.lead, { x: 0.7, y: 4.4, w: 11.9, h: 2.0, fontSize: 22, color: SOFT, fontFace: FONT, valign: "top", fit: "shrink" });
+      if (s.lay === "list") {
+        sl.addText(s.items.map((t) => ({ text: t, options: { bullet: s.ordered ? { type: "number" } : false, paraSpaceAfter: 12 } })), { x: 0.9, y: 2.75, w: 11.6, h: s.foot ? 3.4 : 4.1, fontSize: 22, color: INK, fontFace: FONT, valign: "top", fit: "shrink" });
+        if (s.foot) sl.addText(s.foot, { x: 0.9, y: 6.3, w: 11.6, h: 0.6, fontSize: 18, bold: true, color: "B45309", fontFace: FONT, fit: "shrink" });
+      }
+      if (s.lay === "cards") s.cards.forEach(([k, m], j) => {
+        const x = 0.7 + (j % 3) * 4.05, y = 2.75 + Math.floor(j / 3) * 2.05;
+        sl.addShape(pp.ShapeType.roundRect, { x, y, w: 3.85, h: 1.85, rectRadius: 0.15, fill: { color: "F3F0FF" }, line: { color: H(a), width: 1.5 } });
+        sl.addText([{ text: k, options: { bold: true, color: H(a), fontSize: 22, breakLine: true } }, { text: m, options: { color: SOFT, fontSize: 15 } }], { x: x + 0.15, y: y + 0.1, w: 3.55, h: 1.65, fontFace: FONT, valign: "top", fit: "shrink" });
+      });
+      if (s.lay === "quiz") {
+        s.options.forEach((o, j) => {
+          const ok = shown && norm(o) === norm(s.answer), x = 0.7 + (j % 2) * 6.0, y = 3.0 + Math.floor(j / 2) * 1.3;
+          sl.addShape(pp.ShapeType.roundRect, { x, y, w: 5.8, h: 1.1, rectRadius: 0.12, fill: { color: ok ? "D1FAE5" : "F3F0FF" }, line: { color: ok ? "10B981" : "DDD6FE", width: ok ? 3 : 1 } });
+          sl.addText(`${"ABCD"[j]}   ${o}`, { x: x + 0.2, y, w: 5.4, h: 1.1, fontSize: 22, bold: true, color: INK, fontFace: FONT, valign: "middle", fit: "shrink" });
+        });
+        if (shown) sl.addText(`✅ Answer: ${s.answer}`, { x: 0.7, y: 5.75, w: 11.9, h: 0.7, fontSize: 24, bold: true, color: "059669", fontFace: FONT });
+        sl.addNotes(`Answer: ${s.answer}`);
+      }
+    };
+    deck.slides.forEach((s) => { add(s, false); if (s.lay === "quiz") add(s, true); });
+    await pp.writeFile({ fileName: `${deck.file.replace(/[^\w\- ]+/g, "").replace(/\s+/g, " ").trim()}.pptx` });
+  }
+
+  function openSlides(plan, w) {
+    const deck = deckFor(plan, w), n = deck.slides.length;
+    const el = stage(`🎞️ ${esc(deck.title)}`);
+    const body = $(".lc-stage-body", el); body.classList.add("sd-stage");
+    $(".lc-stage-extra", el).innerHTML = `<button class="btn ghost" data-sd="pptx" title="Download as a PowerPoint file">⬇️ PowerPoint</button><button class="btn ghost" data-sd="pdf" title="Print or save as PDF, one slide per page">🖨️ PDF</button><button class="btn ghost" data-sd="full">⛶ Full screen</button>`;
+    body.innerHTML = `<div class="sd-view"><div class="sd-fit"></div></div>
+      <div class="sd-bar"><button class="btn ghost" data-sd="prev">‹ Back</button><div class="sd-dots">${deck.slides.map((s, k) => `<button data-k="${k}" title="${esc(s.kicker || s.title)}">${s.emoji}</button>`).join("")}</div><button class="btn" data-sd="next">Next ›</button></div>`;
+    const view = $(".sd-view", body), fit = $(".sd-fit", body);
+    let i = 0;
+    const scale = () => { const r = view.getBoundingClientRect(), k = Math.min(r.width / 1280, r.height / 720); fit.style.transform = `translate(-50%, -50%) scale(${k})`; };
+    const show = (k, dir = 1) => {
+      i = Math.max(0, Math.min(n - 1, k));
+      fit.innerHTML = slideHtml(deck.slides[i], i, n);
+      fit.firstElementChild.animate([{ opacity: 0, transform: `translateX(${dir * 30}px)` }, { opacity: 1, transform: "none" }], { duration: 260, easing: "ease-out" });
+      $$(".sd-dots button", body).forEach((b, j) => b.classList.toggle("on", j === i));
+      $(".sd-dots button.on", body)?.scrollIntoView({ block: "nearest", inline: "center" });
+      $("[data-sd=prev]", body).disabled = i === 0;
+      $("[data-sd=next]", body).textContent = deck.slides[i].lay === "quiz" ? "Show answer ›" : i === n - 1 ? "Done ✓" : "Next ›";
+    };
+    // On a quiz slide, Next first shows the answer, then moves on
+    const next = () => { const s = $(".sd-s", fit); if (s?.classList.contains("quiz") && !s.classList.contains("shown")) { s.classList.add("shown"); $("[data-sd=next]", body).textContent = "Next ›"; CP().beep("up"); } else if (i < n - 1) show(i + 1, 1); else closeStage(); };
+    $("[data-sd=prev]", body).onclick = () => show(i - 1, -1);
+    $("[data-sd=next]", body).onclick = next;
+    fit.onclick = (e) => { if (!e.target.closest("button")) next(); };
+    $$(".sd-dots button", body).forEach((b) => b.onclick = () => show(+b.dataset.k, +b.dataset.k > i ? 1 : -1));
+    $("[data-sd=pdf]", el).onclick = () => printDeck(deck);
+    const pb = $("[data-sd=pptx]", el);
+    pb.onclick = () => { pb.disabled = true; pb.textContent = "⏳ Making…"; pptxDeck(deck).then(() => { pb.textContent = "✅ Downloaded"; }, (e) => { pb.textContent = "⚠️ Try again"; console.warn(e); }).finally(() => { pb.disabled = false; }); };
+    const fb = $("[data-sd=full]", el), fsLabel = () => { fb.textContent = document.fullscreenElement ? "🗗 Exit full screen" : "⛶ Full screen"; setTimeout(scale, 60); };
+    fb.onclick = () => (document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen?.())?.catch?.(() => {});
+    const key = (e) => { if ($("#modal").open || /INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return; const d = pointerKey(e); if (d) { e.preventDefault(); d > 0 ? next() : show(i - 1, -1); } };
+    const ro = new ResizeObserver(scale); ro.observe(view);
+    document.addEventListener("keydown", key); document.addEventListener("fullscreenchange", fsLabel);
+    stageCleanup.push(() => { ro.disconnect(); document.removeEventListener("keydown", key); document.removeEventListener("fullscreenchange", fsLabel); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); });
+    scale(); show(0);
+  }
+
   function frameGame(plan, w, html, title) {
     const el = stage(title);
     $(".lc-stage-body", el).innerHTML = `<iframe class="lc-frame" title="${esc(title)}" sandbox="allow-scripts allow-same-origin"></iframe>`;
@@ -1349,6 +1541,7 @@
 
   function open(go, plan, w) {
     if (go === "teach") teachMap(plan, w);
+    else if (go === "deck") openSlides(plan, w);
     else if (go === "study") openStudy(plan, w, "week");
     else if (go === "studyall") openStudy(plan, w, "term");
     else if (go === "slides") teach(plan, w);
