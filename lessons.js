@@ -26,6 +26,8 @@
   let LC = null, loading = null;
   let pick = loadPick();
   const SHARE = /^\d{1,2}-[1-3]-\d{1,2}$/.test(new URLSearchParams(location.search).get("map") || "") ? new URLSearchParams(location.search).get("map") : "";
+  // Study notes for students: ?notes=6-1-10 (one week) · 6-1 (a term) · 6 (the whole year), from /notes/<code>
+  const NOTES = /^\d{1,2}(-[1-3](-\d{1,2})?)?$/.test(new URLSearchParams(location.search).get("notes") || "") ? new URLSearchParams(location.search).get("notes") : "";
   function loadPick() { try { return { year: 1, term: 1, week: 1, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { return { year: 1, term: 1, week: 1 }; } }
   function savePick() { try { localStorage.setItem(KEY, JSON.stringify(pick)); } catch { /* private mode */ } }
 
@@ -270,7 +272,7 @@
           </div>
         </div></li>
         <li class="lc-step"><span class="lc-n">2</span><div class="lc-sbody">
-          <div class="lc-shead"><h3>Note</h3><small>Mind map · warm-up · questions</small></div>
+          <div class="lc-shead"><h3>Note</h3><small>Mind map · warm-up · questions · study notes</small></div>
           <div class="lc-note">
             <div class="lc-note-top">
               <span class="lc-note-e">${fp.emoji}</span>
@@ -283,6 +285,10 @@
               <button class="lc-note-btn" data-go="teach" title="Interactive mind map that grows as you teach, with questions inside"><span>▶</span><b>Open the note</b><small>Mind map with questions inside</small></button>
             </div>
             ${w.objectives ? `<div class="lc-note-goal"><span>🎯</span><div><b>Today's goal</b><p>${esc(w.objectives)}</p></div></div>` : ""}
+          </div>
+          <div class="lc-study">
+            <button class="lc-studybtn" data-go="study"><span>📘</span><b>Study note</b><small>This week's revision page for students</small></button>
+            <button class="lc-studybtn all" data-go="studyall"><span>📚</span><b>All study notes</b><small>Every week in one page · download &amp; share</small></button>
           </div>
         </div></li>
         <li class="lc-step"><span class="lc-n">3</span><div class="lc-sbody">
@@ -1187,6 +1193,154 @@
     return { year: plan.year, term: plan.term, week: calOf(plan, w.week).label, topic: w.focus, subject: LC.LESSON_SUBJECT, objectives: w.objectives,
       questions: qs, gameQuestions: qs, options: set.map((x) => x.options) };
   }
+  /* ---------------- Study notes: a revision page per week for students to read before the exam ---------------- */
+  // Built from the same lesson data as the mind map. One week, a term or the whole year can be read here, shared
+  // (lifecomp.vercel.app/notes/6-1-10 · /notes/6-1 · /notes/6), printed, or downloaded as one self-contained page.
+  // SN_CSS is used both in the app and inside the downloaded file, so the two always look the same.
+  const SN_CSS = `
+.sn-doc { --sn-ink: #1f1640; --sn-soft: #5b5577; --sn-line: #e7e2f5; font-family: Nunito, system-ui, sans-serif; color: var(--sn-ink); background: #f6f3ff; padding: 18px; display: grid; gap: 22px; justify-items: center; }
+.sn-doc * { box-sizing: border-box; }
+.sn-cover, .sn-note { width: 100%; max-width: 860px; background: #fff; border-radius: 22px; box-shadow: 0 4px 0 #e2dbf7, 0 10px 26px rgba(91, 33, 182, .1); overflow: hidden; }
+.sn-cover { padding: 26px 28px; background: linear-gradient(120deg, #7c3aed, #c026d3 55%, #ec4899); color: #fff; }
+.sn-cover h1 { margin: 0; font-family: "Baloo 2", Nunito, sans-serif; font-size: 2.1rem; line-height: 1.1; }
+.sn-cover p { margin: 6px 0 0; font-weight: 700; opacity: .95; }
+.sn-toc { margin: 14px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; }
+.sn-toc a { display: block; color: #fff; text-decoration: none; font-weight: 800; font-size: .92rem; padding: 6px 10px; border-radius: 10px; background: rgba(255,255,255,.16); }
+.sn-toc a:hover { background: rgba(255,255,255,.28); }
+.sn-head { display: flex; gap: 14px; align-items: center; padding: 18px 22px; color: #fff; background: linear-gradient(120deg, #7c3aed, #c026d3 55%, #ec4899); }
+.sn-head .e { flex: none; width: 58px; height: 58px; border-radius: 16px; display: grid; place-items: center; font-size: 2rem; background: rgba(255,255,255,.22); }
+.sn-head small { display: block; font-weight: 800; opacity: .92; font-size: .85rem; }
+.sn-head h2 { margin: 2px 0 0; font-family: "Baloo 2", Nunito, sans-serif; font-size: 1.6rem; line-height: 1.1; }
+.sn-body { padding: 18px 22px 22px; display: grid; gap: 14px; }
+.sn-box { border-radius: 16px; padding: 12px 16px; background: color-mix(in srgb, var(--c) 9%, #fff); border-left: 6px solid var(--c); break-inside: avoid; }
+.sn-box h3 { margin: 0 0 6px; font-size: .82rem; letter-spacing: .06em; text-transform: uppercase; color: var(--c); }
+.sn-box p { margin: 0; line-height: 1.5; }
+.sn-box p + p { margin-top: 6px; }
+.sn-box ul, .sn-box ol { margin: 0; padding-left: 22px; line-height: 1.5; }
+.sn-box li + li { margin-top: 4px; }
+.sn-big { font-size: 1.12rem; font-weight: 800; }
+.sn-words { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.sn-word { background: #fff; border-radius: 12px; padding: 8px 12px; box-shadow: inset 0 0 0 1.5px var(--sn-line); }
+.sn-word b { display: block; color: #7c3aed; font-size: 1.02rem; }
+.sn-word span { color: var(--sn-soft); font-size: .93rem; }
+.sn-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.sn-test ol { padding-left: 24px; }
+.sn-test li { padding: 3px 0; }
+.sn-test details { display: inline; }
+.sn-test summary { display: inline; cursor: pointer; color: #7c3aed; font-weight: 800; font-size: .85rem; margin-left: 6px; list-style: none; }
+.sn-test summary::-webkit-details-marker { display: none; }
+.sn-test details[open] summary { display: none; }
+.sn-test details b { color: #059669; margin-left: 6px; }
+.sn-keys { margin-top: 10px; font-size: .85rem; color: var(--sn-soft); }
+.sn-tip { font-size: .9rem; color: var(--sn-soft); font-weight: 700; text-align: center; }
+@media (max-width: 640px) { .sn-two { grid-template-columns: 1fr; } .sn-doc { padding: 10px; } .sn-body { padding: 14px; } }
+@media print {
+  @page { margin: 12mm; }
+  body { background: #fff !important; }
+  .sn-doc { background: #fff; padding: 0; gap: 0; display: block; }
+  .sn-cover, .sn-note { box-shadow: none; border: 1.5px solid #e2dbf7; max-width: none; margin: 0 0 8mm; }
+  .sn-note { break-before: page; }
+  .sn-cover, .sn-head, .sn-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sn-test summary, .sn-tip { display: none; }
+  .sn-keys { display: block !important; }
+}`;
+  if (!document.getElementById("snCss")) { const st = document.createElement("style"); st.id = "snCss"; st.textContent = SN_CSS; document.head.appendChild(st); }
+
+  const cap = (t) => { const s = String(t || "").trim(); return s ? s[0].toUpperCase() + s.slice(1) : s; };
+  const calNum = (plan, week) => Number(/Week (\d+)/.exec(calOf(plan, week).label || "")?.[1] || week);
+  // Every lesson week of a term in teaching order (weeks taught together stay next to each other)
+  const termWeeks = (plan) => [...new Set(schedule(plan).flatMap((r) => r.weeks))].map((n) => weekOf(plan, n));
+
+  function studyNoteHtml(plan, w) {
+    const id = plan.id, wk = w.week, fp = focusParts(w.focus, plan, wk), cal = calOf(plan, wk);
+    const note = LC.noteFor(id, wk) || { idea: fp.text, points: [], examples: [] };
+    const deep = LC.deepFor(id, wk) || { why: "", words: [], steps: [] };
+    const det = (LC.detailFor && LC.detailFor(id, wk)) || {};
+    const vis = LC.visualFor(id, wk, note) || {};
+    const box = (c, title, inner) => `<section class="sn-box" style="--c:${c}"><h3>${title}</h3>${inner}</section>`;
+    const list = (xs, tag = "ul") => `<${tag}>${xs.map((x) => `<li>${esc(x)}</li>`).join("")}</${tag}>`;
+    // key words: the lesson's word list first, then the longer glossary (no repeats)
+    const words = [], seenW = new Set();
+    [...(deep.words || []).map((x) => [x.word, x.meaning]), ...(det.keywords || [])].forEach(([k, m]) => { const n = String(k || "").toLowerCase(); if (k && m && !seenW.has(n)) { seenW.add(n); words.push([k, m]); } });
+    const explain = det.explain?.length ? det.explain : (note.points || []);
+    const quiz = LC.quizTen(id, wk) || [];
+    const parts = [];
+    if (w.objectives) parts.push(box("#d97706", "🎯 What I need to know", `<p>${esc(w.objectives)}</p>`));
+    parts.push(box("#7c3aed", "💡 The big idea", `<p class="sn-big">${esc(vis.definition || note.idea || fp.text)}</p>${det.intro ? `<p>${esc(det.intro)}</p>` : ""}`));
+    if (words.length) parts.push(box("#0ea5e9", "📖 Key words", `<div class="sn-words">${words.slice(0, 8).map(([k, m]) => `<div class="sn-word"><b>${esc(k)}</b><span>${esc(cap(m))}</span></div>`).join("")}</div>`));
+    if (explain.length) parts.push(box("#10b981", "🧠 Main points", list(explain)));
+    const ex = note.examples || [];
+    if (ex.length || deep.why) parts.push(`<div class="sn-two">${ex.length ? box("#ec4899", "👀 Examples", list(ex)) : ""}${deep.why ? box("#f97316", "🤔 Why it matters", `<p>${esc(deep.why)}</p>${note.watchOut ? `<p>⚠️ <b>Watch out:</b> ${esc(note.watchOut)}</p>` : ""}`) : ""}</div>`);
+    if (deep.steps?.length) parts.push(box("#3b82f6", "🪜 Steps to remember", list(deep.steps, "ol")));
+    if (quiz.length) parts.push(box("#8b5cf6", "✏️ Test yourself", `<div class="sn-test"><ol>${quiz.map((q) => `<li>${esc(q.q)} <details><summary>Show answer</summary><b>${esc(cap(q.a))}</b></details></li>`).join("")}</ol>
+      <p class="sn-keys" hidden>Answers: ${quiz.map((q, i) => `${i + 1}. ${esc(cap(q.a))}`).join(" · ")}</p></div>`));
+    return `<article class="sn-note" id="sn-${plan.year}-${plan.term}-${wk}">
+      <header class="sn-head"><span class="e">${fp.emoji}</span><div><small>Year ${plan.year} · Term ${plan.term} · ${esc(cal.label)}${cal.date ? ` · ${esc(cal.date)}` : ""}</small><h2>${esc(fp.text)}</h2></div></header>
+      <div class="sn-body">${parts.join("")}</div></article>`;
+  }
+
+  // scope: { plan, w } = one week · { plan } = a term · { year } = all three terms
+  function studyNotes(scope) {
+    const plans = scope.year ? [1, 2, 3].map((t) => planFor(scope.year, t)).filter(Boolean) : [scope.plan];
+    const rows = plans.flatMap((p) => (scope.w ? [scope.w] : termWeeks(p)).map((w) => ({ p, w })));
+    const title = scope.w ? `Study note · ${focusParts(scope.w.focus, scope.plan, scope.w.week).text}`
+      : scope.year ? `Year ${scope.year} study notes · whole year` : `Year ${scope.plan.year} · Term ${scope.plan.term} study notes`;
+    const cover = scope.w ? "" : `<header class="sn-cover"><h1>📚 ${esc(title)}</h1><p>Life Competencies · read each note, then test yourself before the exam ✏️</p>
+      <ol class="sn-toc">${rows.map(({ p, w }) => `<li><a href="#sn-${p.year}-${p.term}-${w.week}">${focusParts(w.focus, p, w.week).emoji} ${scope.year ? `T${p.term} ` : ""}${esc(calOf(p, w.week).label)} · ${esc(focusParts(w.focus, p, w.week).text)}</a></li>`).join("")}</ol></header>`;
+    return { title, html: `<div class="sn-doc">${cover}${rows.map(({ p, w }) => studyNoteHtml(p, w)).join("")}<p class="sn-tip">Tip: cover the answers, try every question, then check ✅</p></div>` };
+  }
+
+  // The whole thing as one page that works on its own (download, print, give to students)
+  function studyFile({ title, html }) {
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+<style>body { margin: 0; background: #f6f3ff; }${SN_CSS}</style></head><body>${html}
+<script>addEventListener("beforeprint", () => document.querySelectorAll(".sn-test details").forEach((d) => d.open = false));<\/script></body></html>`;
+  }
+  const fileName = (t) => t.replace(/[·]/g, "-").replace(/[^\w\- ]+/g, "").replace(/\s+/g, " ").trim() + ".html";
+  function downloadNotes(doc) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([studyFile(doc)], { type: "text/html" }));
+    a.download = fileName(doc.title); document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+  function printNotes(doc) {
+    const f = document.createElement("iframe");
+    f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(f);
+    f.onload = () => setTimeout(() => { f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 60000); }, 600);
+    f.srcdoc = studyFile(doc);
+  }
+
+  function openStudy(plan, w, which = "week") {
+    const el = stage("📘 Study notes");
+    const body = $(".lc-stage-body", el); body.classList.add("sn-stage");
+    let mode = which;
+    const draw = () => {
+      const scope = mode === "week" ? { plan, w } : mode === "year" ? { year: plan.year } : { plan };
+      const doc = studyNotes(scope);
+      const code = mode === "week" ? `${plan.year}-${plan.term}-${calNum(plan, w.week)}` : mode === "year" ? `${plan.year}` : `${plan.year}-${plan.term}`;
+      const link = `${location.origin}/notes/${code}`;
+      $(".lc-stage-title", el).textContent = `📘 ${doc.title}`;
+      body.innerHTML = `<div class="sn-bar">
+          ${NOTES ? "" : `<div class="sn-pills">${[["week", "This week"], ["term", `Term ${plan.term}`], ["year", `Whole year`]].map(([k, t]) => `<button class="${k === mode ? "on" : ""}" data-sn="${k}">${t}</button>`).join("")}</div>`}
+          <button class="btn" data-sn-do="dl" title="One page with every note — give it to your students">⬇️ Download${mode === "week" ? "" : " all"} (one page)</button>
+          <button class="btn ghost" data-sn-do="print">🖨️ Print / PDF</button>
+          ${NOTES ? "" : `<button class="btn ghost" data-sn-do="share">🔗 Share link</button>`}
+        </div>
+        <div class="mm-sharebox sn-share" hidden><input readonly value="${esc(link)}" aria-label="Share link"><button class="btn" data-sn-do="copy">📋 Copy</button></div>
+        ${doc.html}`;
+      $$("[data-sn]", body).forEach((b) => b.onclick = () => { mode = b.dataset.sn; draw(); body.scrollTop = 0; });
+      $("[data-sn-do=dl]", body).onclick = () => downloadNotes(doc);
+      $("[data-sn-do=print]", body).onclick = () => printNotes(doc);
+      const sh = $("[data-sn-do=share]", body), box = $(".sn-share", body), inp = $("input", box);
+      if (sh) sh.onclick = () => { box.hidden = !box.hidden; if (!box.hidden) inp.select(); };
+      inp.onfocus = () => inp.select();
+      $("[data-sn-do=copy]", body).onclick = (e) => navigator.clipboard?.writeText(link).then(() => { e.target.textContent = "✅ Copied!"; }, () => inp.select());
+      $$(".sn-toc a", body).forEach((a) => a.onclick = (e) => { e.preventDefault(); body.querySelector(a.getAttribute("href"))?.scrollIntoView({ behavior: "smooth" }); });
+    };
+    draw();
+  }
+
   function frameGame(plan, w, html, title) {
     const el = stage(title);
     $(".lc-stage-body", el).innerHTML = `<iframe class="lc-frame" title="${esc(title)}" sandbox="allow-scripts allow-same-origin"></iframe>`;
@@ -1195,6 +1349,8 @@
 
   function open(go, plan, w) {
     if (go === "teach") teachMap(plan, w);
+    else if (go === "study") openStudy(plan, w, "week");
+    else if (go === "studyall") openStudy(plan, w, "term");
     else if (go === "slides") teach(plan, w);
     else if (go === "live") {
       const quiz = LC.quizTen(plan.id, w.week);
@@ -1313,6 +1469,16 @@
       if (!plan) return;
       const row = (LC.termSchedule ? LC.termSchedule(plan.id) : []).find((r) => r.cal === `Week ${cal}` && r.weeks.length);
       teachMap(plan, weekOf(plan, row ? row.weeks[0] : cal));
+    });
+  }
+
+  if (NOTES) {
+    document.body.classList.add("share-view");
+    loadData().then(() => {
+      const [y, t, cal] = NOTES.split("-").map(Number);
+      const plan = planFor(y, t || 1); if (!plan) return;
+      const row = cal ? schedule(plan).find((r) => r.cal === `Week ${cal}` && r.weeks.length) : null;
+      openStudy(plan, cal ? weekOf(plan, row ? row.weeks[0] : cal) : plan.weeks[0], cal ? "week" : t ? "term" : "year");
     });
   }
 
