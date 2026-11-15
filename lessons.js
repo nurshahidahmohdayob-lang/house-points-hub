@@ -37,7 +37,7 @@
   const LIVE_DATA = window.LC_SYNC_URL || "https://zera-life-competencies.vercel.app/class-points/lc-data.js";
   // Live Class runs in the Life Competencies app itself (its /play page for students, its Live Class screen + board for the teacher)
   const LC_APP = "https://zera-life-competencies.vercel.app";
-  const LOCAL_DATA = "assets/lc-data.js?v=426667";
+  const LOCAL_DATA = "assets/lc-data.js?v=737539";
   const SYNC_CACHE = "class-points-lessons", SYNC_KEY = "/synced-lc-data.js";
   const NEEDS = ["LESSON_PLANS", "noteFor", "deepFor", "visualFor", "quizTen", "optionsForItem", "buildLesson", "expandActivity", "gameFor", "buildGameHtml", "runThemeFor", "buildPlatformerHtml", "runLevels"];
   const usable = (x) => x && NEEDS.every((k) => k in x) && Array.isArray(x.LESSON_PLANS) && x.LESSON_PLANS.length > 0;
@@ -147,6 +147,17 @@
     const r = schedule(plan).find((x) => x.weeks.includes(week));
     return { label: r?.cal || `Week ${week}`, date: r?.date || "", time: r?.time || "", with: (r?.weeks || [week]).filter((n) => n !== week) };
   }
+  // A calendar week the scheme teaches several topics in (Year 5 Term 1 Week 13 = lessons 11 + 12) is ONE lesson,
+  // as in the LC app: one note, one mind map, one set of slides, one study note and games that mix every topic.
+  // The lesson is the first topic's week with `_parts` = every topic in it.
+  function lessonOf(plan, week) {
+    const w = weekOf(plan, week);
+    const row = schedule(plan).find((r) => r.weeks.includes(w.week));
+    if (!row || row.weeks.length < 2) return w;
+    const parts = row.weeks.map((n) => weekOf(plan, n));
+    return { ...parts[0], focus: parts.map((p) => p.focus).join(" + "), objectives: parts.map((p) => p.objectives).filter(Boolean).join(" "), _parts: parts };
+  }
+  const partsOf = (w) => w._parts || [w];
   const dayOf = (label) => { const m = /(\d{1,2})\.(\d{1,2})\.(\d{4})/.exec(label || ""); return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null; };
   // The class's next lesson (today counts), across the year's three terms
   function nextLesson(year) {
@@ -250,7 +261,7 @@
     }
     const plan = planFor(pick.year, pick.term) || LC.LESSON_PLANS[0];
     pick.year = plan.year; pick.term = plan.term;
-    const w = weekOf(plan, pick.week); pick.week = w.week; savePick();
+    const w = lessonOf(plan, pick.week); pick.week = w.week; savePick();
     const fp = focusParts(w.focus, plan, w.week), cal = calOf(plan, w.week), nextUp = nextLesson(plan.year);
     const calNo = Number(/Week (\d+)/.exec(cal.label || "")?.[1] || w.week);
     const shareLink = `${location.origin}/map/${plan.year}-${plan.term}-${calNo}`;
@@ -262,7 +273,7 @@
         <li class="lc-step"><span class="lc-n">1</span><div class="lc-sbody">
           <div class="lc-shead"><h3>Pick the week</h3><small>Term ${plan.term} · ${esc(plan.title)} · ${plan.weeks.length} weekly lessons</small></div>
           <div class="lc-weekbox ${weeksOpen ? "open" : ""}">
-            <button class="lc-weekpick" data-weeks aria-expanded="${weeksOpen}"><span class="e">${fp.emoji}</span><span class="t"><b>${esc(cal.label)}${cal.date ? ` · ${esc(cal.date.replace(/\.\d{4}$/, ""))}` : ""}</b><small>${esc(fp.text)}${nextUp?.planId === plan.id && nextUp.week === w.week ? " · 📍 next lesson" : ""}</small></span><i>${weeksOpen ? "Close ▲" : "Change ▾"}</i></button>
+            <button class="lc-weekpick" data-weeks aria-expanded="${weeksOpen}"><span class="e">${fp.emoji}</span><span class="t"><b>${esc(cal.label)}${cal.date ? ` · ${esc(cal.date.replace(/\.\d{4}$/, ""))}` : ""}</b><small>${esc(partsOf(w).map((p) => focusParts(p.focus, plan, p.week).text).join(" + "))}${nextUp?.planId === plan.id && nextUp.week === w.week ? " · 📍 next lesson" : ""}</small></span><i>${weeksOpen ? "Close ▲" : "Change ▾"}</i></button>
             <div class="lc-weeks">${schedule(plan).map((r) => {
               if (!r.weeks.length) return `<div class="lc-week off"><span class="e">${/break/i.test(r.note) ? "🏖️" : "🚫"}</span><small>${esc(r.cal || "Break")}</small><b>${esc(r.note || "No class")}</b></div>`;
               const parts = r.weeks.map((n) => focusParts(weekOf(plan, n).focus, plan, n));
@@ -278,8 +289,7 @@
               <span class="lc-note-e">${fp.emoji}</span>
               <div class="lc-note-txt">
                 <small>Year ${plan.year} · Term ${plan.term} · ${esc(cal.label)}${cal.date ? ` · ${esc(cal.date)}${cal.time ? ` · ${esc(cal.time)}` : ""}` : ""}</small>
-                <h2>${esc(fp.text)}</h2>
-                ${cal.with.length ? `<div class="lc-also">Taught together with: ${cal.with.map((n) => `<button class="lc-chip" data-week="${n}">${esc(focusParts(weekOf(plan, n).focus, plan, n).text)}</button>`).join(" ")}</div>` : ""}
+                ${w._parts ? `${w._parts.map((p) => `<h2>${focusParts(p.focus, plan, p.week).emoji} ${esc(focusParts(p.focus, plan, p.week).text)}</h2>`).join("")}<div class="lc-also">${w._parts.length} topics in this week's lesson</div>` : `<h2>${esc(fp.text)}</h2>`}
                 <div class="lc-note-chips">${(plan.competencies || []).map((c) => `<span>🧠 ${esc(c)}</span>`).join("")}${(plan.values || []).map((v) => `<span>💎 ${esc(v)}</span>`).join("")}</div>
               </div>
               <button class="lc-note-btn" data-go="teach" title="Interactive mind map that grows as you teach, with questions inside"><span>▶</span><b>Open the note</b><small>Mind map with questions inside</small></button>
@@ -560,6 +570,7 @@
   /* ---------------- Teach as a mind map (graphical notes that grow branch by branch, with questions inside) ---------------- */
   const BRANCH_COLORS = ["#7c3aed", "#f59e0b", "#10b981", "#3b82f6", "#ec4899", "#f97316", "#14b8a6", "#ef4444", "#8b5cf6", "#0ea5e9", "#84cc16"];
   function mapBranches(plan, w) {
+    if (w._parts) return mapLesson(plan, w);
     const id = plan.id, wk = w.week, fp = focusParts(w.focus, plan, w.week);
     const note = LC.noteFor(id, wk) || { idea: fp.text, points: [], examples: [] };
     const deep = LC.deepFor(id, wk) || { why: "", words: [], steps: [] };
@@ -590,6 +601,23 @@
       q: lq ? { kind: "puzzle", puzzle: lq, q: lq.q, label: "Final puzzle" } : null });
     B.forEach((b) => { if (!b.q) b.q = nextQuiz(); });
     return { centre: { emoji: fp.emoji, text: fp.text }, branches: B };
+  }
+
+  // One mind map for a week with several topics: one "Our learning" (every topic's goal, one warm-up), each topic's
+  // branches in turn (titled "Topic 2 · …"), and one wrap-up at the end.
+  function mapLesson(plan, w) {
+    const maps = w._parts.map((p) => mapBranches(plan, p)), n = maps.length;
+    const B = [];
+    maps.forEach((m, k) => m.branches.forEach((b) => {
+      if (b.title === "Our learning") {
+        if (k === 0) B.push({ ...b, leaves: [...b.leaves] });
+        else B[0]?.leaves.push(...b.leaves.filter((l) => l.emoji === "🎯"));
+        return;
+      }
+      if (b.title === "Wrap up" && k < n - 1) return;
+      B.push(b.title === "Wrap up" ? b : { ...b, title: `Topic ${k + 1} · ${b.title}` });
+    }));
+    return { centre: { emoji: maps[0].centre.emoji, text: maps.map((m) => m.centre.text).join(" + ") }, branches: B };
   }
 
   function teachMap(plan, w) {
@@ -941,6 +969,12 @@
   }
   // A game's questions for a week: its own share, then 🔁 its share of the term's other weeks (nearest first)
   function gameItems(plan, w, game, n) {
+    if (w._parts) { // one lesson, several topics: take from each topic's share in turn
+      const sets = w._parts.map((p) => gameItems(plan, p, game, n)), out = [], seen = new Set();
+      for (let i = 0; out.length < n && sets.some((x) => i < x.length); i++)
+        for (const x of sets) { const it = x[i]; if (it && out.length < n && !seen.has(qNorm(it.q))) { seen.add(qNorm(it.q)); out.push(it); } }
+      return out;
+    }
     const P = termPools(plan), items = [...(P.get(w.week)?.[game] || [])];
     // nor, from another week, a question this week's 🎮 Live game asks (a key word taught in both weeks)
     let live = new Set(); try { live = new Set(LC.buildLesson(plan, w.week).questions.filter((q) => q.kind === "choice" || q.kind === "truefalse" || q.kind === "gap").map((q) => qNorm(q.q))); } catch { /* none */ }
@@ -1181,7 +1215,7 @@
   /* ---------------- Board game + Block Run (built by the Life Competencies app) ---------------- */
   // Board game = its own share + 20 more (on request); Block Run = 50 questions in levels of 10. Both from gameItems.
   const BOARD_EXTRA = 20, RUN_N = 50, RUN_LEVEL = 10;
-  const boardItems = (plan, w) => gameItems(plan, w, "board", (termPools(plan).get(w.week)?.board.length || 0) + BOARD_EXTRA);
+  const boardItems = (plan, w) => gameItems(plan, w, "board", partsOf(w).reduce((t, p) => t + (termPools(plan).get(p.week)?.board.length || 0), 0) + BOARD_EXTRA);
   function runLevelsFor(plan, w) {
     const items = gameItems(plan, w, "run", RUN_N), levels = [];
     for (let i = 0; i < items.length; i += RUN_LEVEL) levels.push(items.slice(i, i + RUN_LEVEL));
@@ -1283,7 +1317,7 @@
   // scope: { plan, w } = one week · { plan } = a term · { year } = all three terms
   function studyNotes(scope) {
     const plans = scope.year ? [1, 2, 3].map((t) => planFor(scope.year, t)).filter(Boolean) : [scope.plan];
-    const rows = plans.flatMap((p) => (scope.w ? [scope.w] : termWeeks(p)).map((w) => ({ p, w })));
+    const rows = plans.flatMap((p) => (scope.w ? partsOf(scope.w) : termWeeks(p)).map((w) => ({ p, w })));
     const title = scope.w ? `Study note · ${focusParts(scope.w.focus, scope.plan, scope.w.week).text}`
       : scope.year ? `Year ${scope.year} study notes · whole year` : `Year ${scope.plan.year} · Term ${scope.plan.term} study notes`;
     const cover = scope.w ? "" : `<header class="sn-cover"><h1>📚 ${esc(title)}</h1><p>Life Competencies · read each note, then test yourself before the exam ✏️</p>
@@ -1348,6 +1382,7 @@
   const SD_THEMES = { title: ["#7c3aed", "#ec4899"], goal: ["#f59e0b", "#f97316"], warm: ["#0ea5e9", "#6366f1"], idea: ["#7c3aed", "#c026d3"], words: ["#0ea5e9", "#0d9488"],
     point: ["#10b981", "#0d9488"], ex: ["#ec4899", "#f43f5e"], why: ["#f97316", "#ef4444"], steps: ["#3b82f6", "#6366f1"], talk: ["#14b8a6", "#22c55e"], quiz: ["#8b5cf6", "#6366f1"], sum: ["#7c3aed", "#ec4899"], exit: ["#f59e0b", "#ec4899"] };
   function deckFor(plan, w) {
+    if (w._parts) return lessonDeck(plan, w);
     const id = plan.id, wk = w.week, fp = focusParts(w.focus, plan, wk), cal = calOf(plan, wk);
     const note = LC.noteFor(id, wk) || { idea: fp.text, points: [], examples: [] };
     const deep = LC.deepFor(id, wk) || { why: "", words: [], steps: [] };
@@ -1376,6 +1411,19 @@
     S.push({ th: "sum", lay: "list", kicker: "Remember", emoji: "⭐", title: "What we learned", items: [big, ...(explain.length ? explain : note.points || []).slice(0, 3).map((t) => t.split(/(?<=[.!?])\s/)[0])].slice(0, 4).map((t) => `⭐ ${t}`) });
     S.push({ th: "exit", lay: "list", kicker: "Exit ticket", emoji: "🎟️", title: "Before you go…", items: ["📝 Today I learned…", "🚀 One thing I will do is…", "🤔 I'm still wondering…"] });
     return { title: fp.text, file: `Year ${plan.year} T${plan.term} ${cal.label} - ${fp.text}`, slides: S };
+  }
+
+  // One deck for a week with several topics: one title and warm-up, each topic's slides in turn ("Topic 2 of 2 · …"),
+  // and one exit ticket at the end.
+  function lessonDeck(plan, w) {
+    const decks = w._parts.map((p) => deckFor(plan, p)), n = decks.length, cal = calOf(plan, w.week);
+    const texts = w._parts.map((p) => focusParts(p.focus, plan, p.week).text), title = texts.join(" + ");
+    const S = [{ ...decks[0].slides[0], title }];
+    decks.forEach((d, k) => d.slides.forEach((s, j) => {
+      if (j === 0 || (s.th === "warm" && k > 0) || (s.th === "exit" && k < n - 1)) return;
+      S.push(s.th === "warm" || s.th === "exit" ? s : { ...s, kicker: `Topic ${k + 1} of ${n} · ${s.kicker || ""}` });
+    }));
+    return { title, file: `Year ${plan.year} T${plan.term} ${cal.label} - ${title}`, slides: S };
   }
 
   const SD_CSS = `
@@ -1661,7 +1709,7 @@
       const plan = LC.LESSON_PLANS.find((p) => p.year === y && p.term === t);
       if (!plan) return;
       const row = (LC.termSchedule ? LC.termSchedule(plan.id) : []).find((r) => r.cal === `Week ${cal}` && r.weeks.length);
-      teachMap(plan, weekOf(plan, row ? row.weeks[0] : cal));
+      teachMap(plan, lessonOf(plan, row ? row.weeks[0] : cal));
     });
   }
 
@@ -1671,7 +1719,7 @@
       const [y, t, cal] = NOTES.split("-").map(Number);
       const plan = planFor(y, t || 1); if (!plan) return;
       const row = cal ? schedule(plan).find((r) => r.cal === `Week ${cal}` && r.weeks.length) : null;
-      openStudy(plan, cal ? weekOf(plan, row ? row.weeks[0] : cal) : plan.weeks[0], cal ? "week" : t ? "term" : "year");
+      openStudy(plan, cal ? lessonOf(plan, row ? row.weeks[0] : cal) : plan.weeks[0], cal ? "week" : t ? "term" : "year");
     });
   }
 
