@@ -28,6 +28,8 @@
   const SHARE = /^\d{1,2}-[1-3]-\d{1,2}$/.test(new URLSearchParams(location.search).get("map") || "") ? new URLSearchParams(location.search).get("map") : "";
   // Study notes for students: ?notes=6-1-10 (one week) · 6-1 (a term) · 6 (the whole year), from /notes/<code>
   const NOTES = /^\d{1,2}(-[1-3](-\d{1,2})?)?$/.test(new URLSearchParams(location.search).get("notes") || "") ? new URLSearchParams(location.search).get("notes") : "";
+  // A week's slides on their own: /slides/6-1-10 (→ ?slides=6-1-10), e.g. to present in another tab
+  const SLIDES = /^\d{1,2}-[1-3]-\d{1,2}$/.test(new URLSearchParams(location.search).get("slides") || "") ? new URLSearchParams(location.search).get("slides") : "";
   function loadPick() { try { return { year: 1, term: 1, week: 1, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { return { year: 1, term: 1, week: 1 }; } }
   function savePick() { try { localStorage.setItem(KEY, JSON.stringify(pick)); } catch { /* private mode */ } }
 
@@ -1548,7 +1550,7 @@
     const deck = deckFor(plan, w), n = deck.slides.length;
     const el = stage(`🎞️ ${esc(deck.title)}`);
     const body = $(".lc-stage-body", el); body.classList.add("sd-stage");
-    $(".lc-stage-extra", el).innerHTML = `<button class="btn ghost" data-sd="pptx" title="Download as a PowerPoint file">⬇️ PowerPoint</button><button class="btn ghost" data-sd="pdf" title="Print or save as PDF, one slide per page">🖨️ PDF</button><button class="btn ghost" data-sd="full">⛶ Full screen</button>`;
+    $(".lc-stage-extra", el).innerHTML = `<button class="btn ghost" data-sd="pptx" title="Download as a PowerPoint file">⬇️ PowerPoint</button><button class="btn ghost" data-sd="pdf" title="Print or save as PDF, one slide per page">🖨️ PDF</button><button class="btn ghost" data-sd="full">⛶ Full screen</button>${SLIDES ? "" : `<button class="btn ghost" data-sd="link" title="Copy a link that opens these slides (another tab, another computer)">🔗 Copy link</button>`}`;
     body.innerHTML = `<div class="sd-view"><div class="sd-fit"></div></div>
       <div class="sd-bar"><button class="btn ghost" data-sd="prev">‹ Back</button><div class="sd-dots">${deck.slides.map((s, k) => `<button data-k="${k}" title="${esc(s.kicker || s.title)}">${s.emoji}</button>`).join("")}</div><button class="btn" data-sd="next">Next ›</button></div>`;
     const view = $(".sd-view", body), fit = $(".sd-fit", body);
@@ -1570,6 +1572,12 @@
     fit.onclick = (e) => { if (!e.target.closest("button")) next(); };
     $$(".sd-dots button", body).forEach((b) => b.onclick = () => show(+b.dataset.k, +b.dataset.k > i ? 1 : -1));
     $("[data-sd=pdf]", el).onclick = () => printDeck(deck);
+    const lb = $("[data-sd=link]", el);
+    if (lb) lb.onclick = () => {
+      const link = `${location.origin}/slides/${plan.year}-${plan.term}-${calNum(plan, w.week)}`;
+      const done = (t) => { lb.textContent = t; setTimeout(() => { lb.textContent = "🔗 Copy link"; }, 2500); };
+      (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(() => done("✅ Link copied"), () => { window.prompt("Copy this link:", link); });
+    };
     const pb = $("[data-sd=pptx]", el);
     pb.onclick = () => { pb.disabled = true; pb.textContent = "⏳ Making…"; pptxDeck(deck).then(() => { pb.textContent = "✅ Downloaded"; }, (e) => { pb.textContent = "⚠️ Try again"; console.warn(e); }).finally(() => { pb.disabled = false; }); };
     const fb = $("[data-sd=full]", el), fsLabel = () => { fb.textContent = document.fullscreenElement ? "🗗 Exit full screen" : "⛶ Full screen"; setTimeout(scale, 60); };
@@ -1710,6 +1718,16 @@
       if (!plan) return;
       const row = (LC.termSchedule ? LC.termSchedule(plan.id) : []).find((r) => r.cal === `Week ${cal}` && r.weeks.length);
       teachMap(plan, lessonOf(plan, row ? row.weeks[0] : cal));
+    });
+  }
+
+  if (SLIDES) {
+    document.body.classList.add("share-view");
+    loadData().then(() => {
+      const [y, t, cal] = SLIDES.split("-").map(Number);
+      const plan = planFor(y, t); if (!plan) return;
+      const row = schedule(plan).find((r) => r.cal === `Week ${cal}` && r.weeks.length);
+      openSlides(plan, lessonOf(plan, row ? row.weeks[0] : cal));
     });
   }
 

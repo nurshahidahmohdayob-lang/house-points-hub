@@ -39,6 +39,11 @@
       "source": "/notes/:code",
       "destination": "/?notes=:code",
       "permanent": false
+    },
+    {
+      "source": "/slides/:code",
+      "destination": "/?slides=:code",
+      "permanent": false
     }
   ]
 }
